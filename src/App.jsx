@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import {
   Heart, Star, MapPin, Camera,
   Video, MessageCircle, Shield, CheckCircle, Lock,
@@ -116,7 +117,6 @@ const CONFIG = {
   pricing: {
     unlockContact: 1000,           // ₦1,000 to reveal phone - Must be Verified Client
     unlockPhotos: 5000,            // ₦5,000 to reveal rest of photos - Open to All
-    videoCall: { 15: 10000, 30: 20000, 60: 35000 },
     meetupIncall: { 1: 50000, 2: 80000, overnight: 150000 },
     meetupOutcall: { 1: 70000, 2: 100000, overnight: 200000 },
     depositPercent: 0.5,
@@ -821,56 +821,6 @@ const ClientVerificationModal = ({ isOpen, onClose, onVerified, nextAction }) =>
 };
 
 // ═══════════════════════════════════════════════════════════
-// VIDEO CALL MODAL
-// ═══════════════════════════════════════════════════════════
-
-const VideoCallModal = ({ isOpen, onClose }) => {
-  const [step, setStep] = useState(1);
-  const [duration, setDuration] = useState(15);
-  const [date, setDate] = useState('');
-  const [time, setTime] = useState('');
-  const totalPrice = CONFIG.pricing.videoCall[duration];
-
-  const handleComplete = () => {
-    window.open(`https://wa.me/${CONFIG.contact.whatsapp}?text=${encodeURIComponent(`📹 VIDEO CALL BOOKING\n\nDuration: ${duration} mins\nDate: ${date}\nTime: ${time}\nAmount: ${formatNaira(totalPrice)}\n\n[Payment sent to your ${CONFIG.creatorPayments[0].provider}]`)}`, '_blank');
-    resetAndClose();
-  };
-  const resetAndClose = () => { onClose(); setStep(1); setDate(''); setTime(''); };
-
-  return (
-    <Modal isOpen={isOpen} onClose={resetAndClose} title="📹 Book Video Call">
-      {step === 1 && (
-        <div className="space-y-4">
-          <div className="grid grid-cols-3 gap-2">
-            {[15, 30, 60].map((mins) => (
-              <button key={mins} onClick={() => setDuration(mins)} className={`p-4 rounded-xl border text-center ${duration === mins ? 'bg-purple-500/20 border-purple-500/50 text-white' : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'}`}>
-                <p className="font-bold text-lg">{mins}</p>
-                <p className="text-xs opacity-70">mins</p>
-                <p className="text-sm mt-1">{formatNaira(CONFIG.pricing.videoCall[mins])}</p>
-              </button>
-            ))}
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div><label className="text-white/60 text-xs block mb-1">Date</label><input type="date" value={date} onChange={(e) => setDate(e.target.value)} min={new Date().toISOString().split('T')[0]} className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-white focus:border-pink-500 focus:outline-none" /></div>
-            <div><label className="text-white/60 text-xs block mb-1">Time</label><select value={time} onChange={(e) => setTime(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-white focus:border-pink-500 focus:outline-none"><option value="">Select</option>{['10:00 AM', '12:00 PM', '2:00 PM', '4:00 PM', '6:00 PM', '8:00 PM', '10:00 PM'].map(t => <option key={t} value={t}>{t}</option>)}</select></div>
-          </div>
-          <button onClick={() => setStep(2)} disabled={!date || !time} className={`w-full py-4 rounded-xl font-semibold ${date && time ? 'bg-pink-500 hover:bg-pink-600 text-white' : 'bg-white/10 text-white/40 cursor-not-allowed'}`}>Continue — {formatNaira(totalPrice)}</button>
-        </div>
-      )}
-      {step === 2 && <P2PPaymentStep amount={totalPrice} serviceName={`${duration}-min video call`} onBack={() => setStep(1)} onConfirm={() => setStep(3)} />}
-      {step === 3 && (
-        <div className="text-center space-y-4 py-4">
-          <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mx-auto"><CheckCircle size={40} className="text-green-400" /></div>
-          <h4 className="text-xl font-bold text-white">Payment Sent! 🎉</h4>
-          <p className="text-white/60 text-sm">{CONFIG.profile.name} will confirm receipt and send you the call link.</p>
-          <button onClick={handleComplete} className="w-full py-4 bg-green-500 hover:bg-green-600 rounded-xl text-white font-semibold">Notify on WhatsApp</button>
-        </div>
-      )}
-    </Modal>
-  );
-};
-
-// ═══════════════════════════════════════════════════════════
 // MEETUP MODAL (with Trust Deposit check + P2P payment)
 // ═══════════════════════════════════════════════════════════
 
@@ -1529,9 +1479,13 @@ export default function App() {
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-500/20 border border-green-500/30 text-green-300 text-sm">
               <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" /> Available
             </span>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 border border-white/10 text-white/70 text-sm">
+            <Link
+              to={`/explore/${profile.location.toLowerCase()}`}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 border border-white/10 text-white/70 text-sm hover:bg-white/20 hover:border-white/20 hover:text-white transition-all cursor-pointer"
+            >
               <MapPin size={12} /> {profile.location}
-            </span>
+              <ChevronRight size={12} className="opacity-50" />
+            </Link>
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-2 mb-4">
@@ -1630,15 +1584,6 @@ export default function App() {
           
           <div className="bg-white/5 rounded-xl border border-white/10 overflow-hidden">
             <div className="p-4 border-b border-white/10">
-              <div className="flex items-center gap-2 mb-3"><Video size={16} className="text-purple-400" /><span className="text-white font-medium">Video Call</span></div>
-              <div className="space-y-1 text-sm">
-                <div className="flex justify-between"><span className="text-white/60">15 mins</span><span className="text-white">{formatNaira(pricing.videoCall[15])}</span></div>
-                <div className="flex justify-between"><span className="text-white/60">30 mins</span><span className="text-white">{formatNaira(pricing.videoCall[30])}</span></div>
-                <div className="flex justify-between"><span className="text-white/60">60 mins</span><span className="text-white">{formatNaira(pricing.videoCall[60])}</span></div>
-              </div>
-            </div>
-
-            <div className="p-4 border-b border-white/10">
               <div className="flex items-center gap-2 mb-3"><Home size={16} className="text-pink-400" /><span className="text-white font-medium">Incall</span><span className="text-white/40 text-xs">(you come to me)</span></div>
               <div className="space-y-1 text-sm">
                 <div className="flex justify-between"><span className="text-white/60">1 hour</span><span className="text-white">{formatNaira(pricing.meetupIncall[1])}</span></div>
@@ -1729,15 +1674,11 @@ export default function App() {
             </div>
           )}
 
-          {/* Three buttons in a row */}
-          <div className="grid grid-cols-3 gap-2">
-            <button onClick={() => protectedAction('videoCall')} className="flex flex-col items-center gap-2 p-4 rounded-xl bg-purple-500/20 border border-purple-500/30 hover:border-purple-500/50 transition-all hover:scale-[1.02] active:scale-[0.98]">
-              <Video size={24} className="text-purple-400" />
-              <span className="text-white font-medium text-xs text-center">Video Call</span>
-            </button>
+          {/* Two buttons in a row */}
+          <div className="grid grid-cols-2 gap-2">
             <button onClick={() => protectedAction('meetup')} className="flex flex-col items-center gap-2 p-4 rounded-xl bg-pink-500/20 border border-pink-500/30 hover:border-pink-500/50 transition-all hover:scale-[1.02] active:scale-[0.98]">
               <Heart size={24} className="text-pink-400" />
-              <span className="text-white font-medium text-xs text-center">Meetup</span>
+              <span className="text-white font-medium text-xs text-center">Book Meetup</span>
             </button>
             {contactUnlocked ? (
               <button onClick={() => setModal('contactRevealed')} className="flex flex-col items-center gap-2 p-4 rounded-xl bg-green-500/20 border border-green-500/30 transition-all hover:scale-[1.02] active:scale-[0.98]">
@@ -1823,7 +1764,6 @@ export default function App() {
       <InAppChatModal isOpen={modal === 'chat'} onClose={() => setModal(null)} onUpgrade={chatUpgrade} />
       <UnlockContactModal isOpen={modal === 'unlockContact'} onClose={() => setModal(null)} onUnlock={() => { setContactUnlocked(true); setModal('contactRevealed'); }} clientState={clientState} onNeedsTrustDeposit={() => setModal('trustDeposit')} onDeductBalance={deductFromBalance} />
       <ContactRevealedModal isOpen={modal === 'contactRevealed'} onClose={() => setModal(null)} />
-      <VideoCallModal isOpen={modal === 'videoCall'} onClose={() => setModal(null)} />
       <MeetupModal isOpen={modal === 'meetup'} onClose={() => setModal(null)} clientState={clientState} onNeedsTrustDeposit={() => setModal('trustDeposit')} />
       <UnlockPhotosModal isOpen={modal === 'unlockPhotos'} onClose={() => setModal(null)} onUnlock={() => setPhotosUnlocked(true)} clientState={clientState} onDeductBalance={deductFromBalance} onNeedsTrustDeposit={() => setModal('trustDeposit')} />
       <AllReviewsModal isOpen={modal === 'allReviews'} onClose={() => setModal(null)} />

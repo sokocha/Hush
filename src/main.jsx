@@ -1,10 +1,19 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import App from './App.jsx'
+import ExplorePage from './pages/ExplorePage.jsx'
 import './index.css'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <App />
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<App />} />
+        <Route path="/model/:username" element={<App />} />
+        <Route path="/explore" element={<ExplorePage />} />
+        <Route path="/explore/:location" element={<ExplorePage />} />
+      </Routes>
+    </BrowserRouter>
   </React.StrictMode>,
 )
