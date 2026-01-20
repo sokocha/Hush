@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   Heart, Star, MapPin, Camera,
   Video, MessageCircle, Shield, CheckCircle, Lock,
-  Copy, Phone, CreditCard,
+  Copy, Phone, CreditCard, Send,
   Zap, ChevronRight, X,
   MessageSquare, ArrowRight, ArrowLeft, Unlock, ThumbsUp,
   Ban, AlertTriangle, Key, Home, Car, DollarSign, Aperture,
