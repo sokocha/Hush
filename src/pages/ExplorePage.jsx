@@ -1,156 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
   MapPin, Star, CheckCircle, Shield, Filter,
   ChevronLeft, Search, Target, Video, Aperture,
   TrendingUp, Heart, Clock, Users, Sparkles
 } from 'lucide-react';
+import { getModelsList, getLocations, PLATFORM_CONFIG } from '../data/models';
 
-// Mock data for models - in real app, this would come from an API
-const MOCK_MODELS = [
-  {
-    id: 1,
-    name: "Destiny",
-    username: "destiny_x",
-    location: "Lagos",
-    areas: ["Lekki", "VI", "Ikoyi"],
-    rating: 4.8,
-    reviews: 23,
-    meetupSuccessRate: 89,
-    verifiedMeetups: 47,
-    isOnline: true,
-    isAvailable: true,
-    isVideoVerified: true,
-    isStudioVerified: true,
-    startingPrice: 50000,
-    tagline: "Your favorite girl",
-  },
-  {
-    id: 2,
-    name: "Bella",
-    username: "bella_luxe",
-    location: "Lagos",
-    areas: ["Lekki", "Ajah"],
-    rating: 4.9,
-    reviews: 45,
-    meetupSuccessRate: 95,
-    verifiedMeetups: 89,
-    isOnline: true,
-    isAvailable: true,
-    isVideoVerified: true,
-    isStudioVerified: true,
-    startingPrice: 60000,
-    tagline: "Premium experience only",
-  },
-  {
-    id: 3,
-    name: "Amara",
-    username: "amara_ng",
-    location: "Lagos",
-    areas: ["VI", "Ikoyi"],
-    rating: 4.7,
-    reviews: 31,
-    meetupSuccessRate: 87,
-    verifiedMeetups: 52,
-    isOnline: false,
-    isAvailable: true,
-    isVideoVerified: true,
-    isStudioVerified: true,
-    startingPrice: 45000,
-    tagline: "Sweet & discreet",
-  },
-  {
-    id: 4,
-    name: "Zara",
-    username: "zara_elite",
-    location: "Lagos",
-    areas: ["Ikeja", "GRA"],
-    rating: 4.6,
-    reviews: 18,
-    meetupSuccessRate: 82,
-    verifiedMeetups: 28,
-    isOnline: true,
-    isAvailable: false,
-    isVideoVerified: true,
-    isStudioVerified: false,
-    startingPrice: 40000,
-    tagline: "Mainland's finest",
-  },
-  {
-    id: 5,
-    name: "Chioma",
-    username: "chioma_vip",
-    location: "Lagos",
-    areas: ["Lekki", "Ajah", "VI"],
-    rating: 5.0,
-    reviews: 67,
-    meetupSuccessRate: 98,
-    verifiedMeetups: 134,
-    isOnline: true,
-    isAvailable: true,
-    isVideoVerified: true,
-    isStudioVerified: true,
-    startingPrice: 80000,
-    tagline: "The best in Lagos",
-  },
-  {
-    id: 6,
-    name: "Nneka",
-    username: "nneka_exclusive",
-    location: "Lagos",
-    areas: ["Ikoyi"],
-    rating: 4.8,
-    reviews: 39,
-    meetupSuccessRate: 91,
-    verifiedMeetups: 61,
-    isOnline: false,
-    isAvailable: true,
-    isVideoVerified: true,
-    isStudioVerified: true,
-    startingPrice: 70000,
-    tagline: "Exclusive bookings only",
-  },
-  {
-    id: 7,
-    name: "Adaeze",
-    username: "ada_premium",
-    location: "Abuja",
-    areas: ["Maitama", "Wuse"],
-    rating: 4.9,
-    reviews: 52,
-    meetupSuccessRate: 93,
-    verifiedMeetups: 78,
-    isOnline: true,
-    isAvailable: true,
-    isVideoVerified: true,
-    isStudioVerified: true,
-    startingPrice: 75000,
-    tagline: "Abuja's sweetheart",
-  },
-  {
-    id: 8,
-    name: "Favour",
-    username: "favour_ph",
-    location: "Port Harcourt",
-    areas: ["GRA", "Trans Amadi"],
-    rating: 4.7,
-    reviews: 29,
-    meetupSuccessRate: 85,
-    verifiedMeetups: 41,
-    isOnline: true,
-    isAvailable: true,
-    isVideoVerified: true,
-    isStudioVerified: true,
-    startingPrice: 45000,
-    tagline: "PH's finest",
-  },
-];
+// Get models from shared data store
+const ALL_MODELS = getModelsList();
 
+// Build locations dynamically from models data
 const LOCATIONS = [
-  { name: "All", slug: "all", count: MOCK_MODELS.length },
-  { name: "Lagos", slug: "lagos", count: MOCK_MODELS.filter(m => m.location === "Lagos").length },
-  { name: "Abuja", slug: "abuja", count: MOCK_MODELS.filter(m => m.location === "Abuja").length },
-  { name: "Port Harcourt", slug: "port-harcourt", count: MOCK_MODELS.filter(m => m.location === "Port Harcourt").length },
+  { name: "All", slug: "all", count: ALL_MODELS.length },
+  { name: "Lagos", slug: "lagos", count: ALL_MODELS.filter(m => m.location === "Lagos").length },
+  { name: "Abuja", slug: "abuja", count: ALL_MODELS.filter(m => m.location === "Abuja").length },
+  { name: "Port Harcourt", slug: "port-harcourt", count: ALL_MODELS.filter(m => m.location === "Port Harcourt").length },
 ];
 
 const formatNaira = (amount) => `₦${amount.toLocaleString()}`;
@@ -248,7 +113,7 @@ export default function ExplorePage() {
   const currentLocation = LOCATIONS.find(l => l.slug === normalizedLocation) || LOCATIONS[0];
 
   // Filter models
-  let filteredModels = MOCK_MODELS;
+  let filteredModels = ALL_MODELS;
 
   // Filter by location
   if (normalizedLocation !== 'all') {

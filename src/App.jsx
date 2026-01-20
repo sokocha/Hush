@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useParams, useNavigate } from 'react-router-dom';
 import {
   Heart, Star, MapPin, Camera,
   Video, MessageCircle, Shield, CheckCircle, Lock,
@@ -10,143 +10,12 @@ import {
   Award, Info, ShieldCheck, EyeOff, Crown, BadgeCheck,
   Smartphone, Target, RefreshCw, Wallet, Sparkles, TrendingUp
 } from 'lucide-react';
+import { PLATFORM_CONFIG, getModelByUsername, MODELS } from './data/models';
 
 // ═══════════════════════════════════════════════════════════
-// CONFIGURATION
+// DEFAULT MODEL (fallback)
 // ═══════════════════════════════════════════════════════════
-
-const CONFIG = {
-  platform: {
-    name: "Hush",
-    // Platform's own OPay for trust deposits
-    trustDepositAccount: {
-      provider: "OPay",
-      number: "8001234567",
-      name: "Hush Technologies Ltd",
-    },
-    // Verification Tier Structure
-    verificationTiers: {
-      visitor: {
-        id: "visitor",
-        name: "Registered User",
-        deposit: 15000,
-        tagline: "i'm real",
-        color: "gray",
-        refund: null, // No refund
-        benefits: ["View 1 preview photo", "In-app chat (limited)"],
-      },
-      verified: {
-        id: "verified",
-        name: "Verified",
-        deposit: 30000,
-        tagline: "i'm serious",
-        color: "blue",
-        refund: { meetups: 3, months: 6 }, // 3 meetups OR 6 months (whichever first)
-        benefits: ["View contact info", "View all photos", "Initiate meetups", "Priority response"],
-      },
-      baller: {
-        id: "baller",
-        name: "Baller",
-        deposit: 100000,
-        tagline: "i'm a baller",
-        color: "purple",
-        refund: { meetups: 10, months: 12 }, // 10 meetups OR 12 months
-        benefits: ["All Verified benefits", "VIP badge on profile", "Priority booking", "Exclusive escorts"],
-      },
-      bossman: {
-        id: "bossman",
-        name: "Bossman",
-        deposit: 1000000,
-        tagline: "i'm a fucking boss",
-        color: "gold",
-        refund: null, // Never refunded, but transferable to credit
-        refundNote: "Transferable to credit",
-        benefits: ["All Baller benefits", "Bossman badge", "Concierge service", "First access to new models"],
-      },
-    },
-    // Legacy support - default to verified tier
-    trustDeposit: {
-      amount: 30000,
-      meetupsToRefund: 3,      // X successful meetups
-      monthsToRefund: 6,       // OR Y months good standing
-    },
-    // Anti-catfish features
-    features: {
-      noUserUploads: true,         // Models can't upload photos - must be in-app live or studio
-      screenshotProtection: true,  // Like Netflix/WhatsApp - no screenshots
-      liveVideoVerification: true, // Video call verification with admins
-      phoneRegistration: true,     // Registration with phone number (OPay/PalmPay identity)
-      meetupConfirmation: true,    // Code exchange to confirm actual meetups
-    },
-  },
-  
-  profile: {
-    name: "Destiny",
-    username: "destiny_x",
-    tagline: "Your favorite girl 💋",
-    bio: "Content creator • Available for bookings",
-    isVerified: true,
-    isVideoVerified: true,
-    verifiedDate: "Jan 2025",
-    location: "Lagos",
-    areas: ["Lekki", "VI", "Ikoyi"],
-    isAvailable: true,
-    isOnline: true,
-    memberSince: "March 2024",
-  },
-  
-  stats: {
-    rating: 4.8,
-    reviews: 23,
-    verifiedMeetups: 47,
-    meetupSuccessRate: 89, // Percentage of successful meetups (not ghosted)
-    repeatClients: 12,
-    responseTime: "~30 min",
-  },
-  
-  // CREATOR'S PAYMENT ACCOUNTS (P2P - clients pay directly)
-  creatorPayments: [
-    { provider: "OPay", number: "8012345678", isPrimary: true },
-    { provider: "PalmPay", number: "8012345678", isPrimary: false },
-  ],
-  
-  contact: {
-    whatsapp: "2348012345678",
-  },
-  
-  pricing: {
-    unlockContact: 1000,           // ₦1,000 to reveal phone - Must be Verified Client
-    unlockPhotos: 5000,            // ₦5,000 to reveal rest of photos - Open to All
-    meetupIncall: { 1: 50000, 2: 80000, overnight: 150000 },
-    meetupOutcall: { 1: 70000, 2: 100000, overnight: 200000 },
-    depositPercent: 0.5,
-  },
-  
-  extras: [
-    { name: "Duo (with friend)", price: 120000 },
-    { name: "GFE (girlfriend experience)", price: 30000 },
-  ],
-  
-  boundaries: ["No bareback", "No anal", "No overnight on first booking"],
-  
-  photos: {
-    total: 6,
-    previewCount: 1,
-    source: "studio",
-    studioName: "Luxe Studios Lagos",
-    captureDate: "Jan 15, 2025",
-  },
-  
-  reviews: [
-    { rating: 5, text: "Very professional, exactly as pictured. Arrived on time.", date: "2 days ago", verified: true, author: "John D." },
-    { rating: 5, text: "Sweet girl, will definitely book again 💕", date: "1 week ago", verified: true, author: "Mike T." },
-    { rating: 4, text: "Good experience overall. Communication was great.", date: "2 weeks ago", verified: true, author: "Anonymous" },
-    { rating: 5, text: "10/10 would recommend. Very discreet and professional.", date: "3 weeks ago", verified: true, author: "David K." },
-  ],
-  
-  blacklistedClients: ["08147318959", "07012345678"],
-  freeMessages: 3,
-};
+const DEFAULT_USERNAME = 'destiny_x';
 
 // Simulated client state (in real app, this comes from auth/backend)
 const MOCK_CLIENT = {
@@ -219,7 +88,7 @@ const Toast = ({ message, type = "success", isVisible, onHide }) => {
 // PHOTO GALLERY MODAL (Swipeable Full-Screen)
 // ═══════════════════════════════════════════════════════════
 
-const PhotoGalleryModal = ({ isOpen, onClose, photos, initialIndex = 0, photosUnlocked, onUnlockPhotos }) => {
+const PhotoGalleryModal = ({ isOpen, onClose, photos, initialIndex = 0, photosUnlocked, onUnlockPhotos, modelConfig }) => {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [touchStart, setTouchStart] = useState(null);
 
@@ -299,7 +168,7 @@ const PhotoGalleryModal = ({ isOpen, onClose, photos, initialIndex = 0, photosUn
                 onClick={onUnlockPhotos}
                 className="px-6 py-3 bg-pink-500 hover:bg-pink-600 rounded-full text-white font-semibold transition-colors"
               >
-                Unlock All Photos — {formatNaira(CONFIG.pricing.unlockPhotos)}
+                Unlock All Photos — {formatNaira(modelConfig?.pricing?.unlockPhotos || 0)}
               </button>
             </div>
           ) : (
@@ -397,7 +266,7 @@ const AgeVerification = ({ onVerify }) => (
 // ═══════════════════════════════════════════════════════════
 
 const TierBadge = ({ tier, size = "md" }) => {
-  const tiers = CONFIG.platform.verificationTiers;
+  const tiers = PLATFORM_CONFIG.verificationTiers;
   const tierData = tiers[tier];
   if (!tierData) return null;
 
@@ -429,7 +298,7 @@ const TrustDepositModal = ({ isOpen, onClose, onDepositPaid }) => {
   const [copied, setCopied] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
 
-  const { verificationTiers, trustDepositAccount } = CONFIG.platform;
+  const { verificationTiers, trustDepositAccount } = PLATFORM_CONFIG;
   const tiers = Object.values(verificationTiers);
   const currentTier = verificationTiers[selectedTier];
 
@@ -572,7 +441,7 @@ const TrustDepositModal = ({ isOpen, onClose, onDepositPaid }) => {
             <p className="text-white/50 text-sm mt-1 italic">"{currentTier.tagline}"</p>
           </div>
 
-          <p className="text-white/60 text-sm">Pay to {CONFIG.platform.name}'s account:</p>
+          <p className="text-white/60 text-sm">Pay to {PLATFORM_CONFIG.name}'s account:</p>
 
           <button
             onClick={copyAccount}
@@ -684,11 +553,9 @@ const TrustDepositModal = ({ isOpen, onClose, onDepositPaid }) => {
 // P2P PAYMENT STEP (Client pays Creator directly)
 // ═══════════════════════════════════════════════════════════
 
-const P2PPaymentStep = ({ amount, serviceName, onBack, onConfirm }) => {
+const P2PPaymentStep = ({ amount, serviceName, onBack, onConfirm, creatorPayments, creatorName }) => {
   const [copied, setCopied] = useState(null);
   const [confirmed, setConfirmed] = useState(false);
-  
-  const primaryAccount = CONFIG.creatorPayments.find(p => p.isPrimary) || CONFIG.creatorPayments[0];
 
   const copyAccount = (number, index) => {
     navigator.clipboard.writeText(number);
@@ -703,16 +570,16 @@ const P2PPaymentStep = ({ amount, serviceName, onBack, onConfirm }) => {
         <p className="text-3xl font-bold text-white">{formatNaira(amount)}</p>
         <p className="text-white/50 text-sm mt-1">{serviceName}</p>
       </div>
-      
-      <p className="text-white/60 text-sm">Pay {CONFIG.profile.name} directly:</p>
-      
+
+      <p className="text-white/60 text-sm">Pay {creatorName} directly:</p>
+
       <div className="space-y-2">
-        {CONFIG.creatorPayments.map((account, i) => (
+        {creatorPayments.map((account, i) => (
           <button
             key={i}
             onClick={() => copyAccount(account.number, i)}
             className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all ${
-              copied === i ? 'bg-green-500/20 border-green-500/50' : 
+              copied === i ? 'bg-green-500/20 border-green-500/50' :
               account.isPrimary ? 'bg-green-500/10 border-green-500/30 hover:bg-green-500/20' :
               'bg-white/5 border-white/10 hover:bg-white/10'
             }`}
@@ -735,11 +602,11 @@ const P2PPaymentStep = ({ amount, serviceName, onBack, onConfirm }) => {
           </button>
         ))}
       </div>
-      
+
       <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3">
         <p className="text-amber-200 text-sm">
           <AlertTriangle size={14} className="inline mr-1" />
-          Payment goes directly to {CONFIG.profile.name}. {CONFIG.platform.name} does not process this payment.
+          Payment goes directly to {creatorName}. {PLATFORM_CONFIG.name} does not process this payment.
         </p>
       </div>
       
@@ -775,7 +642,7 @@ const P2PPaymentStep = ({ amount, serviceName, onBack, onConfirm }) => {
 // CLIENT VERIFICATION MODAL
 // ═══════════════════════════════════════════════════════════
 
-const ClientVerificationModal = ({ isOpen, onClose, onVerified, nextAction }) => {
+const ClientVerificationModal = ({ isOpen, onClose, onVerified, nextAction, blacklistedClients = [] }) => {
   const [phone, setPhone] = useState('');
   const [status, setStatus] = useState('input');
 
@@ -783,7 +650,7 @@ const ClientVerificationModal = ({ isOpen, onClose, onVerified, nextAction }) =>
     setStatus('checking');
     setTimeout(() => {
       const cleanPhone = phone.replace(/\D/g, '');
-      setStatus(CONFIG.blacklistedClients.some(b => cleanPhone.includes(b.replace(/\D/g, ''))) ? 'blocked' : 'verified');
+      setStatus(blacklistedClients.some(b => cleanPhone.includes(b.replace(/\D/g, ''))) ? 'blocked' : 'verified');
     }, 800);
   };
 
@@ -824,18 +691,20 @@ const ClientVerificationModal = ({ isOpen, onClose, onVerified, nextAction }) =>
 // MEETUP MODAL (with Trust Deposit check + P2P payment)
 // ═══════════════════════════════════════════════════════════
 
-const MeetupModal = ({ isOpen, onClose, clientState, onNeedsTrustDeposit }) => {
+const MeetupModal = ({ isOpen, onClose, clientState, onNeedsTrustDeposit, modelConfig }) => {
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({ name: '', age: '', twitter: '', date: '', time: '', locationType: 'incall', location: '', duration: '1' });
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [codes, setCodes] = useState({ client: '', creator: '' });
 
-  const hasOutcall = CONFIG.pricing.meetupOutcall !== null;
+  if (!modelConfig) return null;
+
+  const hasOutcall = modelConfig.pricing.meetupOutcall !== null;
   const getMeetupPrice = () => {
-    const rates = formData.locationType === 'outcall' && hasOutcall ? CONFIG.pricing.meetupOutcall : CONFIG.pricing.meetupIncall;
+    const rates = formData.locationType === 'outcall' && hasOutcall ? modelConfig.pricing.meetupOutcall : modelConfig.pricing.meetupIncall;
     return formData.duration === 'overnight' ? rates.overnight : rates[formData.duration] || rates[1];
   };
-  const depositAmount = Math.round(getMeetupPrice() * CONFIG.pricing.depositPercent);
+  const depositAmount = Math.round(getMeetupPrice() * modelConfig.pricing.depositPercent);
   const balanceAmount = getMeetupPrice() - depositAmount;
   const isFormValid = formData.name && formData.age && formData.date && formData.time && formData.location && agreedToTerms;
 
@@ -849,26 +718,26 @@ const MeetupModal = ({ isOpen, onClose, clientState, onNeedsTrustDeposit }) => {
     setStep(2);
   };
 
-  const handlePaymentConfirm = () => { 
-    setCodes({ client: generateCode('C'), creator: generateCode('X') }); 
-    setStep(4); 
-  };
-  
-  const handleComplete = () => {
-    window.open(`https://wa.me/${CONFIG.contact.whatsapp}?text=${encodeURIComponent(`🌹 MEETUP BOOKING\n\nName: ${formData.name}\nDate: ${formData.date}\nTime: ${formData.time}\nType: ${formData.locationType === 'incall' ? 'Incall' : 'Outcall'}\nArea: ${formData.location}\nDuration: ${formData.duration === 'overnight' ? 'Overnight' : formData.duration + 'hr'}\n\nTotal: ${formatNaira(getMeetupPrice())}\nDeposit: ${formatNaira(depositAmount)} sent to your ${CONFIG.creatorPayments[0].provider}\nBalance: ${formatNaira(balanceAmount)} at meetup\n\n🔐 MY CODE: ${codes.client}`)}`, '_blank');
-    resetAndClose();
-  };
-  
-  const resetAndClose = () => { 
-    onClose(); 
-    setStep(1); 
-    setFormData({ name: '', age: '', twitter: '', date: '', time: '', locationType: 'incall', location: '', duration: '1' }); 
-    setAgreedToTerms(false); 
-    setCodes({ client: '', creator: '' }); 
+  const handlePaymentConfirm = () => {
+    setCodes({ client: generateCode('C'), creator: generateCode('X') });
+    setStep(4);
   };
 
-  const incallRates = CONFIG.pricing.meetupIncall;
-  const outcallRates = CONFIG.pricing.meetupOutcall;
+  const handleComplete = () => {
+    window.open(`https://wa.me/${modelConfig.contact.whatsapp}?text=${encodeURIComponent(`🌹 MEETUP BOOKING\n\nName: ${formData.name}\nDate: ${formData.date}\nTime: ${formData.time}\nType: ${formData.locationType === 'incall' ? 'Incall' : 'Outcall'}\nArea: ${formData.location}\nDuration: ${formData.duration === 'overnight' ? 'Overnight' : formData.duration + 'hr'}\n\nTotal: ${formatNaira(getMeetupPrice())}\nDeposit: ${formatNaira(depositAmount)} sent to your ${modelConfig.creatorPayments[0].provider}\nBalance: ${formatNaira(balanceAmount)} at meetup\n\n🔐 MY CODE: ${codes.client}`)}`, '_blank');
+    resetAndClose();
+  };
+
+  const resetAndClose = () => {
+    onClose();
+    setStep(1);
+    setFormData({ name: '', age: '', twitter: '', date: '', time: '', locationType: 'incall', location: '', duration: '1' });
+    setAgreedToTerms(false);
+    setCodes({ client: '', creator: '' });
+  };
+
+  const incallRates = modelConfig.pricing.meetupIncall;
+  const outcallRates = modelConfig.pricing.meetupOutcall;
 
   return (
     <Modal isOpen={isOpen} onClose={resetAndClose} title="🌹 Book Meetup" size="lg">
@@ -886,15 +755,15 @@ const MeetupModal = ({ isOpen, onClose, clientState, onNeedsTrustDeposit }) => {
                     </span>
                   )}
                 </div>
-                {CONFIG.platform.verificationTiers[clientState.tier]?.refund && (
-                  <p className="text-white/50 text-xs">{clientState.successfulMeetups}/{CONFIG.platform.verificationTiers[clientState.tier].refund.meetups} to refund</p>
+                {PLATFORM_CONFIG.verificationTiers[clientState.tier]?.refund && (
+                  <p className="text-white/50 text-xs">{clientState.successfulMeetups}/{PLATFORM_CONFIG.verificationTiers[clientState.tier].refund.meetups} to refund</p>
                 )}
               </div>
-              {CONFIG.platform.verificationTiers[clientState.tier]?.refund && (
+              {PLATFORM_CONFIG.verificationTiers[clientState.tier]?.refund && (
                 <div className="h-2 bg-white/10 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-green-500 rounded-full transition-all"
-                    style={{ width: `${(clientState.successfulMeetups / CONFIG.platform.verificationTiers[clientState.tier].refund.meetups) * 100}%` }}
+                    style={{ width: `${(clientState.successfulMeetups / PLATFORM_CONFIG.verificationTiers[clientState.tier].refund.meetups) * 100}%` }}
                   />
                 </div>
               )}
@@ -964,12 +833,12 @@ const MeetupModal = ({ isOpen, onClose, clientState, onNeedsTrustDeposit }) => {
 
           <select value={formData.location} onChange={(e) => setFormData({...formData, location: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-white focus:border-pink-500 focus:outline-none">
             <option value="">Area *</option>
-            {(formData.locationType === 'incall' ? CONFIG.profile.areas : ['Victoria Island', 'Lekki', 'Ikoyi', 'Ikeja', 'Mainland']).map(a => <option key={a} value={a}>{a}</option>)}
+            {(formData.locationType === 'incall' ? modelConfig.profile.areas : ['Victoria Island', 'Lekki', 'Ikoyi', 'Ikeja', 'Mainland']).map(a => <option key={a} value={a}>{a}</option>)}
           </select>
 
           <label className="flex items-start gap-3 p-3 bg-white/5 rounded-xl cursor-pointer border border-white/10">
             <input type="checkbox" checked={agreedToTerms} onChange={(e) => setAgreedToTerms(e.target.checked)} className="w-5 h-5 mt-0.5 rounded border-white/30 bg-white/10 text-pink-500" />
-            <span className="text-white/70 text-xs">I agree: 50% deposit required • Pay {CONFIG.profile.name} directly • Code exchange at meetup</span>
+            <span className="text-white/70 text-xs">I agree: 50% deposit required • Pay {modelConfig.profile.name} directly • Code exchange at meetup</span>
           </label>
 
           {/* Price summary */}
@@ -993,11 +862,13 @@ const MeetupModal = ({ isOpen, onClose, clientState, onNeedsTrustDeposit }) => {
       )}
 
       {step === 2 && (
-        <P2PPaymentStep 
-          amount={depositAmount} 
-          serviceName={`Meetup deposit (${CONFIG.profile.name})`} 
-          onBack={() => setStep(1)} 
-          onConfirm={handlePaymentConfirm} 
+        <P2PPaymentStep
+          amount={depositAmount}
+          serviceName={`Meetup deposit (${modelConfig.profile.name})`}
+          onBack={() => setStep(1)}
+          onConfirm={handlePaymentConfirm}
+          creatorPayments={modelConfig.creatorPayments}
+          creatorName={modelConfig.profile.name}
         />
       )}
 
@@ -1006,13 +877,13 @@ const MeetupModal = ({ isOpen, onClose, clientState, onNeedsTrustDeposit }) => {
           <div className="text-center">
             <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4"><CheckCircle size={40} className="text-green-400" /></div>
             <h4 className="text-xl font-bold text-white mb-2">Deposit Sent! 🌹</h4>
-            <p className="text-white/60 text-sm">{CONFIG.profile.name} will confirm receipt</p>
+            <p className="text-white/60 text-sm">{modelConfig.profile.name} will confirm receipt</p>
           </div>
-          
+
           <div className="bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border-2 border-blue-500/50 rounded-xl p-5 text-center">
             <p className="text-blue-300 font-medium mb-2"><Key size={16} className="inline mr-1" />YOUR CODE</p>
             <div className="bg-black/40 rounded-xl p-4 mb-2"><p className="text-4xl font-mono font-bold text-white tracking-widest">{codes.client}</p></div>
-            <p className="text-white/60 text-sm">Give this to {CONFIG.profile.name} when you meet</p>
+            <p className="text-white/60 text-sm">Give this to {modelConfig.profile.name} when you meet</p>
           </div>
           
           <div className="bg-white/5 rounded-xl p-4 border border-white/10 text-sm">
@@ -1043,10 +914,11 @@ const MeetupModal = ({ isOpen, onClose, clientState, onNeedsTrustDeposit }) => {
 // SIMPLIFIED MODALS
 // ═══════════════════════════════════════════════════════════
 
-const UnlockPhotosModal = ({ isOpen, onClose, onUnlock, clientState, onDeductBalance, onNeedsTrustDeposit }) => {
+const UnlockPhotosModal = ({ isOpen, onClose, onUnlock, clientState, onDeductBalance, onNeedsTrustDeposit, modelConfig }) => {
   const resetAndClose = () => { onClose(); };
-  const lockedCount = CONFIG.photos.total - CONFIG.photos.previewCount;
-  const price = CONFIG.pricing.unlockPhotos;
+  if (!modelConfig) return null;
+  const lockedCount = modelConfig.photos.total - modelConfig.photos.previewCount;
+  const price = modelConfig.pricing.unlockPhotos;
   const hasEnoughBalance = clientState?.depositBalance >= price;
   const shortfall = price - (clientState?.depositBalance || 0);
 
@@ -1094,9 +966,10 @@ const UnlockPhotosModal = ({ isOpen, onClose, onUnlock, clientState, onDeductBal
   );
 };
 
-const UnlockContactModal = ({ isOpen, onClose, onUnlock, clientState, onNeedsTrustDeposit, onDeductBalance }) => {
+const UnlockContactModal = ({ isOpen, onClose, onUnlock, clientState, onNeedsTrustDeposit, onDeductBalance, modelConfig }) => {
   const resetAndClose = () => { onClose(); };
-  const price = CONFIG.pricing.unlockContact;
+  if (!modelConfig) return null;
+  const price = modelConfig.pricing.unlockContact;
   const hasEnoughBalance = clientState?.depositBalance >= price;
   const shortfall = price - (clientState?.depositBalance || 0);
 
@@ -1147,21 +1020,22 @@ const UnlockContactModal = ({ isOpen, onClose, onUnlock, clientState, onNeedsTru
   );
 };
 
-const ContactRevealedModal = ({ isOpen, onClose }) => {
+const ContactRevealedModal = ({ isOpen, onClose, modelConfig }) => {
   const [copied, setCopied] = useState(false);
-  const copy = () => { navigator.clipboard.writeText(CONFIG.contact.whatsapp); setCopied(true); setTimeout(() => setCopied(false), 2000); };
+  if (!modelConfig) return null;
+  const copy = () => { navigator.clipboard.writeText(modelConfig.contact.whatsapp); setCopied(true); setTimeout(() => setCopied(false), 2000); };
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="📱 Phone Number">
       <div className="space-y-4">
         <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-6 text-center">
           <Phone size={32} className="text-green-400 mx-auto mb-3" />
-          <p className="text-white font-medium mb-1">{CONFIG.profile.name}'s WhatsApp</p>
-          <p className="text-green-300 font-mono text-2xl">+{CONFIG.contact.whatsapp}</p>
+          <p className="text-white font-medium mb-1">{modelConfig.profile.name}'s WhatsApp</p>
+          <p className="text-green-300 font-mono text-2xl">+{modelConfig.contact.whatsapp}</p>
         </div>
         <button onClick={copy} className={`w-full py-3 rounded-xl font-medium flex items-center justify-center gap-2 ${copied ? 'bg-green-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}>
           {copied ? <><CheckCircle size={18} />Copied!</> : <><Copy size={18} />Copy Number</>}
         </button>
-        <a href={`https://wa.me/${CONFIG.contact.whatsapp}`} target="_blank" rel="noopener noreferrer" className="block w-full py-4 bg-green-500 hover:bg-green-600 rounded-xl text-white font-semibold text-center">
+        <a href={`https://wa.me/${modelConfig.contact.whatsapp}`} target="_blank" rel="noopener noreferrer" className="block w-full py-4 bg-green-500 hover:bg-green-600 rounded-xl text-white font-semibold text-center">
           Open WhatsApp
         </a>
       </div>
@@ -1169,11 +1043,13 @@ const ContactRevealedModal = ({ isOpen, onClose }) => {
   );
 };
 
-const InAppChatModal = ({ isOpen, onClose, onUpgrade }) => {
+const InAppChatModal = ({ isOpen, onClose, onUpgrade, modelConfig }) => {
   const [messages, setMessages] = useState([{ from: 'creator', text: "Hey! 💕 Check my rates above. What interests you?" }]);
   const [input, setInput] = useState('');
   const [msgCount, setMsgCount] = useState(0);
   const [locked, setLocked] = useState(false);
+  if (!modelConfig) return null;
+  const freeMessages = modelConfig.freeMessages || 3;
   const replies = ["Nice! Ready to book? 😊", "I'm available. Let's set it up!", "Sure! 💕"];
   const send = () => {
     if (!input.trim() || locked) return;
@@ -1182,7 +1058,7 @@ const InAppChatModal = ({ isOpen, onClose, onUpgrade }) => {
     setInput('');
     setMsgCount(count);
     setTimeout(() => {
-      if (count >= CONFIG.freeMessages) { setLocked(true); setMessages(m => [...m, { from: 'system', text: 'Free messages used. Upgrade!' }]); }
+      if (count >= freeMessages) { setLocked(true); setMessages(m => [...m, { from: 'system', text: 'Free messages used. Upgrade!' }]); }
       else { setMessages(m => [...m, { from: 'creator', text: replies[count - 1] || replies[0] }]); }
     }, 800);
   };
@@ -1190,9 +1066,9 @@ const InAppChatModal = ({ isOpen, onClose, onUpgrade }) => {
   return (
     <Modal isOpen={isOpen} onClose={reset} title="💬 Chat" size="lg">
       <div className="flex items-center gap-3 pb-3 border-b border-white/10 mb-3">
-        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm">DE</div>
-        <div className="flex-1"><p className="text-white font-medium">{CONFIG.profile.name}</p><p className="text-green-400 text-xs">● Online</p></div>
-        <div className="bg-white/5 px-3 py-1 rounded-lg"><p className={`font-bold ${msgCount >= CONFIG.freeMessages ? 'text-red-400' : 'text-green-400'}`}>{Math.max(0, CONFIG.freeMessages - msgCount)}</p></div>
+        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm">{modelConfig.profile.name.slice(0,2).toUpperCase()}</div>
+        <div className="flex-1"><p className="text-white font-medium">{modelConfig.profile.name}</p><p className="text-green-400 text-xs">● Online</p></div>
+        <div className="bg-white/5 px-3 py-1 rounded-lg"><p className={`font-bold ${msgCount >= freeMessages ? 'text-red-400' : 'text-green-400'}`}>{Math.max(0, freeMessages - msgCount)}</p></div>
       </div>
       <div className="space-y-2 mb-3 max-h-60 overflow-y-auto">
         {messages.map((m, i) => (
@@ -1204,7 +1080,7 @@ const InAppChatModal = ({ isOpen, onClose, onUpgrade }) => {
       </div>
       {locked ? (
         <div className="p-4 bg-white/5 rounded-xl text-center">
-          <button onClick={() => onUpgrade('contact')} className="w-full py-3 bg-pink-500 rounded-xl text-white font-semibold">Unlock WhatsApp — {formatNaira(CONFIG.pricing.unlockContact)}</button>
+          <button onClick={() => onUpgrade('contact')} className="w-full py-3 bg-pink-500 rounded-xl text-white font-semibold">Unlock WhatsApp — {formatNaira(modelConfig.pricing.unlockContact)}</button>
         </div>
       ) : (
         <div className="flex gap-2">
@@ -1216,10 +1092,12 @@ const InAppChatModal = ({ isOpen, onClose, onUpgrade }) => {
   );
 };
 
-const AllReviewsModal = ({ isOpen, onClose }) => (
-  <Modal isOpen={isOpen} onClose={onClose} title="⭐ Reviews" size="lg">
-    <div className="space-y-3">
-      {CONFIG.reviews.map((r, i) => (
+const AllReviewsModal = ({ isOpen, onClose, modelConfig }) => {
+  if (!modelConfig) return null;
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="⭐ Reviews" size="lg">
+      <div className="space-y-3">
+        {modelConfig.reviews.map((r, i) => (
         <div key={i} className="p-4 bg-white/5 rounded-xl border border-white/10">
           <div className="flex items-center justify-between mb-2">
             <div className="flex gap-0.5">{[...Array(5)].map((_, j) => <Star key={j} size={14} className={j < r.rating ? "text-yellow-400 fill-yellow-400" : "text-white/20"} />)}</div>
@@ -1229,23 +1107,26 @@ const AllReviewsModal = ({ isOpen, onClose }) => (
           <p className="text-white/40 text-xs mt-2">{r.author} • {r.date}</p>
         </div>
       ))}
-    </div>
-  </Modal>
-);
+      </div>
+    </Modal>
+  );
+};
 
-const VideoVerificationModal = ({ isOpen, onClose }) => (
+const VideoVerificationModal = ({ isOpen, onClose, modelConfig }) => {
+  if (!modelConfig) return null;
+  return (
   <Modal isOpen={isOpen} onClose={onClose} title="📹 Video Verified">
     <div className="space-y-4">
       <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4 text-center">
         <Video size={32} className="text-blue-400 mx-auto mb-2" />
         <p className="text-white font-medium">Live Video Call Verification</p>
-        <p className="text-blue-300/70 text-sm mt-1">Verified by {CONFIG.platform.name} Admins</p>
+        <p className="text-blue-300/70 text-sm mt-1">Verified by {PLATFORM_CONFIG.name} Admins</p>
       </div>
       <div className="space-y-2 text-sm">
         <div className="flex items-center gap-2 text-white/70"><CheckCircle size={14} className="text-green-400" />Live video call with our verification team</div>
         <div className="flex items-center gap-2 text-white/70"><CheckCircle size={14} className="text-green-400" />Face matches profile photos exactly</div>
         <div className="flex items-center gap-2 text-white/70"><CheckCircle size={14} className="text-green-400" />100% anti-catfish guarantee</div>
-        <div className="flex items-center gap-2 text-white/70"><CheckCircle size={14} className="text-green-400" />Last verified: {CONFIG.profile.verifiedDate}</div>
+        <div className="flex items-center gap-2 text-white/70"><CheckCircle size={14} className="text-green-400" />Last verified: {modelConfig.profile.verifiedDate}</div>
       </div>
       <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-3">
         <p className="text-green-300 text-sm flex items-center gap-2">
@@ -1256,22 +1137,25 @@ const VideoVerificationModal = ({ isOpen, onClose }) => (
       <button onClick={onClose} className="w-full py-3 bg-white/10 rounded-xl text-white">Got it</button>
     </div>
   </Modal>
-);
+  );
+};
 
-const PhotoVerificationModal = ({ isOpen, onClose }) => (
+const PhotoVerificationModal = ({ isOpen, onClose, modelConfig }) => {
+  if (!modelConfig) return null;
+  return (
   <Modal isOpen={isOpen} onClose={onClose} title="📷 Verified Photos">
     <div className="space-y-4">
       <div className="bg-cyan-500/10 border border-cyan-500/30 rounded-xl p-4 text-center">
         <Aperture size={32} className="text-cyan-400 mx-auto mb-2" />
         <p className="text-white font-medium">Anti-Catfish Photo System</p>
-        <p className="text-cyan-300/70 text-sm mt-1">Photos by {CONFIG.photos.studioName}</p>
+        <p className="text-cyan-300/70 text-sm mt-1">Photos by {modelConfig.photos.studioName}</p>
       </div>
 
       {/* How it works */}
       <div className="bg-white/5 border border-white/10 rounded-xl p-4">
         <h4 className="text-white font-medium mb-3 flex items-center gap-2">
           <Camera size={16} className="text-cyan-400" />
-          How Photos Work on {CONFIG.platform.name}
+          How Photos Work on {PLATFORM_CONFIG.name}
         </h4>
         <div className="space-y-3 text-sm">
           <div className="flex items-start gap-3">
@@ -1306,8 +1190,8 @@ const PhotoVerificationModal = ({ isOpen, onClose }) => (
 
       <div className="space-y-2 text-sm">
         <div className="flex items-center gap-2 text-white/70"><CheckCircle size={14} className="text-green-400" />Identity verified at capture</div>
-        <div className="flex items-center gap-2 text-white/70"><CheckCircle size={14} className="text-green-400" />Watermarked with {CONFIG.platform.name}</div>
-        <div className="flex items-center gap-2 text-white/70"><CheckCircle size={14} className="text-green-400" />Taken: {CONFIG.photos.captureDate}</div>
+        <div className="flex items-center gap-2 text-white/70"><CheckCircle size={14} className="text-green-400" />Watermarked with {PLATFORM_CONFIG.name}</div>
+        <div className="flex items-center gap-2 text-white/70"><CheckCircle size={14} className="text-green-400" />Taken: {modelConfig.photos.captureDate}</div>
       </div>
 
       <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-3">
@@ -1320,7 +1204,8 @@ const PhotoVerificationModal = ({ isOpen, onClose }) => (
       <button onClick={onClose} className="w-full py-3 bg-white/10 rounded-xl text-white">Got it</button>
     </div>
   </Modal>
-);
+  );
+};
 
 const ReportModal = ({ isOpen, onClose }) => {
   const [submitted, setSubmitted] = useState(false);
@@ -1348,6 +1233,9 @@ const ReportModal = ({ isOpen, onClose }) => {
 // ═══════════════════════════════════════════════════════════
 
 export default function App() {
+  const { username } = useParams();
+  const navigate = useNavigate();
+
   const [ageVerified, setAgeVerified] = useState(false);
   const [contactUnlocked, setContactUnlocked] = useState(false);
   const [photosUnlocked, setPhotosUnlocked] = useState(false);
@@ -1366,8 +1254,49 @@ export default function App() {
   // Client state (simulated - would come from auth in real app)
   const [clientState, setClientState] = useState(MOCK_CLIENT);
 
-  const { profile, stats, pricing, photos } = CONFIG;
-  const hasOutcall = pricing.meetupOutcall !== null;
+  // Load model data based on URL param or default
+  const currentUsername = username || DEFAULT_USERNAME;
+  const modelData = getModelByUsername(currentUsername);
+
+  // If model not found, show 404 or redirect
+  if (!modelData && ageVerified) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-pink-950 via-rose-950 to-fuchsia-950 flex items-center justify-center p-4">
+        <div className="text-center">
+          <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-white/5 flex items-center justify-center">
+            <AlertTriangle size={40} className="text-pink-400" />
+          </div>
+          <h1 className="text-2xl font-bold text-white mb-2">Model Not Found</h1>
+          <p className="text-white/60 mb-6">The profile you're looking for doesn't exist.</p>
+          <Link to="/explore/all" className="px-6 py-3 bg-pink-500 hover:bg-pink-600 rounded-xl text-white font-medium transition-colors">
+            Browse All Models
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // Build CONFIG from model data (for backwards compatibility with existing components)
+  const CONFIG = modelData ? {
+    platform: PLATFORM_CONFIG,
+    profile: modelData.profile,
+    stats: modelData.stats,
+    creatorPayments: modelData.creatorPayments,
+    contact: modelData.contact,
+    pricing: modelData.pricing,
+    extras: modelData.extras,
+    boundaries: modelData.boundaries,
+    photos: modelData.photos,
+    reviews: modelData.reviews,
+    blacklistedClients: modelData.blacklistedClients,
+    freeMessages: modelData.freeMessages,
+  } : null;
+
+  const profile = CONFIG?.profile;
+  const stats = CONFIG?.stats;
+  const pricing = CONFIG?.pricing;
+  const photos = CONFIG?.photos;
+  const hasOutcall = pricing?.meetupOutcall !== null;
 
   // Pull to refresh
   const handleRefresh = async () => {
@@ -1392,7 +1321,7 @@ export default function App() {
   };
 
   const handleTrustDepositPaid = (tier = 'verified') => {
-    const tierDeposit = CONFIG.platform.verificationTiers[tier]?.deposit || 0;
+    const tierDeposit = PLATFORM_CONFIG.verificationTiers[tier]?.deposit || 0;
     setClientState(prev => ({
       ...prev,
       hasPaidTrustDeposit: true,
@@ -1549,7 +1478,7 @@ export default function App() {
                     <div className="absolute inset-0 flex flex-col items-center justify-center">
                       <span className="text-white/40 text-xs mb-2">Photo {i + 1}</span>
                       <div className="absolute bottom-0 left-0 right-0 bg-black/40 p-1">
-                        <p className="text-white/50 text-[7px] text-center truncate">{CONFIG.platform.name} • @{profile.username}</p>
+                        <p className="text-white/50 text-[7px] text-center truncate">{PLATFORM_CONFIG.name} • @{profile.username}</p>
                       </div>
                       {i === 0 && <div className="absolute top-2 left-2 bg-cyan-500/80 rounded-full p-1"><Aperture size={10} className="text-white" /></div>}
                       {/* Hover overlay */}
@@ -1651,7 +1580,7 @@ export default function App() {
                 Photos + Phone = <span className="text-green-400 font-medium">{formatNaira(totalUnlockCost)}</span> from your deposit
               </p>
               <button onClick={() => setModal('trustDeposit')} className="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-full text-white font-medium text-sm transition-colors">
-                Start with {formatNaira(CONFIG.platform.verificationTiers.verified.deposit)}
+                Start with {formatNaira(PLATFORM_CONFIG.verificationTiers.verified.deposit)}
               </button>
             </div>
           )}
@@ -1735,7 +1664,7 @@ export default function App() {
             <span className="flex items-center gap-1"><Smartphone size={12} />Phone Identity</span>
             <span className="flex items-center gap-1"><Key size={12} />Meetup Codes</span>
           </div>
-          <p className="text-white/20 text-xs mb-3">{CONFIG.platform.name} • 18+ Only • Anti-Catfish Platform</p>
+          <p className="text-white/20 text-xs mb-3">{PLATFORM_CONFIG.name} • 18+ Only • Anti-Catfish Platform</p>
           <button onClick={() => setModal('report')} className="text-white/30 text-xs hover:text-red-400 flex items-center gap-1 mx-auto"><AlertTriangle size={12} />Report</button>
         </div>
       </div>
@@ -1759,16 +1688,16 @@ export default function App() {
       </div>
 
       {/* Modals */}
-      <ClientVerificationModal isOpen={modal === 'verify'} onClose={() => { setModal(null); setPendingAction(null); }} onVerified={onVerified} nextAction={pendingAction} />
+      <ClientVerificationModal isOpen={modal === 'verify'} onClose={() => { setModal(null); setPendingAction(null); }} onVerified={onVerified} nextAction={pendingAction} blacklistedClients={CONFIG?.blacklistedClients || []} />
       <TrustDepositModal isOpen={modal === 'trustDeposit'} onClose={() => setModal(null)} onDepositPaid={handleTrustDepositPaid} />
-      <InAppChatModal isOpen={modal === 'chat'} onClose={() => setModal(null)} onUpgrade={chatUpgrade} />
-      <UnlockContactModal isOpen={modal === 'unlockContact'} onClose={() => setModal(null)} onUnlock={() => { setContactUnlocked(true); setModal('contactRevealed'); }} clientState={clientState} onNeedsTrustDeposit={() => setModal('trustDeposit')} onDeductBalance={deductFromBalance} />
-      <ContactRevealedModal isOpen={modal === 'contactRevealed'} onClose={() => setModal(null)} />
-      <MeetupModal isOpen={modal === 'meetup'} onClose={() => setModal(null)} clientState={clientState} onNeedsTrustDeposit={() => setModal('trustDeposit')} />
-      <UnlockPhotosModal isOpen={modal === 'unlockPhotos'} onClose={() => setModal(null)} onUnlock={() => setPhotosUnlocked(true)} clientState={clientState} onDeductBalance={deductFromBalance} onNeedsTrustDeposit={() => setModal('trustDeposit')} />
-      <AllReviewsModal isOpen={modal === 'allReviews'} onClose={() => setModal(null)} />
-      <VideoVerificationModal isOpen={modal === 'videoVerify'} onClose={() => setModal(null)} />
-      <PhotoVerificationModal isOpen={modal === 'photoVerify'} onClose={() => setModal(null)} />
+      <InAppChatModal isOpen={modal === 'chat'} onClose={() => setModal(null)} onUpgrade={chatUpgrade} modelConfig={CONFIG} />
+      <UnlockContactModal isOpen={modal === 'unlockContact'} onClose={() => setModal(null)} onUnlock={() => { setContactUnlocked(true); setModal('contactRevealed'); }} clientState={clientState} onNeedsTrustDeposit={() => setModal('trustDeposit')} onDeductBalance={deductFromBalance} modelConfig={CONFIG} />
+      <ContactRevealedModal isOpen={modal === 'contactRevealed'} onClose={() => setModal(null)} modelConfig={CONFIG} />
+      <MeetupModal isOpen={modal === 'meetup'} onClose={() => setModal(null)} clientState={clientState} onNeedsTrustDeposit={() => setModal('trustDeposit')} modelConfig={CONFIG} />
+      <UnlockPhotosModal isOpen={modal === 'unlockPhotos'} onClose={() => setModal(null)} onUnlock={() => setPhotosUnlocked(true)} clientState={clientState} onDeductBalance={deductFromBalance} onNeedsTrustDeposit={() => setModal('trustDeposit')} modelConfig={CONFIG} />
+      <AllReviewsModal isOpen={modal === 'allReviews'} onClose={() => setModal(null)} modelConfig={CONFIG} />
+      <VideoVerificationModal isOpen={modal === 'videoVerify'} onClose={() => setModal(null)} modelConfig={CONFIG} />
+      <PhotoVerificationModal isOpen={modal === 'photoVerify'} onClose={() => setModal(null)} modelConfig={CONFIG} />
       <PhotoGalleryModal
         isOpen={modal === 'photoGallery'}
         onClose={() => setModal(null)}
@@ -1776,6 +1705,7 @@ export default function App() {
         initialIndex={photoGalleryIndex}
         photosUnlocked={photosUnlocked}
         onUnlockPhotos={() => { setModal(null); setTimeout(() => setModal('unlockPhotos'), 100); }}
+        modelConfig={CONFIG}
       />
       <ReportModal isOpen={modal === 'report'} onClose={() => setModal(null)} />
     </div>
