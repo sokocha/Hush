@@ -1,13 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Heart, Star, MapPin, Camera,
   Video, MessageCircle, Shield, CheckCircle, Lock,
   Copy, Phone, CreditCard, Send,
-  Zap, ChevronRight, X,
+  Zap, ChevronRight, X, ChevronLeft,
   MessageSquare, ArrowRight, ArrowLeft, Unlock, ThumbsUp,
   Ban, AlertTriangle, Key, Home, Car, DollarSign, Aperture,
   Award, Info, ShieldCheck, EyeOff, Crown, BadgeCheck,
-  Smartphone, Target
+  Smartphone, Target, RefreshCw, Wallet, Sparkles, TrendingUp
 } from 'lucide-react';
 
 // ═══════════════════════════════════════════════════════════
@@ -174,15 +174,204 @@ const Modal = ({ isOpen, onClose, title, children, size = "md" }) => {
   if (!isOpen) return null;
   return (
     <div className="fixed inset-0 bg-black/90 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center" onClick={onClose}>
-      <div className={`bg-gray-900 border border-white/10 rounded-t-2xl sm:rounded-2xl w-full ${size === 'lg' ? 'max-w-lg' : 'max-w-md'} max-h-[90vh] overflow-hidden flex flex-col`} onClick={e => e.stopPropagation()}>
+      <div className={`bg-gray-900 border border-white/10 rounded-t-2xl sm:rounded-2xl w-full ${size === 'lg' ? 'max-w-lg' : 'max-w-md'} max-h-[90vh] overflow-hidden flex flex-col animate-slideUp`} onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between p-4 border-b border-white/10 flex-shrink-0">
           <h3 className="text-lg font-semibold text-white">{title}</h3>
-          <button onClick={onClose} className="p-1 text-white/60 hover:text-white rounded-lg hover:bg-white/10"><X size={20} /></button>
+          <button onClick={onClose} className="p-1 text-white/60 hover:text-white rounded-lg hover:bg-white/10 transition-colors"><X size={20} /></button>
         </div>
         <div className="flex-1 overflow-y-auto p-4">{children}</div>
       </div>
     </div>
   );
+};
+
+// ═══════════════════════════════════════════════════════════
+// TOAST NOTIFICATION
+// ═══════════════════════════════════════════════════════════
+
+const Toast = ({ message, type = "success", isVisible, onHide }) => {
+  useEffect(() => {
+    if (isVisible) {
+      const timer = setTimeout(onHide, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [isVisible, onHide]);
+
+  if (!isVisible) return null;
+
+  const colors = {
+    success: "bg-green-500 text-white",
+    error: "bg-red-500 text-white",
+    info: "bg-blue-500 text-white",
+  };
+
+  return (
+    <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-[60] px-6 py-3 rounded-full ${colors[type]} shadow-lg animate-slideDown flex items-center gap-2`}>
+      {type === 'success' && <CheckCircle size={18} />}
+      {type === 'error' && <AlertTriangle size={18} />}
+      {type === 'info' && <Info size={18} />}
+      <span className="font-medium">{message}</span>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════
+// PHOTO GALLERY MODAL (Swipeable Full-Screen)
+// ═══════════════════════════════════════════════════════════
+
+const PhotoGalleryModal = ({ isOpen, onClose, photos, initialIndex = 0, photosUnlocked, onUnlockPhotos }) => {
+  const [currentIndex, setCurrentIndex] = useState(initialIndex);
+  const [touchStart, setTouchStart] = useState(null);
+
+  useEffect(() => {
+    if (isOpen) setCurrentIndex(initialIndex);
+  }, [isOpen, initialIndex]);
+
+  if (!isOpen) return null;
+
+  const totalPhotos = photos.total;
+  const previewCount = photos.previewCount;
+  const isLocked = !photosUnlocked && currentIndex >= previewCount;
+
+  const goNext = () => setCurrentIndex(prev => Math.min(prev + 1, totalPhotos - 1));
+  const goPrev = () => setCurrentIndex(prev => Math.max(prev - 1, 0));
+
+  const handleTouchStart = (e) => setTouchStart(e.touches[0].clientX);
+  const handleTouchEnd = (e) => {
+    if (!touchStart) return;
+    const diff = touchStart - e.changedTouches[0].clientX;
+    if (Math.abs(diff) > 50) {
+      if (diff > 0) goNext();
+      else goPrev();
+    }
+    setTouchStart(null);
+  };
+
+  const handleKeyDown = useCallback((e) => {
+    if (e.key === 'ArrowRight') goNext();
+    if (e.key === 'ArrowLeft') goPrev();
+    if (e.key === 'Escape') onClose();
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleKeyDown]);
+
+  return (
+    <div
+      className="fixed inset-0 bg-black z-50 flex flex-col"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between p-4 bg-gradient-to-b from-black/80 to-transparent absolute top-0 left-0 right-0 z-10">
+        <button onClick={onClose} className="p-2 text-white/80 hover:text-white rounded-full hover:bg-white/10 transition-colors">
+          <X size={24} />
+        </button>
+        <span className="text-white font-medium">{currentIndex + 1} / {totalPhotos}</span>
+        <div className="w-10" />
+      </div>
+
+      {/* Photo */}
+      <div className="flex-1 flex items-center justify-center relative">
+        {/* Navigation arrows */}
+        {currentIndex > 0 && (
+          <button onClick={goPrev} className="absolute left-2 p-3 text-white/60 hover:text-white rounded-full hover:bg-white/10 transition-all z-10">
+            <ChevronLeft size={32} />
+          </button>
+        )}
+        {currentIndex < totalPhotos - 1 && (
+          <button onClick={goNext} className="absolute right-2 p-3 text-white/60 hover:text-white rounded-full hover:bg-white/10 transition-all z-10">
+            <ChevronRight size={32} />
+          </button>
+        )}
+
+        {/* Photo display */}
+        <div className="w-full h-full flex items-center justify-center p-4">
+          {isLocked ? (
+            <div className="text-center">
+              <div className="w-32 h-32 rounded-full bg-gradient-to-br from-pink-500/30 to-purple-500/30 flex items-center justify-center mx-auto mb-6 backdrop-blur-sm">
+                <Lock size={48} className="text-white/60" />
+              </div>
+              <p className="text-white/60 mb-4">This photo is locked</p>
+              <button
+                onClick={onUnlockPhotos}
+                className="px-6 py-3 bg-pink-500 hover:bg-pink-600 rounded-full text-white font-semibold transition-colors"
+              >
+                Unlock All Photos — {formatNaira(CONFIG.pricing.unlockPhotos)}
+              </button>
+            </div>
+          ) : (
+            <div className="w-full max-w-2xl aspect-[3/4] bg-gradient-to-br from-pink-500/20 to-purple-500/20 rounded-2xl flex items-center justify-center">
+              <span className="text-6xl">📸</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Dots indicator */}
+      <div className="flex justify-center gap-1.5 p-4 bg-gradient-to-t from-black/80 to-transparent absolute bottom-0 left-0 right-0">
+        {[...Array(totalPhotos)].map((_, i) => (
+          <button
+            key={i}
+            onClick={() => setCurrentIndex(i)}
+            className={`w-2 h-2 rounded-full transition-all ${
+              i === currentIndex ? 'bg-white w-6' :
+              (!photosUnlocked && i >= previewCount) ? 'bg-white/20' : 'bg-white/40'
+            }`}
+          />
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════
+// SKELETON LOADER
+// ═══════════════════════════════════════════════════════════
+
+const Skeleton = ({ className }) => (
+  <div className={`animate-pulse bg-white/10 rounded ${className}`} />
+);
+
+// ═══════════════════════════════════════════════════════════
+// PULL TO REFRESH
+// ═══════════════════════════════════════════════════════════
+
+const usePullToRefresh = (onRefresh) => {
+  const [isPulling, setIsPulling] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [pullDistance, setPullDistance] = useState(0);
+  const startY = React.useRef(0);
+
+  const handleTouchStart = (e) => {
+    if (window.scrollY === 0) {
+      startY.current = e.touches[0].clientY;
+      setIsPulling(true);
+    }
+  };
+
+  const handleTouchMove = (e) => {
+    if (!isPulling) return;
+    const currentY = e.touches[0].clientY;
+    const diff = currentY - startY.current;
+    if (diff > 0 && diff < 150) {
+      setPullDistance(diff);
+    }
+  };
+
+  const handleTouchEnd = async () => {
+    if (pullDistance > 80) {
+      setIsRefreshing(true);
+      await onRefresh();
+      setIsRefreshing(false);
+    }
+    setIsPulling(false);
+    setPullDistance(0);
+  };
+
+  return { isPulling, isRefreshing, pullDistance, handleTouchStart, handleTouchMove, handleTouchEnd };
 };
 
 // ═══════════════════════════════════════════════════════════
@@ -1215,15 +1404,30 @@ export default function App() {
   const [verifiedPhone, setVerifiedPhone] = useState(null);
   const [modal, setModal] = useState(null);
   const [pendingAction, setPendingAction] = useState(null);
-  
+  const [photoGalleryIndex, setPhotoGalleryIndex] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
+  const [balanceAnimating, setBalanceAnimating] = useState(false);
+
+  // Toast state
+  const [toast, setToast] = useState({ visible: false, message: '', type: 'success' });
+  const showToast = (message, type = 'success') => setToast({ visible: true, message, type });
+  const hideToast = useCallback(() => setToast(prev => ({ ...prev, visible: false })), []);
+
   // Client state (simulated - would come from auth in real app)
   const [clientState, setClientState] = useState(MOCK_CLIENT);
 
   const { profile, stats, pricing, photos } = CONFIG;
   const hasOutcall = pricing.meetupOutcall !== null;
 
+  // Pull to refresh
+  const handleRefresh = async () => {
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    showToast('Profile refreshed', 'info');
+  };
+  const { isRefreshing, pullDistance, handleTouchStart, handleTouchMove, handleTouchEnd } = usePullToRefresh(handleRefresh);
+
   const protectedAction = (action) => {
-    if (verifiedPhone) { setModal(action); } 
+    if (verifiedPhone) { setModal(action); }
     else { setPendingAction(action); setModal('verify'); }
   };
 
@@ -1236,16 +1440,19 @@ export default function App() {
     setModal(null);
     setTimeout(() => setModal(type === 'contact' ? 'unlockContact' : null), 100);
   };
-  
+
   const handleTrustDepositPaid = (tier = 'verified') => {
     const tierDeposit = CONFIG.platform.verificationTiers[tier]?.deposit || 0;
     setClientState(prev => ({
       ...prev,
       hasPaidTrustDeposit: true,
       tier: tier,
-      depositBalance: tierDeposit, // Full deposit becomes available balance
+      depositBalance: tierDeposit,
       isNewMember: false,
     }));
+    showToast(`Welcome! ${formatNaira(tierDeposit)} deposited`, 'success');
+    setBalanceAnimating(true);
+    setTimeout(() => setBalanceAnimating(false), 500);
   };
 
   // Deduct from deposit balance for unlocks
@@ -1254,20 +1461,47 @@ export default function App() {
       ...prev,
       depositBalance: Math.max(0, prev.depositBalance - amount),
     }));
+    showToast(`${formatNaira(amount)} deducted from balance`, 'success');
+    setBalanceAnimating(true);
+    setTimeout(() => setBalanceAnimating(false), 500);
+  };
+
+  // Open photo gallery
+  const openPhotoGallery = (index) => {
+    setPhotoGalleryIndex(index);
+    setModal('photoGallery');
   };
 
   if (!ageVerified) return <AgeVerification onVerify={() => setAgeVerified(true)} />;
 
   const lockedPhotoCount = photos.total - photos.previewCount;
+  const totalUnlockCost = pricing.unlockPhotos + pricing.unlockContact;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-950 via-rose-950 to-fuchsia-950">
+    <div
+      className="min-h-screen bg-gradient-to-br from-pink-950 via-rose-950 to-fuchsia-950"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      {/* Toast notification */}
+      <Toast message={toast.message} type={toast.type} isVisible={toast.visible} onHide={hideToast} />
+
+      {/* Pull to refresh indicator */}
+      {(pullDistance > 0 || isRefreshing) && (
+        <div className="fixed top-0 left-0 right-0 z-40 flex justify-center pt-4" style={{ transform: `translateY(${Math.min(pullDistance / 2, 40)}px)` }}>
+          <div className={`p-2 bg-white/10 rounded-full ${isRefreshing ? 'animate-spin' : ''}`}>
+            <RefreshCw size={20} className="text-white/60" />
+          </div>
+        </div>
+      )}
+
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-0 right-0 w-96 h-96 bg-pink-500/10 rounded-full blur-3xl" />
         <div className="absolute bottom-0 left-0 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl" />
       </div>
 
-      <div className="relative max-w-md mx-auto px-4 py-8">
+      <div className="relative max-w-md mx-auto px-4 py-8 pb-24">
 
         {/* 1. PROFILE + TRUST */}
         <div className="text-center mb-6">
@@ -1277,12 +1511,20 @@ export default function App() {
                 <span className="text-3xl font-bold text-white">{profile.name.slice(0,2).toUpperCase()}</span>
               </div>
             </div>
-            {profile.isOnline && <div className="absolute bottom-1 right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-gray-900" />}
+            {profile.isOnline && <div className="absolute bottom-1 right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-gray-900 animate-pulse-green" />}
           </div>
-          
+
           <h1 className="text-2xl font-bold text-white mb-1">{profile.name}</h1>
-          <p className="text-pink-300 mb-2">{profile.tagline}</p>
-          
+          <p className="text-pink-300 mb-3">{profile.tagline}</p>
+
+          {/* PROMINENT TRUST INDICATOR */}
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-green-500/20 border border-green-500/40 mb-3 animate-scaleIn">
+            <TrendingUp size={18} className="text-green-400" />
+            <span className="text-green-300 font-bold text-lg">{stats.meetupSuccessRate}%</span>
+            <span className="text-green-300/70 text-sm">Meetup Success</span>
+            <span className="text-green-400/60 text-xs">({stats.verifiedMeetups} meetups)</span>
+          </div>
+
           <div className="flex flex-wrap items-center justify-center gap-2 mb-3">
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-500/20 border border-green-500/30 text-green-300 text-sm">
               <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" /> Available
@@ -1320,10 +1562,14 @@ export default function App() {
           </div>
         </div>
 
-        {/* 2. PHOTOS */}
+        {/* 2. PHOTOS - Clickable gallery */}
         <div className="mb-6">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-white/60 text-sm font-medium flex items-center gap-2"><Camera size={14} className="text-pink-400" />Photos</h3>
+            <h3 className="text-white/60 text-sm font-medium flex items-center gap-2">
+              <Camera size={14} className="text-pink-400" />
+              Photos
+              <span className="text-white/40 text-xs">({photos.total})</span>
+            </h3>
             <div className="flex items-center gap-2">
               <span className="text-red-400 text-xs flex items-center gap-1 bg-red-500/10 px-2 py-0.5 rounded-full border border-red-500/20">
                 <EyeOff size={10} />No Screenshots
@@ -1331,37 +1577,51 @@ export default function App() {
               <button onClick={() => setModal('photoVerify')} className="text-cyan-400 text-xs flex items-center gap-1"><Aperture size={12} />Verified</button>
             </div>
           </div>
-          
+
           <div className="grid grid-cols-3 gap-2">
             {[...Array(photos.total)].map((_, i) => {
               const isVisible = i < photos.previewCount || photosUnlocked;
               return (
-                <button key={i} onClick={() => !isVisible && setModal('unlockPhotos')} className={`relative aspect-square rounded-xl overflow-hidden ${isVisible ? 'bg-gradient-to-br from-pink-500/40 to-purple-500/40' : 'bg-gradient-to-br from-pink-500/20 to-purple-500/20'} group`}>
+                <button
+                  key={i}
+                  onClick={() => isVisible ? openPhotoGallery(i) : setModal('unlockPhotos')}
+                  className={`relative aspect-square rounded-xl overflow-hidden group transition-transform hover:scale-[1.02] active:scale-[0.98] ${
+                    isVisible
+                      ? 'bg-gradient-to-br from-pink-500/40 to-purple-500/40'
+                      : 'bg-gradient-to-br from-pink-500/30 to-purple-500/30'
+                  }`}
+                >
                   {isVisible ? (
                     <div className="absolute inset-0 flex flex-col items-center justify-center">
                       <span className="text-white/40 text-xs mb-2">Photo {i + 1}</span>
                       <div className="absolute bottom-0 left-0 right-0 bg-black/40 p-1">
-                        <p className="text-white/50 text-[7px] text-center truncate">{CONFIG.platform.name} • @{profile.username} • {photos.captureDate}</p>
+                        <p className="text-white/50 text-[7px] text-center truncate">{CONFIG.platform.name} • @{profile.username}</p>
                       </div>
                       {i === 0 && <div className="absolute top-2 left-2 bg-cyan-500/80 rounded-full p-1"><Aperture size={10} className="text-white" /></div>}
+                      {/* Hover overlay */}
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                        <Camera size={24} className="text-white" />
+                      </div>
                     </div>
                   ) : (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center">
-                      <Lock size={20} className="text-white/40 group-hover:scale-110 transition-all" />
-                      <span className="text-white/20 text-[7px] mt-2">{CONFIG.platform.name}</span>
+                    /* Locked photo - lighter blur so they can see what they're paying for */
+                    <div className="absolute inset-0 flex flex-col items-center justify-center backdrop-blur-[2px]">
+                      <div className="text-white/60 text-xs mb-1">Photo {i + 1}</div>
+                      <Lock size={18} className="text-white/50 group-hover:scale-110 transition-all" />
+                      <span className="text-pink-300/60 text-[9px] mt-1">Tap to unlock</span>
                     </div>
                   )}
                 </button>
               );
             })}
           </div>
-          
+
           {!photosUnlocked && lockedPhotoCount > 0 && (
-            <button onClick={() => setModal('unlockPhotos')} className="w-full mt-3 py-2.5 bg-pink-500/20 hover:bg-pink-500/30 border border-pink-500/30 rounded-xl text-pink-300 text-sm font-medium flex items-center justify-center gap-2">
+            <button onClick={() => setModal('unlockPhotos')} className="w-full mt-3 py-2.5 bg-pink-500/20 hover:bg-pink-500/30 border border-pink-500/30 rounded-xl text-pink-300 text-sm font-medium flex items-center justify-center gap-2 transition-colors">
               <Unlock size={14} />Unlock {lockedPhotoCount} more — {formatNaira(pricing.unlockPhotos)}
             </button>
           )}
-          <p className="text-white/30 text-[10px] text-center mt-2">Photos by {photos.studioName} • No uploads allowed</p>
+          <p className="text-white/30 text-[10px] text-center mt-2">Photos by {photos.studioName} • Tap any photo to view full-screen</p>
         </div>
 
         {/* 3. RATES */}
@@ -1422,45 +1682,79 @@ export default function App() {
 
         {/* 4. BOOK NOW */}
         <div className="mb-6 space-y-3">
-          {/* Show client tier status and balance */}
-          {clientState.tier && (
-            <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/10">
+          {/* Show client tier status and balance with animation */}
+          {clientState.tier ? (
+            <div className={`flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/10 transition-all ${balanceAnimating ? 'animate-scaleIn' : ''}`}>
               <div className="flex items-center gap-2">
                 <TierBadge tier={clientState.tier} />
               </div>
-              <div className="text-right">
-                <span className="text-white/40 text-xs">Balance: </span>
-                <span className="text-green-400 font-bold">{formatNaira(clientState.depositBalance)}</span>
+              <div className="text-right flex items-center gap-2">
+                <Wallet size={14} className="text-green-400/60" />
+                <span className={`text-green-400 font-bold transition-all ${balanceAnimating ? 'animate-number-change' : ''}`}>
+                  {formatNaira(clientState.depositBalance)}
+                </span>
+              </div>
+            </div>
+          ) : (
+            /* Empty state for zero balance - better illustration */
+            <div className="p-4 bg-gradient-to-br from-blue-500/10 to-purple-500/10 rounded-xl border border-blue-500/20 text-center">
+              <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-blue-500/20 flex items-center justify-center animate-bounce-slow">
+                <Sparkles size={28} className="text-blue-400" />
+              </div>
+              <p className="text-white font-medium mb-1">Get Verified to Unlock</p>
+              <p className="text-white/50 text-sm mb-3">
+                Photos + Phone = <span className="text-green-400 font-medium">{formatNaira(totalUnlockCost)}</span> from your deposit
+              </p>
+              <button onClick={() => setModal('trustDeposit')} className="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-full text-white font-medium text-sm transition-colors">
+                Start with {formatNaira(CONFIG.platform.verificationTiers.verified.deposit)}
+              </button>
+            </div>
+          )}
+
+          {/* Price comparison - show what deposit unlocks */}
+          {clientState.tier && !photosUnlocked && !contactUnlocked && (
+            <div className="p-3 bg-gradient-to-r from-green-500/10 to-emerald-500/10 rounded-xl border border-green-500/20">
+              <div className="flex items-center justify-between">
+                <span className="text-green-300/80 text-sm">Unlock everything:</span>
+                <div className="text-right">
+                  <span className="text-green-400 font-bold">{formatNaira(totalUnlockCost)}</span>
+                  <span className="text-green-300/50 text-xs ml-1">from balance</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 mt-1 text-xs text-green-300/60">
+                <span>Photos ({formatNaira(pricing.unlockPhotos)})</span>
+                <span>+</span>
+                <span>Phone ({formatNaira(pricing.unlockContact)})</span>
               </div>
             </div>
           )}
 
           {/* Three buttons in a row */}
           <div className="grid grid-cols-3 gap-2">
-            <button onClick={() => protectedAction('videoCall')} className="flex flex-col items-center gap-2 p-4 rounded-xl bg-purple-500/20 border border-purple-500/30 hover:border-purple-500/50">
+            <button onClick={() => protectedAction('videoCall')} className="flex flex-col items-center gap-2 p-4 rounded-xl bg-purple-500/20 border border-purple-500/30 hover:border-purple-500/50 transition-all hover:scale-[1.02] active:scale-[0.98]">
               <Video size={24} className="text-purple-400" />
               <span className="text-white font-medium text-xs text-center">Video Call</span>
             </button>
-            <button onClick={() => protectedAction('meetup')} className="flex flex-col items-center gap-2 p-4 rounded-xl bg-pink-500/20 border border-pink-500/30 hover:border-pink-500/50">
+            <button onClick={() => protectedAction('meetup')} className="flex flex-col items-center gap-2 p-4 rounded-xl bg-pink-500/20 border border-pink-500/30 hover:border-pink-500/50 transition-all hover:scale-[1.02] active:scale-[0.98]">
               <Heart size={24} className="text-pink-400" />
               <span className="text-white font-medium text-xs text-center">Meetup</span>
             </button>
             {contactUnlocked ? (
-              <button onClick={() => setModal('contactRevealed')} className="flex flex-col items-center gap-2 p-4 rounded-xl bg-green-500/20 border border-green-500/30">
+              <button onClick={() => setModal('contactRevealed')} className="flex flex-col items-center gap-2 p-4 rounded-xl bg-green-500/20 border border-green-500/30 transition-all hover:scale-[1.02] active:scale-[0.98]">
                 <Phone size={24} className="text-green-400" />
                 <span className="text-green-300 font-medium text-xs text-center">Unlocked</span>
               </button>
             ) : (
-              <button onClick={() => setModal('unlockContact')} className="flex flex-col items-center gap-2 p-4 rounded-xl bg-green-500/10 border border-green-500/30 hover:border-green-500/50">
+              <button onClick={() => setModal('unlockContact')} className="flex flex-col items-center gap-2 p-4 rounded-xl bg-green-500/10 border border-green-500/30 hover:border-green-500/50 transition-all hover:scale-[1.02] active:scale-[0.98]">
                 <Phone size={24} className="text-green-400" />
                 <span className="text-green-300 font-medium text-xs text-center">{formatNaira(pricing.unlockContact)}</span>
               </button>
             )}
           </div>
 
-          {/* Get Verified CTA if not verified */}
+          {/* Get Verified CTA if not verified - shown only if they skipped the empty state above */}
           {!clientState.tier && (
-            <button onClick={() => setModal('trustDeposit')} className="w-full flex items-center gap-3 p-3 rounded-xl bg-blue-500/10 border border-blue-500/30 hover:border-blue-500/50">
+            <button onClick={() => setModal('trustDeposit')} className="w-full flex items-center gap-3 p-3 rounded-xl bg-blue-500/10 border border-blue-500/30 hover:border-blue-500/50 transition-colors">
               <ShieldCheck size={18} className="text-blue-400" />
               <span className="flex-1 text-left">
                 <span className="text-blue-300 font-medium text-sm">Get Verified</span>
@@ -1505,6 +1799,24 @@ export default function App() {
         </div>
       </div>
 
+      {/* Sticky Bottom CTA Bar */}
+      <div className="fixed bottom-0 left-0 right-0 z-30 bg-gradient-to-t from-black via-black/95 to-transparent pt-6 pb-4 px-4">
+        <div className="max-w-md mx-auto">
+          <button
+            onClick={() => protectedAction('meetup')}
+            className="w-full py-4 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 rounded-2xl text-white font-bold text-lg shadow-lg shadow-pink-500/30 flex items-center justify-center gap-3 transition-all hover:scale-[1.02] active:scale-[0.98]"
+          >
+            <Heart size={22} className="fill-white" />
+            Book Meetup with {profile.name}
+          </button>
+          <div className="flex items-center justify-center gap-4 mt-2 text-xs text-white/40">
+            <span className="flex items-center gap-1"><Shield size={10} />Protected</span>
+            <span className="flex items-center gap-1"><Target size={10} />{stats.meetupSuccessRate}% success</span>
+            <span className="flex items-center gap-1"><CheckCircle size={10} />Verified</span>
+          </div>
+        </div>
+      </div>
+
       {/* Modals */}
       <ClientVerificationModal isOpen={modal === 'verify'} onClose={() => { setModal(null); setPendingAction(null); }} onVerified={onVerified} nextAction={pendingAction} />
       <TrustDepositModal isOpen={modal === 'trustDeposit'} onClose={() => setModal(null)} onDepositPaid={handleTrustDepositPaid} />
@@ -1517,6 +1829,14 @@ export default function App() {
       <AllReviewsModal isOpen={modal === 'allReviews'} onClose={() => setModal(null)} />
       <VideoVerificationModal isOpen={modal === 'videoVerify'} onClose={() => setModal(null)} />
       <PhotoVerificationModal isOpen={modal === 'photoVerify'} onClose={() => setModal(null)} />
+      <PhotoGalleryModal
+        isOpen={modal === 'photoGallery'}
+        onClose={() => setModal(null)}
+        photos={photos}
+        initialIndex={photoGalleryIndex}
+        photosUnlocked={photosUnlocked}
+        onUnlockPhotos={() => { setModal(null); setTimeout(() => setModal('unlockPhotos'), 100); }}
+      />
       <ReportModal isOpen={modal === 'report'} onClose={() => setModal(null)} />
     </div>
   );
