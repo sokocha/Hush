@@ -904,118 +904,106 @@ const MeetupModal = ({ isOpen, onClose, clientState, onNeedsTrustDeposit }) => {
 // SIMPLIFIED MODALS
 // ═══════════════════════════════════════════════════════════
 
-const UnlockPhotosModal = ({ isOpen, onClose, onUnlock, clientState, onDeductBalance }) => {
-  const [step, setStep] = useState(1);
-  const resetAndClose = () => { onClose(); setStep(1); };
+const UnlockPhotosModal = ({ isOpen, onClose, onUnlock, clientState, onDeductBalance, onNeedsTrustDeposit }) => {
+  const resetAndClose = () => { onClose(); };
   const lockedCount = CONFIG.photos.total - CONFIG.photos.previewCount;
-  const canPayFromBalance = clientState?.depositBalance >= CONFIG.pricing.unlockPhotos;
+  const price = CONFIG.pricing.unlockPhotos;
+  const hasEnoughBalance = clientState?.depositBalance >= price;
+  const shortfall = price - (clientState?.depositBalance || 0);
 
   const handlePayFromBalance = () => {
-    onDeductBalance(CONFIG.pricing.unlockPhotos);
+    onDeductBalance(price);
     onUnlock();
     resetAndClose();
   };
 
   return (
     <Modal isOpen={isOpen} onClose={resetAndClose} title="📸 Unlock Photos">
-      {step === 1 && (
-        <div className="space-y-4">
-          <div className="bg-pink-500/10 border border-pink-500/30 rounded-xl p-4 text-center">
-            <Camera size={32} className="text-pink-400 mx-auto mb-2" />
-            <p className="text-white font-medium">Unlock {lockedCount} more photos</p>
-            <p className="text-3xl font-bold text-white mt-2">{formatNaira(CONFIG.pricing.unlockPhotos)}</p>
-            {canPayFromBalance && (
-              <p className="text-green-400 text-sm mt-2">Can be deducted from your deposit balance</p>
-            )}
-          </div>
+      <div className="space-y-4">
+        <div className="bg-pink-500/10 border border-pink-500/30 rounded-xl p-4 text-center">
+          <Camera size={32} className="text-pink-400 mx-auto mb-2" />
+          <p className="text-white font-medium">Unlock {lockedCount} more photos</p>
+          <p className="text-3xl font-bold text-white mt-2">{formatNaira(price)}</p>
+          <p className="text-white/50 text-sm mt-2">Deducted from deposit balance</p>
+        </div>
 
-          {canPayFromBalance ? (
-            <div className="space-y-2">
-              <button onClick={handlePayFromBalance} className="w-full py-4 bg-green-500 hover:bg-green-600 rounded-xl text-white font-semibold flex items-center justify-center gap-2">
-                <Zap size={18} />
-                Pay from Balance ({formatNaira(clientState.depositBalance)} available)
-              </button>
-              <button onClick={() => setStep(2)} className="w-full py-3 bg-white/10 hover:bg-white/20 rounded-xl text-white/70 font-medium">
-                Pay Separately Instead
-              </button>
-            </div>
-          ) : (
-            <button onClick={() => setStep(2)} className="w-full py-4 bg-pink-500 hover:bg-pink-600 rounded-xl text-white font-semibold">Continue to Payment</button>
+        {/* Balance status */}
+        <div className={`rounded-xl p-4 ${hasEnoughBalance ? 'bg-green-500/10 border border-green-500/30' : 'bg-red-500/10 border border-red-500/30'}`}>
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-white/70 text-sm">Your Balance</span>
+            <span className={`font-bold ${hasEnoughBalance ? 'text-green-400' : 'text-red-400'}`}>{formatNaira(clientState?.depositBalance || 0)}</span>
+          </div>
+          {!hasEnoughBalance && (
+            <p className="text-red-300 text-sm mt-2">
+              You need {formatNaira(shortfall)} more. Top up your deposit to continue.
+            </p>
           )}
         </div>
-      )}
-      {step === 2 && <P2PPaymentStep amount={CONFIG.pricing.unlockPhotos} serviceName="Photo gallery unlock" onBack={() => setStep(1)} onConfirm={() => { onUnlock(); resetAndClose(); }} />}
+
+        {hasEnoughBalance ? (
+          <button onClick={handlePayFromBalance} className="w-full py-4 bg-green-500 hover:bg-green-600 rounded-xl text-white font-semibold flex items-center justify-center gap-2">
+            <Zap size={18} />
+            Pay from Deposit
+          </button>
+        ) : (
+          <button onClick={() => { resetAndClose(); onNeedsTrustDeposit(); }} className="w-full py-4 bg-blue-500 hover:bg-blue-600 rounded-xl text-white font-semibold">
+            Top Up Deposit
+          </button>
+        )}
+      </div>
     </Modal>
   );
 };
 
 const UnlockContactModal = ({ isOpen, onClose, onUnlock, clientState, onNeedsTrustDeposit, onDeductBalance }) => {
-  const [step, setStep] = useState(1);
-  const resetAndClose = () => { onClose(); setStep(1); };
-
-  // Check if client has at least verified tier
-  const canAccessContact = clientState?.tier && ['verified', 'baller', 'bossman'].includes(clientState.tier);
-  const canPayFromBalance = clientState?.depositBalance >= CONFIG.pricing.unlockContact;
-
-  const handleContinue = () => {
-    if (!canAccessContact) {
-      onNeedsTrustDeposit();
-      resetAndClose();
-      return;
-    }
-    setStep(2);
-  };
+  const resetAndClose = () => { onClose(); };
+  const price = CONFIG.pricing.unlockContact;
+  const hasEnoughBalance = clientState?.depositBalance >= price;
+  const shortfall = price - (clientState?.depositBalance || 0);
 
   const handlePayFromBalance = () => {
-    onDeductBalance(CONFIG.pricing.unlockContact);
+    onDeductBalance(price);
     onUnlock();
     resetAndClose();
   };
 
   return (
     <Modal isOpen={isOpen} onClose={resetAndClose} title="📱 Get Phone Number">
-      {step === 1 && (
-        <div className="space-y-4">
-          {!canAccessContact && (
-            <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <ShieldCheck size={18} className="text-amber-400" />
-                <p className="text-amber-300 font-medium">Verified Client Required</p>
-              </div>
-              <p className="text-amber-200/70 text-sm">
-                To protect models from time-wasters, phone numbers are only available to Verified clients (₦30,000+ deposit).
-              </p>
-            </div>
-          )}
-          <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4">
-            <p className="text-white font-medium mb-2">What you get:</p>
-            <p className="text-white/70 text-sm">✓ Direct WhatsApp number • ✓ Lifetime access</p>
-          </div>
-          <div className="bg-white/5 rounded-xl p-6 text-center border border-white/10">
-            <p className="text-4xl font-bold text-white">{formatNaira(CONFIG.pricing.unlockContact)}</p>
-            {canPayFromBalance && (
-              <p className="text-green-400 text-sm mt-2">Can be deducted from your deposit balance</p>
-            )}
-          </div>
+      <div className="space-y-4">
+        <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4">
+          <p className="text-white font-medium mb-2">What you get:</p>
+          <p className="text-white/70 text-sm">✓ Direct WhatsApp number • ✓ Lifetime access</p>
+        </div>
 
-          {canAccessContact && canPayFromBalance ? (
-            <div className="space-y-2">
-              <button onClick={handlePayFromBalance} className="w-full py-4 bg-green-500 hover:bg-green-600 rounded-xl text-white font-semibold flex items-center justify-center gap-2">
-                <Zap size={18} />
-                Pay from Balance ({formatNaira(clientState.depositBalance)} available)
-              </button>
-              <button onClick={() => setStep(2)} className="w-full py-3 bg-white/10 hover:bg-white/20 rounded-xl text-white/70 font-medium">
-                Pay Separately Instead
-              </button>
-            </div>
-          ) : (
-            <button onClick={handleContinue} className="w-full py-4 bg-pink-500 hover:bg-pink-600 rounded-xl text-white font-semibold">
-              {canAccessContact ? 'Continue to Payment' : 'Get Verified First'}
-            </button>
+        <div className="bg-white/5 rounded-xl p-6 text-center border border-white/10">
+          <p className="text-4xl font-bold text-white">{formatNaira(price)}</p>
+          <p className="text-white/50 text-sm mt-2">Deducted from deposit balance</p>
+        </div>
+
+        {/* Balance status */}
+        <div className={`rounded-xl p-4 ${hasEnoughBalance ? 'bg-green-500/10 border border-green-500/30' : 'bg-red-500/10 border border-red-500/30'}`}>
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-white/70 text-sm">Your Balance</span>
+            <span className={`font-bold ${hasEnoughBalance ? 'text-green-400' : 'text-red-400'}`}>{formatNaira(clientState?.depositBalance || 0)}</span>
+          </div>
+          {!hasEnoughBalance && (
+            <p className="text-red-300 text-sm mt-2">
+              You need {formatNaira(shortfall)} more. Top up your deposit to continue.
+            </p>
           )}
         </div>
-      )}
-      {step === 2 && <P2PPaymentStep amount={CONFIG.pricing.unlockContact} serviceName="Phone number unlock" onBack={() => setStep(1)} onConfirm={() => { onUnlock(); resetAndClose(); }} />}
+
+        {hasEnoughBalance ? (
+          <button onClick={handlePayFromBalance} className="w-full py-4 bg-green-500 hover:bg-green-600 rounded-xl text-white font-semibold flex items-center justify-center gap-2">
+            <Zap size={18} />
+            Pay from Deposit
+          </button>
+        ) : (
+          <button onClick={() => { resetAndClose(); onNeedsTrustDeposit(); }} className="w-full py-4 bg-blue-500 hover:bg-blue-600 rounded-xl text-white font-semibold">
+            Top Up Deposit
+          </button>
+        )}
+      </div>
     </Modal>
   );
 };
@@ -1433,49 +1421,42 @@ export default function App() {
         </div>
 
         {/* 4. BOOK NOW */}
-        <div className="mb-6 space-y-2">
-          {/* Show client tier status */}
+        <div className="mb-6 space-y-3">
+          {/* Show client tier status and balance */}
           {clientState.tier && (
-            <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/10 mb-2">
-              <span className="text-white/60 text-sm">Your Status:</span>
-              <TierBadge tier={clientState.tier} />
+            <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/10">
+              <div className="flex items-center gap-2">
+                <TierBadge tier={clientState.tier} />
+              </div>
+              <div className="text-right">
+                <span className="text-white/40 text-xs">Balance: </span>
+                <span className="text-green-400 font-bold">{formatNaira(clientState.depositBalance)}</span>
+              </div>
             </div>
           )}
 
-          <button onClick={() => protectedAction('videoCall')} className="w-full flex items-center gap-3 p-4 rounded-xl bg-purple-500/20 border border-purple-500/30 hover:border-purple-500/50">
-            <Video size={20} className="text-purple-400" />
-            <span className="flex-1 text-left text-white font-semibold">Book Video Call</span>
-            <ChevronRight size={18} className="text-purple-400" />
-          </button>
-          <button onClick={() => protectedAction('meetup')} className="w-full flex items-center gap-3 p-4 rounded-xl bg-pink-500/20 border border-pink-500/30 hover:border-pink-500/50">
-            <Heart size={20} className="text-pink-400" />
-            <span className="flex-1 text-left text-white font-semibold">Book Meetup</span>
-            {clientState.isNewMember && !clientState.hasPaidTrustDeposit && (
-              <span className="text-xs bg-amber-500/30 text-amber-300 px-2 py-0.5 rounded-full mr-2">Deposit req'd</span>
+          {/* Three buttons in a row */}
+          <div className="grid grid-cols-3 gap-2">
+            <button onClick={() => protectedAction('videoCall')} className="flex flex-col items-center gap-2 p-4 rounded-xl bg-purple-500/20 border border-purple-500/30 hover:border-purple-500/50">
+              <Video size={24} className="text-purple-400" />
+              <span className="text-white font-medium text-xs text-center">Video Call</span>
+            </button>
+            <button onClick={() => protectedAction('meetup')} className="flex flex-col items-center gap-2 p-4 rounded-xl bg-pink-500/20 border border-pink-500/30 hover:border-pink-500/50">
+              <Heart size={24} className="text-pink-400" />
+              <span className="text-white font-medium text-xs text-center">Meetup</span>
+            </button>
+            {contactUnlocked ? (
+              <button onClick={() => setModal('contactRevealed')} className="flex flex-col items-center gap-2 p-4 rounded-xl bg-green-500/20 border border-green-500/30">
+                <Phone size={24} className="text-green-400" />
+                <span className="text-green-300 font-medium text-xs text-center">Unlocked</span>
+              </button>
+            ) : (
+              <button onClick={() => setModal('unlockContact')} className="flex flex-col items-center gap-2 p-4 rounded-xl bg-green-500/10 border border-green-500/30 hover:border-green-500/50">
+                <Phone size={24} className="text-green-400" />
+                <span className="text-green-300 font-medium text-xs text-center">{formatNaira(pricing.unlockContact)}</span>
+              </button>
             )}
-            <ChevronRight size={18} className="text-pink-400" />
-          </button>
-
-          {/* Phone Number Unlock */}
-          {contactUnlocked ? (
-            <button onClick={() => setModal('contactRevealed')} className="w-full flex items-center gap-3 p-4 rounded-xl bg-green-500/20 border border-green-500/30">
-              <Phone size={20} className="text-green-400" />
-              <span className="flex-1 text-left text-green-300 font-semibold">Phone Number Unlocked</span>
-              <CheckCircle size={18} className="text-green-400" />
-            </button>
-          ) : (
-            <button onClick={() => setModal('unlockContact')} className="w-full flex items-center gap-3 p-4 rounded-xl bg-green-500/10 border border-green-500/30 hover:border-green-500/50">
-              <Phone size={20} className="text-green-400" />
-              <span className="flex-1 text-left">
-                <span className="text-white font-semibold">Get Phone Number</span>
-                {clientState.depositBalance >= pricing.unlockContact && (
-                  <span className="text-green-400 text-xs ml-2">From balance</span>
-                )}
-              </span>
-              <span className="text-green-300 font-medium">{formatNaira(pricing.unlockContact)}</span>
-              <ChevronRight size={18} className="text-green-400" />
-            </button>
-          )}
+          </div>
 
           {/* Get Verified CTA if not verified */}
           {!clientState.tier && (
@@ -1487,14 +1468,6 @@ export default function App() {
               </span>
               <ChevronRight size={16} className="text-blue-400" />
             </button>
-          )}
-
-          {/* Show deposit balance if verified */}
-          {clientState.tier && clientState.depositBalance > 0 && (
-            <div className="flex items-center justify-between p-3 bg-green-500/10 rounded-xl border border-green-500/20">
-              <span className="text-green-300/70 text-sm">Deposit Balance</span>
-              <span className="text-green-400 font-bold">{formatNaira(clientState.depositBalance)}</span>
-            </div>
           )}
         </div>
 
@@ -1540,7 +1513,7 @@ export default function App() {
       <ContactRevealedModal isOpen={modal === 'contactRevealed'} onClose={() => setModal(null)} />
       <VideoCallModal isOpen={modal === 'videoCall'} onClose={() => setModal(null)} />
       <MeetupModal isOpen={modal === 'meetup'} onClose={() => setModal(null)} clientState={clientState} onNeedsTrustDeposit={() => setModal('trustDeposit')} />
-      <UnlockPhotosModal isOpen={modal === 'unlockPhotos'} onClose={() => setModal(null)} onUnlock={() => setPhotosUnlocked(true)} clientState={clientState} onDeductBalance={deductFromBalance} />
+      <UnlockPhotosModal isOpen={modal === 'unlockPhotos'} onClose={() => setModal(null)} onUnlock={() => setPhotosUnlocked(true)} clientState={clientState} onDeductBalance={deductFromBalance} onNeedsTrustDeposit={() => setModal('trustDeposit')} />
       <AllReviewsModal isOpen={modal === 'allReviews'} onClose={() => setModal(null)} />
       <VideoVerificationModal isOpen={modal === 'videoVerify'} onClose={() => setModal(null)} />
       <PhotoVerificationModal isOpen={modal === 'photoVerify'} onClose={() => setModal(null)} />
