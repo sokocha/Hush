@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import App from './App.jsx'
 import ExplorePage from './pages/ExplorePage.jsx'
+import ClientDashboardPage from './pages/ClientDashboardPage.jsx'
 import './index.css'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
@@ -13,6 +14,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         <Route path="/model/:username" element={<App />} />
         <Route path="/explore" element={<ExplorePage />} />
         <Route path="/explore/:location" element={<ExplorePage />} />
+        <Route path="/dashboard" element={<ClientDashboardPage />} />
       </Routes>
     </BrowserRouter>
   </React.StrictMode>,
