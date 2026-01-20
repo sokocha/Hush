@@ -3,12 +3,22 @@ import { useParams, Link } from 'react-router-dom';
 import {
   MapPin, Star, CheckCircle, Shield, Filter,
   ChevronLeft, Search, Target, Video, Aperture,
-  TrendingUp, Heart, Clock, Users, Sparkles
+  TrendingUp, Heart, Clock, Users, Sparkles, X, ChevronDown, ChevronUp
 } from 'lucide-react';
-import { getModelsList, getLocations, PLATFORM_CONFIG } from '../data/models';
+import { getModelsList, getLocations, getAllExtras, PLATFORM_CONFIG } from '../data/models';
 
 // Get models from shared data store
 const ALL_MODELS = getModelsList();
+const ALL_EXTRAS = getAllExtras();
+
+// Price range options
+const PRICE_RANGES = [
+  { label: "Any price", min: 0, max: Infinity },
+  { label: "Under ₦50k", min: 0, max: 50000 },
+  { label: "₦50k - ₦75k", min: 50000, max: 75000 },
+  { label: "₦75k - ₦100k", min: 75000, max: 100000 },
+  { label: "Over ₦100k", min: 100000, max: Infinity },
+];
 
 // Build locations dynamically from models data
 const LOCATIONS = [
@@ -107,6 +117,33 @@ export default function ExplorePage() {
   const [sortBy, setSortBy] = useState('recommended');
   const [showOnlineOnly, setShowOnlineOnly] = useState(false);
   const [showAvailableOnly, setShowAvailableOnly] = useState(false);
+  const [selectedExtras, setSelectedExtras] = useState([]);
+  const [priceRange, setPriceRange] = useState(PRICE_RANGES[0]);
+  const [showOutcallOnly, setShowOutcallOnly] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Toggle extra selection
+  const toggleExtra = (extra) => {
+    setSelectedExtras(prev =>
+      prev.includes(extra)
+        ? prev.filter(e => e !== extra)
+        : [...prev, extra]
+    );
+  };
+
+  // Clear all filters
+  const clearAllFilters = () => {
+    setSearchQuery('');
+    setShowOnlineOnly(false);
+    setShowAvailableOnly(false);
+    setSelectedExtras([]);
+    setPriceRange(PRICE_RANGES[0]);
+    setShowOutcallOnly(false);
+  };
+
+  // Check if any filters are active
+  const hasActiveFilters = searchQuery || showOnlineOnly || showAvailableOnly ||
+    selectedExtras.length > 0 || priceRange !== PRICE_RANGES[0] || showOutcallOnly;
 
   // Normalize location for filtering
   const normalizedLocation = location?.toLowerCase() || 'all';
@@ -138,6 +175,25 @@ export default function ExplorePage() {
   }
   if (showAvailableOnly) {
     filteredModels = filteredModels.filter(m => m.isAvailable);
+  }
+
+  // Filter by extras
+  if (selectedExtras.length > 0) {
+    filteredModels = filteredModels.filter(m =>
+      selectedExtras.every(extra => m.extras.includes(extra))
+    );
+  }
+
+  // Filter by price range
+  if (priceRange !== PRICE_RANGES[0]) {
+    filteredModels = filteredModels.filter(m =>
+      m.startingPrice >= priceRange.min && m.startingPrice < priceRange.max
+    );
+  }
+
+  // Filter by outcall availability
+  if (showOutcallOnly) {
+    filteredModels = filteredModels.filter(m => m.hasOutcall);
   }
 
   // Sort models
@@ -237,6 +293,23 @@ export default function ExplorePage() {
               <Filter size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none" />
             </div>
 
+            {/* More filters toggle */}
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all flex items-center gap-2 ${
+                showFilters || hasActiveFilters
+                  ? 'bg-pink-500/20 border border-pink-500/50 text-pink-300'
+                  : 'bg-white/10 border border-white/10 text-white/70 hover:bg-white/20'
+              }`}
+            >
+              <Filter size={14} />
+              Filters
+              {hasActiveFilters && (
+                <span className="w-2 h-2 bg-pink-400 rounded-full" />
+              )}
+              {showFilters ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            </button>
+
             {/* Toggle filters */}
             <button
               onClick={() => setShowOnlineOnly(!showOnlineOnly)}
@@ -259,6 +332,117 @@ export default function ExplorePage() {
               Available
             </button>
           </div>
+
+          {/* Expanded filters panel */}
+          {showFilters && (
+            <div className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-4">
+              {/* Price range */}
+              <div>
+                <h4 className="text-white/70 text-xs font-medium mb-2 uppercase tracking-wide">Price Range (per hour)</h4>
+                <div className="flex flex-wrap gap-2">
+                  {PRICE_RANGES.map((range) => (
+                    <button
+                      key={range.label}
+                      onClick={() => setPriceRange(range)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                        priceRange === range
+                          ? 'bg-pink-500 text-white'
+                          : 'bg-white/10 text-white/70 hover:bg-white/20'
+                      }`}
+                    >
+                      {range.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Extras / Services */}
+              <div>
+                <h4 className="text-white/70 text-xs font-medium mb-2 uppercase tracking-wide">Services & Extras</h4>
+                <div className="flex flex-wrap gap-2">
+                  {ALL_EXTRAS.map((extra) => (
+                    <button
+                      key={extra}
+                      onClick={() => toggleExtra(extra)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
+                        selectedExtras.includes(extra)
+                          ? 'bg-purple-500 text-white'
+                          : 'bg-white/10 text-white/70 hover:bg-white/20'
+                      }`}
+                    >
+                      {extra}
+                      {selectedExtras.includes(extra) && <X size={12} />}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Service type */}
+              <div>
+                <h4 className="text-white/70 text-xs font-medium mb-2 uppercase tracking-wide">Service Type</h4>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => setShowOutcallOnly(!showOutcallOnly)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                      showOutcallOnly
+                        ? 'bg-cyan-500 text-white'
+                        : 'bg-white/10 text-white/70 hover:bg-white/20'
+                    }`}
+                  >
+                    Outcall Available
+                  </button>
+                </div>
+              </div>
+
+              {/* Clear all button */}
+              {hasActiveFilters && (
+                <button
+                  onClick={clearAllFilters}
+                  className="text-pink-400 text-sm font-medium hover:text-pink-300 transition-colors flex items-center gap-1.5"
+                >
+                  <X size={14} />
+                  Clear all filters
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Active filters summary (when panel is collapsed) */}
+          {!showFilters && hasActiveFilters && (
+            <div className="flex flex-wrap gap-2 items-center">
+              <span className="text-white/40 text-xs">Active:</span>
+              {priceRange !== PRICE_RANGES[0] && (
+                <span className="px-2 py-1 bg-pink-500/20 border border-pink-500/30 rounded-lg text-pink-300 text-xs flex items-center gap-1">
+                  {priceRange.label}
+                  <button onClick={() => setPriceRange(PRICE_RANGES[0])} className="hover:text-white">
+                    <X size={12} />
+                  </button>
+                </span>
+              )}
+              {selectedExtras.map(extra => (
+                <span key={extra} className="px-2 py-1 bg-purple-500/20 border border-purple-500/30 rounded-lg text-purple-300 text-xs flex items-center gap-1">
+                  {extra}
+                  <button onClick={() => toggleExtra(extra)} className="hover:text-white">
+                    <X size={12} />
+                  </button>
+                </span>
+              ))}
+              {showOutcallOnly && (
+                <span className="px-2 py-1 bg-cyan-500/20 border border-cyan-500/30 rounded-lg text-cyan-300 text-xs flex items-center gap-1">
+                  Outcall
+                  <button onClick={() => setShowOutcallOnly(false)} className="hover:text-white">
+                    <X size={12} />
+                  </button>
+                </span>
+              )}
+              <button
+                onClick={clearAllFilters}
+                className="text-white/40 text-xs hover:text-white/70 transition-colors"
+              >
+                Clear all
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Trust banner */}
@@ -289,11 +473,7 @@ export default function ExplorePage() {
             <h3 className="text-white font-medium mb-2">No models found</h3>
             <p className="text-white/50 text-sm mb-4">Try adjusting your filters or search</p>
             <button
-              onClick={() => {
-                setSearchQuery('');
-                setShowOnlineOnly(false);
-                setShowAvailableOnly(false);
-              }}
+              onClick={clearAllFilters}
               className="px-4 py-2 bg-pink-500 hover:bg-pink-600 rounded-xl text-white text-sm font-medium transition-colors"
             >
               Clear filters

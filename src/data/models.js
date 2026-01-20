@@ -544,7 +544,18 @@ export const getModelsList = () => {
     isStudioVerified: model.photos.source === 'studio',
     startingPrice: model.pricing.meetupIncall[1],
     tagline: model.profile.tagline,
+    extras: model.extras.map(e => e.name),
+    hasOutcall: model.pricing.meetupOutcall !== null,
   }));
+};
+
+// Helper to get all unique extras across all models
+export const getAllExtras = () => {
+  const extrasSet = new Set();
+  Object.values(MODELS).forEach(model => {
+    model.extras.forEach(extra => extrasSet.add(extra.name));
+  });
+  return Array.from(extrasSet).sort();
 };
 
 // Helper to get model by username
