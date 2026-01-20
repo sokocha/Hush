@@ -8,7 +8,7 @@ import {
   MessageSquare, ArrowRight, ArrowLeft, Unlock, ThumbsUp,
   Ban, AlertTriangle, Key, Home, Car, DollarSign, Aperture,
   Award, Info, ShieldCheck, EyeOff, Crown, BadgeCheck,
-  Smartphone, Target, RefreshCw, Wallet, Sparkles, TrendingUp
+  Smartphone, Target, RefreshCw, Wallet, Sparkles, TrendingUp, Users
 } from 'lucide-react';
 import { PLATFORM_CONFIG, getModelByUsername, MODELS } from './data/models';
 
@@ -1380,7 +1380,18 @@ export default function App() {
         <div className="absolute bottom-0 left-0 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl" />
       </div>
 
-      <div className="relative max-w-md mx-auto px-4 py-8 pb-24">
+      <div className="relative max-w-md mx-auto px-4 py-6 pb-24">
+
+        {/* Top Navigation */}
+        <div className="flex items-center justify-between mb-6">
+          <Link to="/explore/all" className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors">
+            <Users size={20} className="text-white" />
+          </Link>
+          <Link to="/" className="text-white font-bold text-lg">{PLATFORM_CONFIG.name}</Link>
+          <Link to="/dashboard" className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors">
+            <Wallet size={20} className="text-white" />
+          </Link>
+        </div>
 
         {/* 1. PROFILE + TRUST */}
         <div className="text-center mb-6">
