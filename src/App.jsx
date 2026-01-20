@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import {
-  Heart, Star, Gift, MapPin, Camera,
-  Video, MessageCircle, Shield, Flame, CheckCircle, Lock,
-  Copy, Phone, Send, CreditCard,
-  Zap, ChevronRight, X, Bell, Twitter, Instagram,
+  Heart, Star, MapPin, Camera,
+  Video, MessageCircle, Shield, CheckCircle, Lock,
+  Copy, Phone, CreditCard,
+  Zap, ChevronRight, X,
   MessageSquare, ArrowRight, ArrowLeft, Unlock, ThumbsUp,
   Ban, AlertTriangle, Key, Home, Car, DollarSign, Aperture,
-  Award, Clock, Info, ShieldCheck, Eye, EyeOff, Crown, BadgeCheck,
-  Smartphone, Users, Percent, Target
+  Award, Info, ShieldCheck, EyeOff, Crown, BadgeCheck,
+  Smartphone, Target
 } from 'lucide-react';
 
 // ═══════════════════════════════════════════════════════════
@@ -111,7 +111,6 @@ const CONFIG = {
   
   contact: {
     whatsapp: "2348012345678",
-    telegram: "destiny_x",
   },
   
   pricing: {
@@ -155,6 +154,7 @@ const MOCK_CLIENT = {
   isNewMember: true,           // No successful meetups yet
   hasPaidTrustDeposit: false,  // Haven't paid platform deposit
   tier: null,                  // visitor | verified | baller | bossman
+  depositBalance: 0,           // Remaining balance from deposit (for unlocks)
   successfulMeetups: 0,
   meetupSuccessRate: null,     // Percentage once they have enough meetups
   monthsOnPlatform: 0,
@@ -904,10 +904,18 @@ const MeetupModal = ({ isOpen, onClose, clientState, onNeedsTrustDeposit }) => {
 // SIMPLIFIED MODALS
 // ═══════════════════════════════════════════════════════════
 
-const UnlockPhotosModal = ({ isOpen, onClose, onUnlock }) => {
+const UnlockPhotosModal = ({ isOpen, onClose, onUnlock, clientState, onDeductBalance }) => {
   const [step, setStep] = useState(1);
   const resetAndClose = () => { onClose(); setStep(1); };
   const lockedCount = CONFIG.photos.total - CONFIG.photos.previewCount;
+  const canPayFromBalance = clientState?.depositBalance >= CONFIG.pricing.unlockPhotos;
+
+  const handlePayFromBalance = () => {
+    onDeductBalance(CONFIG.pricing.unlockPhotos);
+    onUnlock();
+    resetAndClose();
+  };
+
   return (
     <Modal isOpen={isOpen} onClose={resetAndClose} title="📸 Unlock Photos">
       {step === 1 && (
@@ -916,8 +924,24 @@ const UnlockPhotosModal = ({ isOpen, onClose, onUnlock }) => {
             <Camera size={32} className="text-pink-400 mx-auto mb-2" />
             <p className="text-white font-medium">Unlock {lockedCount} more photos</p>
             <p className="text-3xl font-bold text-white mt-2">{formatNaira(CONFIG.pricing.unlockPhotos)}</p>
+            {canPayFromBalance && (
+              <p className="text-green-400 text-sm mt-2">Can be deducted from your deposit balance</p>
+            )}
           </div>
-          <button onClick={() => setStep(2)} className="w-full py-4 bg-pink-500 hover:bg-pink-600 rounded-xl text-white font-semibold">Continue to Payment</button>
+
+          {canPayFromBalance ? (
+            <div className="space-y-2">
+              <button onClick={handlePayFromBalance} className="w-full py-4 bg-green-500 hover:bg-green-600 rounded-xl text-white font-semibold flex items-center justify-center gap-2">
+                <Zap size={18} />
+                Pay from Balance ({formatNaira(clientState.depositBalance)} available)
+              </button>
+              <button onClick={() => setStep(2)} className="w-full py-3 bg-white/10 hover:bg-white/20 rounded-xl text-white/70 font-medium">
+                Pay Separately Instead
+              </button>
+            </div>
+          ) : (
+            <button onClick={() => setStep(2)} className="w-full py-4 bg-pink-500 hover:bg-pink-600 rounded-xl text-white font-semibold">Continue to Payment</button>
+          )}
         </div>
       )}
       {step === 2 && <P2PPaymentStep amount={CONFIG.pricing.unlockPhotos} serviceName="Photo gallery unlock" onBack={() => setStep(1)} onConfirm={() => { onUnlock(); resetAndClose(); }} />}
@@ -925,12 +949,13 @@ const UnlockPhotosModal = ({ isOpen, onClose, onUnlock }) => {
   );
 };
 
-const UnlockContactModal = ({ isOpen, onClose, onUnlock, clientState, onNeedsTrustDeposit }) => {
+const UnlockContactModal = ({ isOpen, onClose, onUnlock, clientState, onNeedsTrustDeposit, onDeductBalance }) => {
   const [step, setStep] = useState(1);
   const resetAndClose = () => { onClose(); setStep(1); };
 
   // Check if client has at least verified tier
   const canAccessContact = clientState?.tier && ['verified', 'baller', 'bossman'].includes(clientState.tier);
+  const canPayFromBalance = clientState?.depositBalance >= CONFIG.pricing.unlockContact;
 
   const handleContinue = () => {
     if (!canAccessContact) {
@@ -941,8 +966,14 @@ const UnlockContactModal = ({ isOpen, onClose, onUnlock, clientState, onNeedsTru
     setStep(2);
   };
 
+  const handlePayFromBalance = () => {
+    onDeductBalance(CONFIG.pricing.unlockContact);
+    onUnlock();
+    resetAndClose();
+  };
+
   return (
-    <Modal isOpen={isOpen} onClose={resetAndClose} title="🔓 Unlock Contact">
+    <Modal isOpen={isOpen} onClose={resetAndClose} title="📱 Get Phone Number">
       {step === 1 && (
         <div className="space-y-4">
           {!canAccessContact && (
@@ -952,48 +983,60 @@ const UnlockContactModal = ({ isOpen, onClose, onUnlock, clientState, onNeedsTru
                 <p className="text-amber-300 font-medium">Verified Client Required</p>
               </div>
               <p className="text-amber-200/70 text-sm">
-                To protect models from time-wasters, contact info is only available to Verified clients (₦30,000+ deposit).
+                To protect models from time-wasters, phone numbers are only available to Verified clients (₦30,000+ deposit).
               </p>
             </div>
           )}
           <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4">
             <p className="text-white font-medium mb-2">What you get:</p>
-            <p className="text-white/70 text-sm">✓ Direct WhatsApp • ✓ Direct Telegram • ✓ Lifetime access</p>
+            <p className="text-white/70 text-sm">✓ Direct WhatsApp number • ✓ Lifetime access</p>
           </div>
           <div className="bg-white/5 rounded-xl p-6 text-center border border-white/10">
             <p className="text-4xl font-bold text-white">{formatNaira(CONFIG.pricing.unlockContact)}</p>
-            <p className="text-white/50 text-sm mt-1">Requires Verified status</p>
+            {canPayFromBalance && (
+              <p className="text-green-400 text-sm mt-2">Can be deducted from your deposit balance</p>
+            )}
           </div>
-          <button onClick={handleContinue} className="w-full py-4 bg-pink-500 hover:bg-pink-600 rounded-xl text-white font-semibold">
-            {canAccessContact ? 'Continue' : 'Get Verified First'}
-          </button>
+
+          {canAccessContact && canPayFromBalance ? (
+            <div className="space-y-2">
+              <button onClick={handlePayFromBalance} className="w-full py-4 bg-green-500 hover:bg-green-600 rounded-xl text-white font-semibold flex items-center justify-center gap-2">
+                <Zap size={18} />
+                Pay from Balance ({formatNaira(clientState.depositBalance)} available)
+              </button>
+              <button onClick={() => setStep(2)} className="w-full py-3 bg-white/10 hover:bg-white/20 rounded-xl text-white/70 font-medium">
+                Pay Separately Instead
+              </button>
+            </div>
+          ) : (
+            <button onClick={handleContinue} className="w-full py-4 bg-pink-500 hover:bg-pink-600 rounded-xl text-white font-semibold">
+              {canAccessContact ? 'Continue to Payment' : 'Get Verified First'}
+            </button>
+          )}
         </div>
       )}
-      {step === 2 && <P2PPaymentStep amount={CONFIG.pricing.unlockContact} serviceName="Contact unlock" onBack={() => setStep(1)} onConfirm={() => { onUnlock(); resetAndClose(); }} />}
+      {step === 2 && <P2PPaymentStep amount={CONFIG.pricing.unlockContact} serviceName="Phone number unlock" onBack={() => setStep(1)} onConfirm={() => { onUnlock(); resetAndClose(); }} />}
     </Modal>
   );
 };
 
 const ContactRevealedModal = ({ isOpen, onClose }) => {
-  const [copied, setCopied] = useState(null);
-  const copy = (val, type) => { navigator.clipboard.writeText(val); setCopied(type); setTimeout(() => setCopied(null), 2000); };
+  const [copied, setCopied] = useState(false);
+  const copy = () => { navigator.clipboard.writeText(CONFIG.contact.whatsapp); setCopied(true); setTimeout(() => setCopied(false), 2000); };
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="📱 Contact">
-      <div className="space-y-3">
-        <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4">
-          <div className="flex items-center justify-between mb-3">
-            <div><p className="text-white font-medium">WhatsApp</p><p className="text-green-300 font-mono">+{CONFIG.contact.whatsapp}</p></div>
-            <button onClick={() => copy(CONFIG.contact.whatsapp, 'wa')} className="p-2 bg-white/10 rounded-lg">{copied === 'wa' ? <CheckCircle size={18} className="text-green-400" /> : <Copy size={18} className="text-white/60" />}</button>
-          </div>
-          <a href={`https://wa.me/${CONFIG.contact.whatsapp}`} target="_blank" rel="noopener noreferrer" className="block w-full py-3 bg-green-500 rounded-lg text-white font-semibold text-center">Open WhatsApp</a>
+    <Modal isOpen={isOpen} onClose={onClose} title="📱 Phone Number">
+      <div className="space-y-4">
+        <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-6 text-center">
+          <Phone size={32} className="text-green-400 mx-auto mb-3" />
+          <p className="text-white font-medium mb-1">{CONFIG.profile.name}'s WhatsApp</p>
+          <p className="text-green-300 font-mono text-2xl">+{CONFIG.contact.whatsapp}</p>
         </div>
-        <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
-          <div className="flex items-center justify-between mb-3">
-            <div><p className="text-white font-medium">Telegram</p><p className="text-blue-300 font-mono">@{CONFIG.contact.telegram}</p></div>
-            <button onClick={() => copy(CONFIG.contact.telegram, 'tg')} className="p-2 bg-white/10 rounded-lg">{copied === 'tg' ? <CheckCircle size={18} className="text-blue-400" /> : <Copy size={18} className="text-white/60" />}</button>
-          </div>
-          <a href={`https://t.me/${CONFIG.contact.telegram}`} target="_blank" rel="noopener noreferrer" className="block w-full py-3 bg-blue-500 rounded-lg text-white font-semibold text-center">Open Telegram</a>
-        </div>
+        <button onClick={copy} className={`w-full py-3 rounded-xl font-medium flex items-center justify-center gap-2 ${copied ? 'bg-green-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}>
+          {copied ? <><CheckCircle size={18} />Copied!</> : <><Copy size={18} />Copy Number</>}
+        </button>
+        <a href={`https://wa.me/${CONFIG.contact.whatsapp}`} target="_blank" rel="noopener noreferrer" className="block w-full py-4 bg-green-500 hover:bg-green-600 rounded-xl text-white font-semibold text-center">
+          Open WhatsApp
+        </a>
       </div>
     </Modal>
   );
@@ -1207,11 +1250,21 @@ export default function App() {
   };
   
   const handleTrustDepositPaid = (tier = 'verified') => {
+    const tierDeposit = CONFIG.platform.verificationTiers[tier]?.deposit || 0;
     setClientState(prev => ({
       ...prev,
       hasPaidTrustDeposit: true,
       tier: tier,
+      depositBalance: tierDeposit, // Full deposit becomes available balance
       isNewMember: false,
+    }));
+  };
+
+  // Deduct from deposit balance for unlocks
+  const deductFromBalance = (amount) => {
+    setClientState(prev => ({
+      ...prev,
+      depositBalance: Math.max(0, prev.depositBalance - amount),
     }));
   };
 
@@ -1403,6 +1456,27 @@ export default function App() {
             <ChevronRight size={18} className="text-pink-400" />
           </button>
 
+          {/* Phone Number Unlock */}
+          {contactUnlocked ? (
+            <button onClick={() => setModal('contactRevealed')} className="w-full flex items-center gap-3 p-4 rounded-xl bg-green-500/20 border border-green-500/30">
+              <Phone size={20} className="text-green-400" />
+              <span className="flex-1 text-left text-green-300 font-semibold">Phone Number Unlocked</span>
+              <CheckCircle size={18} className="text-green-400" />
+            </button>
+          ) : (
+            <button onClick={() => setModal('unlockContact')} className="w-full flex items-center gap-3 p-4 rounded-xl bg-green-500/10 border border-green-500/30 hover:border-green-500/50">
+              <Phone size={20} className="text-green-400" />
+              <span className="flex-1 text-left">
+                <span className="text-white font-semibold">Get Phone Number</span>
+                {clientState.depositBalance >= pricing.unlockContact && (
+                  <span className="text-green-400 text-xs ml-2">From balance</span>
+                )}
+              </span>
+              <span className="text-green-300 font-medium">{formatNaira(pricing.unlockContact)}</span>
+              <ChevronRight size={18} className="text-green-400" />
+            </button>
+          )}
+
           {/* Get Verified CTA if not verified */}
           {!clientState.tier && (
             <button onClick={() => setModal('trustDeposit')} className="w-full flex items-center gap-3 p-3 rounded-xl bg-blue-500/10 border border-blue-500/30 hover:border-blue-500/50">
@@ -1413,6 +1487,14 @@ export default function App() {
               </span>
               <ChevronRight size={16} className="text-blue-400" />
             </button>
+          )}
+
+          {/* Show deposit balance if verified */}
+          {clientState.tier && clientState.depositBalance > 0 && (
+            <div className="flex items-center justify-between p-3 bg-green-500/10 rounded-xl border border-green-500/20">
+              <span className="text-green-300/70 text-sm">Deposit Balance</span>
+              <span className="text-green-400 font-bold">{formatNaira(clientState.depositBalance)}</span>
+            </div>
           )}
         </div>
 
@@ -1435,51 +1517,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* 6. CONTACT */}
-        <div className="mb-6">
-          <h3 className="text-white/60 text-sm font-medium flex items-center gap-2 mb-3"><MessageCircle size={14} className="text-green-400" />Questions?</h3>
-          <div className="grid grid-cols-3 gap-2">
-            <button onClick={() => protectedAction('chat')} className="flex flex-col items-center gap-1 p-3 rounded-xl bg-white/5 border border-white/10 hover:border-pink-500/30">
-              <div className="relative"><div className="p-2 rounded-full bg-pink-500"><MessageSquare size={16} className="text-white" /></div><span className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full text-white text-[10px] flex items-center justify-center">3</span></div>
-              <span className="text-white/70 text-xs">Chat</span>
-            </button>
-            {contactUnlocked ? (
-              <button onClick={() => setModal('contactRevealed')} className="flex flex-col items-center gap-1 p-3 rounded-xl bg-green-500/20 border border-green-500/30">
-                <div className="p-2 rounded-full bg-green-500"><MessageCircle size={16} className="text-white" /></div>
-                <span className="text-green-400 text-xs">Unlocked</span>
-              </button>
-            ) : (
-              <button onClick={() => protectedAction('unlockContact')} className="flex flex-col items-center gap-1 p-3 rounded-xl bg-white/5 border border-white/10 hover:border-green-500/30 group">
-                <div className="p-2 rounded-full bg-gray-700 group-hover:bg-green-500/20"><Lock size={16} className="text-white/60" /></div>
-                <span className="text-white/50 text-xs">{formatNaira(pricing.unlockContact)}</span>
-              </button>
-            )}
-            <button onClick={() => window.open(`https://wa.me/${CONFIG.contact.whatsapp}`, '_blank')} className="flex flex-col items-center gap-1 p-3 rounded-xl bg-white/5 border border-white/10 hover:border-green-500/30">
-              <div className="p-2 rounded-full bg-green-600"><Phone size={16} className="text-white" /></div>
-              <span className="text-white/70 text-xs">WhatsApp</span>
-            </button>
-          </div>
-        </div>
-
-        {/* 7. CONTENT */}
-        <a href="https://t.me/destiny_exclusive" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-4 rounded-xl bg-blue-500/10 border border-blue-500/30 hover:border-blue-500/50 mb-4">
-          <div className="p-2 bg-blue-500 rounded-xl"><Send size={18} className="text-white" /></div>
-          <div className="flex-1"><p className="text-white font-semibold">Telegram VIP</p><p className="text-white/50 text-xs">Daily exclusive</p></div>
-          <ChevronRight size={18} className="text-blue-400" />
-        </a>
-
-        {/* 8. WISHLIST */}
-        <a href="https://throne.com/destiny_x" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 hover:border-amber-500/50 mb-6">
-          <div className="p-2 bg-amber-500 rounded-xl"><Gift size={18} className="text-white" /></div>
-          <div className="flex-1"><p className="text-white font-semibold">Spoil Me 🎁</p></div>
-          <ChevronRight size={18} className="text-amber-400" />
-        </a>
-
-        {/* 9. SOCIAL */}
-        <div className="flex gap-2 mb-6">
-          <a href="#" className="flex-1 flex items-center justify-center gap-2 p-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10"><Twitter size={16} className="text-white/50" /><span className="text-white/50 text-sm">Twitter</span></a>
-          <a href="#" className="flex-1 flex items-center justify-center gap-2 p-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10"><Instagram size={16} className="text-white/50" /><span className="text-white/50 text-sm">Instagram</span></a>
-        </div>
 
         {/* Footer */}
         <div className="text-center">
@@ -1499,11 +1536,11 @@ export default function App() {
       <ClientVerificationModal isOpen={modal === 'verify'} onClose={() => { setModal(null); setPendingAction(null); }} onVerified={onVerified} nextAction={pendingAction} />
       <TrustDepositModal isOpen={modal === 'trustDeposit'} onClose={() => setModal(null)} onDepositPaid={handleTrustDepositPaid} />
       <InAppChatModal isOpen={modal === 'chat'} onClose={() => setModal(null)} onUpgrade={chatUpgrade} />
-      <UnlockContactModal isOpen={modal === 'unlockContact'} onClose={() => setModal(null)} onUnlock={() => { setContactUnlocked(true); setModal('contactRevealed'); }} clientState={clientState} onNeedsTrustDeposit={() => setModal('trustDeposit')} />
+      <UnlockContactModal isOpen={modal === 'unlockContact'} onClose={() => setModal(null)} onUnlock={() => { setContactUnlocked(true); setModal('contactRevealed'); }} clientState={clientState} onNeedsTrustDeposit={() => setModal('trustDeposit')} onDeductBalance={deductFromBalance} />
       <ContactRevealedModal isOpen={modal === 'contactRevealed'} onClose={() => setModal(null)} />
       <VideoCallModal isOpen={modal === 'videoCall'} onClose={() => setModal(null)} />
       <MeetupModal isOpen={modal === 'meetup'} onClose={() => setModal(null)} clientState={clientState} onNeedsTrustDeposit={() => setModal('trustDeposit')} />
-      <UnlockPhotosModal isOpen={modal === 'unlockPhotos'} onClose={() => setModal(null)} onUnlock={() => setPhotosUnlocked(true)} />
+      <UnlockPhotosModal isOpen={modal === 'unlockPhotos'} onClose={() => setModal(null)} onUnlock={() => setPhotosUnlocked(true)} clientState={clientState} onDeductBalance={deductFromBalance} />
       <AllReviewsModal isOpen={modal === 'allReviews'} onClose={() => setModal(null)} />
       <VideoVerificationModal isOpen={modal === 'videoVerify'} onClose={() => setModal(null)} />
       <PhotoVerificationModal isOpen={modal === 'photoVerify'} onClose={() => setModal(null)} />
