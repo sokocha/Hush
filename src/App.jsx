@@ -1076,11 +1076,15 @@ const MeetupModal = ({ isOpen, onClose, clientState, onNeedsTrustDeposit, modelC
 // SIMPLIFIED MODALS
 // ═══════════════════════════════════════════════════════════
 
-const UnlockPhotosModal = ({ isOpen, onClose, onUnlock, clientState, onDeductBalance, onNeedsTrustDeposit, modelConfig }) => {
+const UnlockPhotosModal = ({ isOpen, onClose, onUnlock, clientState, onDeductBalance, onNeedsTrustDeposit, modelConfig, onSwitchToBundle, contactAlreadyUnlocked }) => {
   const resetAndClose = () => { onClose(); };
   if (!modelConfig) return null;
   const lockedCount = modelConfig.photos.total - modelConfig.photos.previewCount;
   const price = modelConfig.pricing.unlockPhotos;
+  const contactPrice = modelConfig.pricing.unlockContact;
+  const totalSeparate = price + contactPrice;
+  const bundleDiscount = Math.round(totalSeparate * 0.1);
+  const bundlePrice = totalSeparate - bundleDiscount;
   const hasEnoughBalance = clientState?.depositBalance >= price;
   const shortfall = price - (clientState?.depositBalance || 0);
 
@@ -1100,6 +1104,29 @@ const UnlockPhotosModal = ({ isOpen, onClose, onUnlock, clientState, onDeductBal
           <p className="text-white/50 text-sm mt-2">Deducted from deposit balance</p>
         </div>
 
+        {/* Bundle upsell - only show if contact not already unlocked */}
+        {!contactAlreadyUnlocked && (
+          <button
+            onClick={() => { resetAndClose(); onSwitchToBundle(); }}
+            className="w-full p-3 bg-gradient-to-r from-pink-500/10 to-green-500/10 rounded-xl border border-amber-500/40 hover:border-amber-400 transition-all"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Sparkles size={18} className="text-amber-400" />
+                <div className="text-left">
+                  <span className="text-white font-medium text-sm">Want phone number too?</span>
+                  <p className="text-amber-300/80 text-xs">Get both for {formatNaira(bundlePrice)}</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <span className="bg-green-500/20 text-green-400 text-xs px-2 py-0.5 rounded-full font-medium">
+                  Save {formatNaira(bundleDiscount)}
+                </span>
+              </div>
+            </div>
+          </button>
+        )}
+
         {/* Balance status */}
         <div className={`rounded-xl p-4 ${hasEnoughBalance ? 'bg-green-500/10 border border-green-500/30' : 'bg-red-500/10 border border-red-500/30'}`}>
           <div className="flex items-center justify-between mb-1">
@@ -1114,9 +1141,9 @@ const UnlockPhotosModal = ({ isOpen, onClose, onUnlock, clientState, onDeductBal
         </div>
 
         {hasEnoughBalance ? (
-          <button onClick={handlePayFromBalance} className="w-full py-4 bg-green-500 hover:bg-green-600 rounded-xl text-white font-semibold flex items-center justify-center gap-2">
+          <button onClick={handlePayFromBalance} className="w-full py-4 bg-pink-500 hover:bg-pink-600 rounded-xl text-white font-semibold flex items-center justify-center gap-2">
             <Zap size={18} />
-            Pay from Deposit
+            Unlock Photos Only
           </button>
         ) : (
           <button onClick={() => { resetAndClose(); onNeedsTrustDeposit(); }} className="w-full py-4 bg-blue-500 hover:bg-blue-600 rounded-xl text-white font-semibold">
@@ -1128,10 +1155,15 @@ const UnlockPhotosModal = ({ isOpen, onClose, onUnlock, clientState, onDeductBal
   );
 };
 
-const UnlockContactModal = ({ isOpen, onClose, onUnlock, clientState, onNeedsTrustDeposit, onDeductBalance, modelConfig }) => {
+const UnlockContactModal = ({ isOpen, onClose, onUnlock, clientState, onNeedsTrustDeposit, onDeductBalance, modelConfig, onSwitchToBundle, photosAlreadyUnlocked }) => {
   const resetAndClose = () => { onClose(); };
   if (!modelConfig) return null;
   const price = modelConfig.pricing.unlockContact;
+  const photosPrice = modelConfig.pricing.unlockPhotos;
+  const lockedCount = modelConfig.photos.total - modelConfig.photos.previewCount;
+  const totalSeparate = price + photosPrice;
+  const bundleDiscount = Math.round(totalSeparate * 0.1);
+  const bundlePrice = totalSeparate - bundleDiscount;
   const hasEnoughBalance = clientState?.depositBalance >= price;
   const shortfall = price - (clientState?.depositBalance || 0);
 
@@ -1154,6 +1186,29 @@ const UnlockContactModal = ({ isOpen, onClose, onUnlock, clientState, onNeedsTru
           <p className="text-white/50 text-sm mt-2">Deducted from deposit balance</p>
         </div>
 
+        {/* Bundle upsell - only show if photos not already unlocked */}
+        {!photosAlreadyUnlocked && (
+          <button
+            onClick={() => { resetAndClose(); onSwitchToBundle(); }}
+            className="w-full p-3 bg-gradient-to-r from-pink-500/10 to-green-500/10 rounded-xl border border-amber-500/40 hover:border-amber-400 transition-all"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Sparkles size={18} className="text-amber-400" />
+                <div className="text-left">
+                  <span className="text-white font-medium text-sm">Want {lockedCount} photos too?</span>
+                  <p className="text-amber-300/80 text-xs">Get both for {formatNaira(bundlePrice)}</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <span className="bg-green-500/20 text-green-400 text-xs px-2 py-0.5 rounded-full font-medium">
+                  Save {formatNaira(bundleDiscount)}
+                </span>
+              </div>
+            </div>
+          </button>
+        )}
+
         {/* Balance status */}
         <div className={`rounded-xl p-4 ${hasEnoughBalance ? 'bg-green-500/10 border border-green-500/30' : 'bg-red-500/10 border border-red-500/30'}`}>
           <div className="flex items-center justify-between mb-1">
@@ -1170,7 +1225,7 @@ const UnlockContactModal = ({ isOpen, onClose, onUnlock, clientState, onNeedsTru
         {hasEnoughBalance ? (
           <button onClick={handlePayFromBalance} className="w-full py-4 bg-green-500 hover:bg-green-600 rounded-xl text-white font-semibold flex items-center justify-center gap-2">
             <Zap size={18} />
-            Pay from Deposit
+            Unlock Phone Only
           </button>
         ) : (
           <button onClick={() => { resetAndClose(); onNeedsTrustDeposit(); }} className="w-full py-4 bg-blue-500 hover:bg-blue-600 rounded-xl text-white font-semibold">
@@ -2062,10 +2117,10 @@ export default function App() {
       {/* Modals */}
       <TrustDepositModal isOpen={modal === 'trustDeposit'} onClose={() => setModal(null)} onDepositPaid={handleTrustDepositPaid} />
       <InAppChatModal isOpen={modal === 'chat'} onClose={() => setModal(null)} onUpgrade={chatUpgrade} modelConfig={CONFIG} />
-      <UnlockContactModal isOpen={modal === 'unlockContact'} onClose={() => setModal(null)} onUnlock={() => { setContactUnlocked(true); setModal('contactRevealed'); }} clientState={clientState} onNeedsTrustDeposit={() => setModal('trustDeposit')} onDeductBalance={deductFromBalance} modelConfig={CONFIG} />
+      <UnlockContactModal isOpen={modal === 'unlockContact'} onClose={() => setModal(null)} onUnlock={() => { setContactUnlocked(true); setModal('contactRevealed'); }} clientState={clientState} onNeedsTrustDeposit={() => setModal('trustDeposit')} onDeductBalance={deductFromBalance} modelConfig={CONFIG} onSwitchToBundle={() => setModal('unlockBundle')} photosAlreadyUnlocked={photosUnlocked} />
       <ContactRevealedModal isOpen={modal === 'contactRevealed'} onClose={() => setModal(null)} modelConfig={CONFIG} />
       <MeetupModal isOpen={modal === 'meetup'} onClose={() => setModal(null)} clientState={clientState} onNeedsTrustDeposit={() => setModal('trustDeposit')} modelConfig={CONFIG} onMeetupBooked={addMeetupBooking} />
-      <UnlockPhotosModal isOpen={modal === 'unlockPhotos'} onClose={() => setModal(null)} onUnlock={() => setPhotosUnlocked(true)} clientState={clientState} onDeductBalance={deductFromBalance} onNeedsTrustDeposit={() => setModal('trustDeposit')} modelConfig={CONFIG} />
+      <UnlockPhotosModal isOpen={modal === 'unlockPhotos'} onClose={() => setModal(null)} onUnlock={() => setPhotosUnlocked(true)} clientState={clientState} onDeductBalance={deductFromBalance} onNeedsTrustDeposit={() => setModal('trustDeposit')} modelConfig={CONFIG} onSwitchToBundle={() => setModal('unlockBundle')} contactAlreadyUnlocked={contactUnlocked} />
       <UnlockBundleModal isOpen={modal === 'unlockBundle'} onClose={() => setModal(null)} onUnlock={() => { setPhotosUnlocked(true); setContactUnlocked(true); setModal('contactRevealed'); }} clientState={clientState} onNeedsTrustDeposit={() => setModal('trustDeposit')} onDeductBalance={deductFromBalance} modelConfig={CONFIG} />
       <AllReviewsModal isOpen={modal === 'allReviews'} onClose={() => setModal(null)} modelConfig={CONFIG} />
       <VideoVerificationModal isOpen={modal === 'videoVerify'} onClose={() => setModal(null)} modelConfig={CONFIG} />
