@@ -371,12 +371,23 @@ const ClientProfileStep = ({ name, setName, onSubmit, onBack, isLoading }) => {
       <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
         <p className="text-white/70 text-sm font-medium mb-3">Verification Tiers</p>
         <div className="space-y-2">
-          {Object.values(PLATFORM_CONFIG.verificationTiers).slice(1, 3).map(tier => (
-            <div key={tier.id} className="flex items-center justify-between text-sm">
-              <span className="text-white/60">{tier.name}</span>
-              <span className="text-white font-medium">{formatNaira(tier.deposit)}</span>
-            </div>
-          ))}
+          {Object.values(PLATFORM_CONFIG.verificationTiers).map(tier => {
+            const tierColors = {
+              visitor: "text-gray-400",
+              verified: "text-blue-400",
+              baller: "text-purple-400",
+              bossman: "text-amber-400",
+            };
+            return (
+              <div key={tier.id} className="flex items-center justify-between text-sm">
+                <div className="flex items-center gap-2">
+                  <span className={tierColors[tier.id]}>{tier.name}</span>
+                  <span className="text-white/30 text-xs">"{tier.tagline}"</span>
+                </div>
+                <span className="text-white font-medium">{formatNaira(tier.deposit)}</span>
+              </div>
+            );
+          })}
         </div>
         <p className="text-white/40 text-xs mt-2">
           You'll choose your tier after registration

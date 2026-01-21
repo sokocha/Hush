@@ -267,7 +267,12 @@ export default function ExplorePage() {
             </h1>
             <p className="text-white/50 text-sm">{filteredModels.length} verified models</p>
           </div>
-          {!isAuthenticated && (
+          {isAuthenticated ? (
+            <Link to="/dashboard" className="px-4 py-2 rounded-full bg-pink-500 hover:bg-pink-600 text-white text-sm font-medium transition-colors flex items-center gap-2">
+              <Users size={16} />
+              Profile
+            </Link>
+          ) : (
             <Link to="/auth" className="px-4 py-2 rounded-full bg-pink-500 hover:bg-pink-600 text-white text-sm font-medium transition-colors">
               Login
             </Link>

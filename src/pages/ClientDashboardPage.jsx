@@ -1,95 +1,16 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   Wallet, CreditCard, History, Calendar, Clock, MapPin,
   Shield, ShieldCheck, Award, Crown, BadgeCheck, ChevronRight,
   Heart, Star, CheckCircle, AlertTriangle, Copy, ArrowUpRight,
   X, Plus, Minus, RefreshCw, Target, Users, Sparkles, Home,
-  MessageCircle, Phone, Eye, Lock, Unlock, TrendingUp, Gift
+  MessageCircle, Phone, Eye, Lock, Unlock, TrendingUp, Gift,
+  LogOut, Settings, Edit3, User, ChevronLeft
 } from 'lucide-react';
 import { PLATFORM_CONFIG, getModelByUsername } from '../data/models';
-
-// ═══════════════════════════════════════════════════════════
-// MOCK CLIENT DATA (in real app, this comes from auth/backend)
-// ═══════════════════════════════════════════════════════════
-
-const MOCK_CLIENT_DATA = {
-  id: "client_001",
-  name: "John D.",
-  phone: "08098765432",
-  email: "john.d@email.com",
-  memberSince: "October 2024",
-
-  // Verification & Tier
-  tier: "verified", // visitor | verified | baller | bossman
-  isVerified: true,
-  depositPaid: 30000,
-
-  // Balance & Financials
-  walletBalance: 12500, // Remaining from deposit after unlocks
-  totalSpent: 485000,
-
-  // Stats
-  successfulMeetups: 2,
-  totalBookings: 3,
-  meetupSuccessRate: 67,
-
-  // Active bookings
-  activeBookings: [
-    {
-      id: "booking_001",
-      modelUsername: "destiny_x",
-      modelName: "Destiny",
-      type: "incall",
-      duration: "1hr",
-      date: "Today",
-      time: "8:00 PM",
-      location: "Lekki, Lagos",
-      status: "confirmed", // pending | confirmed | completed | cancelled
-      depositPaid: 25000,
-      totalAmount: 50000,
-      meetupCode: "HUSH-4782",
-      createdAt: "2025-01-20T10:30:00",
-    },
-    {
-      id: "booking_002",
-      modelUsername: "bella_luxe",
-      modelName: "Bella",
-      type: "outcall",
-      duration: "2hrs",
-      date: "Tomorrow",
-      time: "7:00 PM",
-      location: "Your location",
-      status: "pending",
-      depositPaid: 40000,
-      totalAmount: 130000,
-      meetupCode: null, // Not yet generated
-      createdAt: "2025-01-19T15:45:00",
-    },
-  ],
-
-  // Transaction history
-  transactions: [
-    { id: "txn_001", type: "deposit", amount: 30000, description: "Trust deposit (Verified tier)", date: "Oct 15, 2024", status: "completed" },
-    { id: "txn_002", type: "unlock", amount: -1000, description: "Contact unlock - Destiny", date: "Oct 20, 2024", status: "completed" },
-    { id: "txn_003", type: "unlock", amount: -5000, description: "Photos unlock - Destiny", date: "Oct 20, 2024", status: "completed" },
-    { id: "txn_004", type: "booking", amount: -25000, description: "Booking deposit - Destiny (1hr incall)", date: "Jan 20, 2025", status: "completed" },
-    { id: "txn_005", type: "unlock", amount: -2000, description: "Contact unlock - Bella", date: "Jan 19, 2025", status: "completed" },
-    { id: "txn_006", type: "booking", amount: -40000, description: "Booking deposit - Bella (2hrs outcall)", date: "Jan 19, 2025", status: "pending" },
-    { id: "txn_007", type: "refund", amount: 5500, description: "Partial refund - Cancelled booking", date: "Dec 10, 2024", status: "completed" },
-  ],
-
-  // Saved/favorited models
-  favorites: [
-    { username: "destiny_x", addedAt: "2024-10-18" },
-    { username: "bella_luxe", addedAt: "2025-01-15" },
-    { username: "chioma_vip", addedAt: "2025-01-10" },
-  ],
-
-  // Unlocked content
-  unlockedContacts: ["destiny_x", "bella_luxe"],
-  unlockedPhotos: ["destiny_x"],
-};
+import { useAuth } from '../context/AuthContext';
+import { useFavorites } from '../hooks/useFavorites';
 
 // ═══════════════════════════════════════════════════════════
 // HELPER FUNCTIONS
@@ -151,126 +72,36 @@ const TierBadge = ({ tier, size = "md" }) => {
   );
 };
 
-const StatCard = ({ icon: Icon, label, value, subValue, color = "pink" }) => (
-  <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-    <div className="flex items-center gap-3">
-      <div className={`p-2 rounded-lg bg-${color}-500/20`}>
-        <Icon size={20} className={`text-${color}-400`} />
-      </div>
-      <div className="flex-1">
-        <p className="text-white/50 text-xs">{label}</p>
-        <p className="text-white font-bold text-lg">{value}</p>
-        {subValue && <p className="text-white/40 text-xs">{subValue}</p>}
-      </div>
-    </div>
-  </div>
-);
-
-const BookingCard = ({ booking, onViewCode }) => {
-  const statusColors = {
-    pending: "bg-yellow-500/20 text-yellow-300 border-yellow-500/30",
-    confirmed: "bg-green-500/20 text-green-300 border-green-500/30",
-    completed: "bg-blue-500/20 text-blue-300 border-blue-500/30",
-    cancelled: "bg-red-500/20 text-red-300 border-red-500/30",
+const StatCard = ({ icon: Icon, label, value, subValue, color = "pink" }) => {
+  const colorClasses = {
+    pink: { bg: "bg-pink-500/20", text: "text-pink-400" },
+    green: { bg: "bg-green-500/20", text: "text-green-400" },
+    purple: { bg: "bg-purple-500/20", text: "text-purple-400" },
+    blue: { bg: "bg-blue-500/20", text: "text-blue-400" },
   };
+  const colors = colorClasses[color] || colorClasses.pink;
 
   return (
-    <div className="bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-colors">
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-pink-500/30 to-purple-500/30 flex items-center justify-center">
-            <span className="text-lg font-bold text-white/50">{booking.modelName.slice(0, 2).toUpperCase()}</span>
-          </div>
-          <div>
-            <Link to={`/model/${booking.modelUsername}`} className="text-white font-semibold hover:text-pink-300 transition-colors">
-              {booking.modelName}
-            </Link>
-            <p className="text-white/50 text-sm">{booking.duration} {booking.type}</p>
-          </div>
+    <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+      <div className="flex items-center gap-3">
+        <div className={`p-2 rounded-lg ${colors.bg}`}>
+          <Icon size={20} className={colors.text} />
         </div>
-        <span className={`px-2 py-1 rounded-full text-xs font-medium border ${statusColors[booking.status]}`}>
-          {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
-        </span>
-      </div>
-
-      <div className="space-y-2 mb-4">
-        <div className="flex items-center gap-2 text-white/60 text-sm">
-          <Calendar size={14} />
-          <span>{booking.date} at {booking.time}</span>
+        <div className="flex-1">
+          <p className="text-white/50 text-xs">{label}</p>
+          <p className="text-white font-bold text-lg">{value}</p>
+          {subValue && <p className="text-white/40 text-xs">{subValue}</p>}
         </div>
-        <div className="flex items-center gap-2 text-white/60 text-sm">
-          <MapPin size={14} />
-          <span>{booking.location}</span>
-        </div>
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-white/50">Deposit paid</span>
-          <span className="text-green-400 font-medium">{formatNaira(booking.depositPaid)}</span>
-        </div>
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-white/50">Balance due</span>
-          <span className="text-white font-medium">{formatNaira(booking.totalAmount - booking.depositPaid)}</span>
-        </div>
-      </div>
-
-      {booking.status === 'confirmed' && booking.meetupCode && (
-        <button
-          onClick={() => onViewCode(booking)}
-          className="w-full py-3 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 rounded-xl text-white font-semibold transition-all flex items-center justify-center gap-2"
-        >
-          <Eye size={18} />
-          View Meetup Code
-        </button>
-      )}
-
-      {booking.status === 'pending' && (
-        <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-3">
-          <p className="text-yellow-300 text-sm flex items-center gap-2">
-            <Clock size={14} />
-            Awaiting model confirmation
-          </p>
-        </div>
-      )}
-    </div>
-  );
-};
-
-const TransactionItem = ({ transaction }) => {
-  const typeConfig = {
-    deposit: { icon: Plus, color: "text-green-400", sign: "+" },
-    refund: { icon: RefreshCw, color: "text-green-400", sign: "+" },
-    unlock: { icon: Unlock, color: "text-pink-400", sign: "-" },
-    booking: { icon: Calendar, color: "text-blue-400", sign: "-" },
-  };
-
-  const config = typeConfig[transaction.type] || typeConfig.unlock;
-  const Icon = config.icon;
-
-  return (
-    <div className="flex items-center gap-3 py-3 border-b border-white/5 last:border-0">
-      <div className={`p-2 rounded-lg bg-white/5`}>
-        <Icon size={16} className={config.color} />
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-white text-sm truncate">{transaction.description}</p>
-        <p className="text-white/40 text-xs">{transaction.date}</p>
-      </div>
-      <div className="text-right">
-        <p className={`font-semibold ${transaction.amount > 0 ? 'text-green-400' : 'text-white'}`}>
-          {transaction.amount > 0 ? '+' : ''}{formatNaira(transaction.amount)}
-        </p>
-        {transaction.status === 'pending' && (
-          <span className="text-yellow-400 text-xs">Pending</span>
-        )}
       </div>
     </div>
   );
 };
 
-const FavoriteModelCard = ({ username, unlockedContact, unlockedPhotos }) => {
+const FavoriteModelCard = ({ username }) => {
   const modelData = getModelByUsername(username);
   if (!modelData) return null;
 
-  const { profile, stats, pricing } = modelData;
+  const { profile, stats } = modelData;
 
   return (
     <Link
@@ -291,56 +122,57 @@ const FavoriteModelCard = ({ username, unlockedContact, unlockedPhotos }) => {
           )}
         </div>
         <p className="text-white/50 text-sm truncate">{profile.location} • {stats.rating} ⭐</p>
-        <div className="flex items-center gap-2 mt-1">
-          {unlockedContact && (
-            <span className="text-xs text-green-400 flex items-center gap-1">
-              <Phone size={10} /> Contact
-            </span>
-          )}
-          {unlockedPhotos && (
-            <span className="text-xs text-cyan-400 flex items-center gap-1">
-              <Eye size={10} /> Photos
-            </span>
-          )}
-        </div>
       </div>
       <ChevronRight size={20} className="text-white/30 flex-shrink-0" />
     </Link>
   );
 };
 
-const UpgradeTierCard = ({ currentTier, targetTier, onUpgrade }) => {
-  const currentData = getTierData(currentTier);
-  const targetData = getTierData(targetTier);
-  const colors = getTierColor(targetTier);
+const TierSelectionCard = ({ tier, isSelected, onSelect, isCurrentTier }) => {
+  const tierData = getTierData(tier);
+  const colors = getTierColor(tier);
 
-  if (!targetData) return null;
-
-  const upgradeCost = targetData.deposit - (currentData?.deposit || 0);
+  if (!tierData) return null;
 
   return (
     <button
-      onClick={() => onUpgrade(targetTier)}
-      className={`w-full p-4 rounded-xl border text-left transition-all hover:scale-[1.02] ${colors.bg} ${colors.border}`}
+      onClick={() => !isCurrentTier && onSelect(tier)}
+      disabled={isCurrentTier}
+      className={`w-full p-4 rounded-xl border text-left transition-all ${
+        isCurrentTier
+          ? 'opacity-50 cursor-not-allowed'
+          : isSelected
+            ? `${colors.bg} ${colors.border} ring-2 ring-pink-500`
+            : `bg-white/5 border-white/10 hover:${colors.bg} hover:${colors.border}`
+      }`}
     >
       <div className="flex items-center gap-3 mb-2">
         <div className={`p-2 rounded-lg ${colors.bg}`}>
-          <span className={colors.accent}>{getTierIcon(targetTier)}</span>
+          <span className={colors.accent}>{getTierIcon(tier)}</span>
         </div>
         <div className="flex-1">
-          <p className={`font-semibold ${colors.text}`}>{targetData.name}</p>
-          <p className={`text-xs ${colors.accent}`}>"{targetData.tagline}"</p>
+          <div className="flex items-center gap-2">
+            <p className={`font-semibold ${colors.text}`}>{tierData.name}</p>
+            {isCurrentTier && (
+              <span className="text-xs bg-white/10 px-2 py-0.5 rounded-full text-white/50">Current</span>
+            )}
+          </div>
+          <p className={`text-xs ${colors.accent}`}>"{tierData.tagline}"</p>
         </div>
         <div className="text-right">
-          <p className="text-white font-bold">+{formatNaira(upgradeCost)}</p>
-          <p className="text-white/40 text-xs">to upgrade</p>
+          <p className="text-white font-bold">{formatNaira(tierData.deposit)}</p>
         </div>
       </div>
-      <div className="flex flex-wrap gap-1">
-        {targetData.benefits.slice(0, 2).map((benefit, i) => (
+      <div className="flex flex-wrap gap-1 mt-2">
+        {tierData.benefits.slice(0, 3).map((benefit, i) => (
           <span key={i} className="text-xs bg-white/10 px-2 py-0.5 rounded-full text-white/60">{benefit}</span>
         ))}
       </div>
+      {tierData.refund && (
+        <p className="text-white/40 text-xs mt-2">
+          Refundable after {tierData.refund.meetups} meetups or {tierData.refund.months} months
+        </p>
+      )}
     </button>
   );
 };
@@ -350,41 +182,100 @@ const UpgradeTierCard = ({ currentTier, targetTier, onUpgrade }) => {
 // ═══════════════════════════════════════════════════════════
 
 export default function ClientDashboardPage() {
-  const [activeTab, setActiveTab] = useState('overview'); // overview | bookings | history | favorites
-  const [showMeetupCodeModal, setShowMeetupCodeModal] = useState(false);
-  const [selectedBooking, setSelectedBooking] = useState(null);
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-  const [codeCopied, setCodeCopied] = useState(false);
+  const navigate = useNavigate();
+  const { user, logout, updateUser, updateTier, isClient } = useAuth();
+  const { favorites } = useFavorites();
 
-  const client = MOCK_CLIENT_DATA;
-  const tierData = getTierData(client.tier);
-  const tierColors = getTierColor(client.tier);
+  const [activeTab, setActiveTab] = useState('overview');
+  const [showDepositModal, setShowDepositModal] = useState(false);
+  const [showEditProfileModal, setShowEditProfileModal] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [selectedTier, setSelectedTier] = useState(null);
+  const [editName, setEditName] = useState('');
+  const [depositStep, setDepositStep] = useState('select'); // select, payment, confirm
 
-  const handleViewMeetupCode = (booking) => {
-    setSelectedBooking(booking);
-    setShowMeetupCodeModal(true);
+  // Redirect if not a client
+  if (!user || !isClient) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-pink-950 via-rose-950 to-fuchsia-950 flex items-center justify-center p-4">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-white mb-2">Access Denied</h1>
+          <p className="text-white/60 mb-6">This page is only for registered clients.</p>
+          <Link to="/auth" className="px-6 py-3 bg-pink-500 hover:bg-pink-600 rounded-xl text-white font-medium transition-colors">
+            Register / Login
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const currentTier = user.tier || 'visitor';
+  const tierData = getTierData(currentTier);
+  const tierColors = getTierColor(currentTier);
+
+  const handleLogout = () => {
+    logout();
+    navigate('/auth');
   };
 
-  const copyMeetupCode = () => {
-    if (selectedBooking?.meetupCode) {
-      navigator.clipboard.writeText(selectedBooking.meetupCode);
-      setCodeCopied(true);
-      setTimeout(() => setCodeCopied(false), 2000);
+  const handleEditProfile = () => {
+    setEditName(user.name || '');
+    setShowEditProfileModal(true);
+  };
+
+  const handleSaveProfile = () => {
+    if (editName.trim().length >= 2) {
+      updateUser({ name: editName.trim() });
+      setShowEditProfileModal(false);
     }
   };
 
-  const tabs = [
-    { id: 'overview', label: 'Overview', icon: Home },
-    { id: 'bookings', label: 'Bookings', icon: Calendar },
-    { id: 'history', label: 'History', icon: History },
-    { id: 'favorites', label: 'Favorites', icon: Heart },
-  ];
+  const handleSelectTier = (tier) => {
+    setSelectedTier(tier);
+  };
+
+  const handleProceedToPayment = () => {
+    if (selectedTier) {
+      setDepositStep('payment');
+    }
+  };
+
+  const handleConfirmDeposit = () => {
+    if (selectedTier) {
+      const tierInfo = getTierData(selectedTier);
+      updateTier(selectedTier, tierInfo.deposit);
+      setDepositStep('confirm');
+    }
+  };
+
+  const closeDepositModal = () => {
+    setShowDepositModal(false);
+    setSelectedTier(null);
+    setDepositStep('select');
+  };
+
+  // Calculate stats
+  const memberSince = user.registeredAt
+    ? new Date(user.registeredAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+    : 'Recently';
+
+  const successRate = user.successfulMeetups > 0
+    ? Math.round((user.successfulMeetups / (user.successfulMeetups + 1)) * 100)
+    : 0;
 
   // Calculate refund progress
   const refundProgress = tierData?.refund
-    ? Math.min((client.successfulMeetups / tierData.refund.meetups) * 100, 100)
+    ? Math.min((user.successfulMeetups / tierData.refund.meetups) * 100, 100)
     : 0;
-  const meetupsToRefund = tierData?.refund?.meetups - client.successfulMeetups;
+  const meetupsToRefund = tierData?.refund
+    ? Math.max(0, tierData.refund.meetups - user.successfulMeetups)
+    : 0;
+
+  const tabs = [
+    { id: 'overview', label: 'Overview', icon: Home },
+    { id: 'favorites', label: 'Favorites', icon: Heart },
+    { id: 'settings', label: 'Settings', icon: Settings },
+  ];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-950 via-rose-950 to-fuchsia-950">
@@ -397,72 +288,102 @@ export default function ClientDashboardPage() {
       <div className="relative max-w-2xl mx-auto px-4 py-6 pb-24">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-white">My Dashboard</h1>
-            <p className="text-white/50 text-sm">Welcome back, {client.name}</p>
+          <div className="flex items-center gap-3">
+            <Link to="/explore/all" className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors">
+              <ChevronLeft size={20} className="text-white" />
+            </Link>
+            <div>
+              <h1 className="text-2xl font-bold text-white">My Dashboard</h1>
+              <p className="text-white/50 text-sm">Welcome back, {user.name || 'Guest'}</p>
+            </div>
           </div>
-          <Link to="/explore/all" className="p-3 bg-white/10 rounded-full hover:bg-white/20 transition-colors">
-            <Users size={20} className="text-white" />
-          </Link>
+          <button
+            onClick={() => setShowLogoutConfirm(true)}
+            className="p-3 bg-white/10 rounded-full hover:bg-red-500/20 hover:text-red-400 transition-colors text-white/60"
+          >
+            <LogOut size={20} />
+          </button>
         </div>
+
+        {/* New Member Banner (if no tier selected) */}
+        {!user.hasPaidTrustDeposit && (
+          <div className="bg-gradient-to-r from-pink-500/20 to-purple-500/20 border border-pink-500/30 rounded-2xl p-4 mb-6">
+            <div className="flex items-start gap-3">
+              <div className="p-2 bg-pink-500/20 rounded-lg">
+                <Sparkles size={24} className="text-pink-400" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-white font-semibold mb-1">Complete Your Registration</h3>
+                <p className="text-white/60 text-sm mb-3">
+                  Choose a verification tier to unlock full access to models and booking features.
+                </p>
+                <button
+                  onClick={() => setShowDepositModal(true)}
+                  className="px-4 py-2 bg-pink-500 hover:bg-pink-600 rounded-xl text-white text-sm font-medium transition-colors"
+                >
+                  Choose Your Tier
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Tier & Balance Card */}
-        <div className={`${tierColors.bg} ${tierColors.border} border rounded-2xl p-4 mb-6`}>
-          <div className="flex items-start justify-between mb-4">
-            <div>
-              <TierBadge tier={client.tier} size="lg" />
-              <p className="text-white/50 text-xs mt-2">Member since {client.memberSince}</p>
-            </div>
-            <button
-              onClick={() => setShowUpgradeModal(true)}
-              className="px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-full text-white text-sm font-medium transition-colors flex items-center gap-1"
-            >
-              <ArrowUpRight size={14} />
-              Upgrade
-            </button>
-          </div>
-
-          {/* Wallet Balance */}
-          <div className="bg-black/20 rounded-xl p-4 mb-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-white/60 text-sm flex items-center gap-2">
-                <Wallet size={16} />
-                Wallet Balance
-              </span>
-              <button className="text-white/40 hover:text-white transition-colors">
-                <RefreshCw size={14} />
+        {user.hasPaidTrustDeposit && (
+          <div className={`${tierColors.bg} ${tierColors.border} border rounded-2xl p-4 mb-6`}>
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <TierBadge tier={currentTier} size="lg" />
+                <p className="text-white/50 text-xs mt-2">Member since {memberSince}</p>
+              </div>
+              <button
+                onClick={() => setShowDepositModal(true)}
+                className="px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-full text-white text-sm font-medium transition-colors flex items-center gap-1"
+              >
+                <ArrowUpRight size={14} />
+                Upgrade
               </button>
             </div>
-            <p className="text-3xl font-bold text-white">{formatNaira(client.walletBalance)}</p>
-            <p className="text-white/40 text-xs mt-1">Available for unlocks & deposits</p>
-          </div>
 
-          {/* Refund Progress */}
-          {tierData?.refund && (
-            <div className="bg-black/20 rounded-xl p-4">
+            {/* Wallet Balance */}
+            <div className="bg-black/20 rounded-xl p-4 mb-4">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-white/60 text-sm">Deposit Refund Progress</span>
-                <span className="text-white font-medium text-sm">{client.successfulMeetups}/{tierData.refund.meetups}</span>
+                <span className="text-white/60 text-sm flex items-center gap-2">
+                  <Wallet size={16} />
+                  Deposit Balance
+                </span>
               </div>
-              <div className="h-2 bg-white/10 rounded-full overflow-hidden mb-2">
-                <div
-                  className={`h-full ${tierColors.solid} transition-all duration-500`}
-                  style={{ width: `${refundProgress}%` }}
-                />
-              </div>
-              {meetupsToRefund > 0 ? (
-                <p className="text-white/40 text-xs">
-                  {meetupsToRefund} more successful meetup{meetupsToRefund > 1 ? 's' : ''} to get your {formatNaira(client.depositPaid)} deposit back
-                </p>
-              ) : (
-                <p className="text-green-400 text-xs flex items-center gap-1">
-                  <CheckCircle size={12} />
-                  Eligible for deposit refund!
-                </p>
-              )}
+              <p className="text-3xl font-bold text-white">{formatNaira(user.depositBalance || 0)}</p>
+              <p className="text-white/40 text-xs mt-1">Trust deposit for unlocks & bookings</p>
             </div>
-          )}
-        </div>
+
+            {/* Refund Progress */}
+            {tierData?.refund && (
+              <div className="bg-black/20 rounded-xl p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-white/60 text-sm">Deposit Refund Progress</span>
+                  <span className="text-white font-medium text-sm">{user.successfulMeetups}/{tierData.refund.meetups}</span>
+                </div>
+                <div className="h-2 bg-white/10 rounded-full overflow-hidden mb-2">
+                  <div
+                    className={`h-full ${tierColors.solid} transition-all duration-500`}
+                    style={{ width: `${refundProgress}%` }}
+                  />
+                </div>
+                {meetupsToRefund > 0 ? (
+                  <p className="text-white/40 text-xs">
+                    {meetupsToRefund} more successful meetup{meetupsToRefund > 1 ? 's' : ''} to get your {formatNaira(user.depositBalance || 0)} deposit back
+                  </p>
+                ) : (
+                  <p className="text-green-400 text-xs flex items-center gap-1">
+                    <CheckCircle size={12} />
+                    Eligible for deposit refund!
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Tab Navigation */}
         <div className="flex gap-2 overflow-x-auto hide-scrollbar mb-6 pb-1">
@@ -489,49 +410,68 @@ export default function ClientDashboardPage() {
             <div className="grid grid-cols-2 gap-3">
               <StatCard
                 icon={Target}
-                label="Success Rate"
-                value={`${client.meetupSuccessRate}%`}
-                subValue={`${client.successfulMeetups} of ${client.totalBookings} meetups`}
+                label="Successful Meetups"
+                value={user.successfulMeetups || 0}
+                subValue={user.isTrustedMember ? "Trusted Member" : "Building trust"}
                 color="green"
               />
               <StatCard
-                icon={CreditCard}
-                label="Total Spent"
-                value={formatNaira(client.totalSpent)}
-                subValue="All time"
+                icon={Calendar}
+                label="Member Status"
+                value={user.isNewMember ? "New" : "Active"}
+                subValue={memberSince}
                 color="purple"
               />
             </div>
 
-            {/* Active Bookings Preview */}
-            {client.activeBookings.length > 0 && (
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <h2 className="text-white font-semibold flex items-center gap-2">
-                    <Calendar size={18} className="text-pink-400" />
-                    Active Bookings
-                  </h2>
-                  <button
-                    onClick={() => setActiveTab('bookings')}
-                    className="text-pink-400 text-sm flex items-center gap-1 hover:text-pink-300"
-                  >
-                    See all <ChevronRight size={14} />
-                  </button>
-                </div>
-                <BookingCard
-                  booking={client.activeBookings[0]}
-                  onViewCode={handleViewMeetupCode}
-                />
+            {/* Profile Summary */}
+            <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-white font-semibold flex items-center gap-2">
+                  <User size={18} className="text-pink-400" />
+                  My Profile
+                </h3>
+                <button
+                  onClick={handleEditProfile}
+                  className="text-pink-400 text-sm flex items-center gap-1 hover:text-pink-300"
+                >
+                  <Edit3 size={14} />
+                  Edit
+                </button>
               </div>
-            )}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-white/50 text-sm">Display Name</span>
+                  <span className="text-white font-medium">{user.name || 'Not set'}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-white/50 text-sm">Phone</span>
+                  <span className="text-white font-medium">+234{user.phone}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-white/50 text-sm">Verification Tier</span>
+                  {user.hasPaidTrustDeposit ? (
+                    <TierBadge tier={currentTier} />
+                  ) : (
+                    <span className="text-white/40 text-sm">Not verified</span>
+                  )}
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-white/50 text-sm">Trust Status</span>
+                  <span className={`text-sm font-medium ${user.isTrustedMember ? 'text-green-400' : 'text-white/60'}`}>
+                    {user.isTrustedMember ? 'Trusted Member' : user.isNewMember ? 'New Member' : 'Building Trust'}
+                  </span>
+                </div>
+              </div>
+            </div>
 
             {/* Favorites Preview */}
-            {client.favorites.length > 0 && (
+            {favorites.length > 0 && (
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <h2 className="text-white font-semibold flex items-center gap-2">
                     <Heart size={18} className="text-pink-400" />
-                    Favorites
+                    Saved Models
                   </h2>
                   <button
                     onClick={() => setActiveTab('favorites')}
@@ -541,114 +481,48 @@ export default function ClientDashboardPage() {
                   </button>
                 </div>
                 <div className="space-y-2">
-                  {client.favorites.slice(0, 2).map(fav => (
-                    <FavoriteModelCard
-                      key={fav.username}
-                      username={fav.username}
-                      unlockedContact={client.unlockedContacts.includes(fav.username)}
-                      unlockedPhotos={client.unlockedPhotos.includes(fav.username)}
-                    />
+                  {favorites.slice(0, 2).map(username => (
+                    <FavoriteModelCard key={username} username={username} />
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Recent Transactions Preview */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-white font-semibold flex items-center gap-2">
-                  <History size={18} className="text-pink-400" />
-                  Recent Activity
-                </h2>
-                <button
-                  onClick={() => setActiveTab('history')}
-                  className="text-pink-400 text-sm flex items-center gap-1 hover:text-pink-300"
-                >
-                  See all <ChevronRight size={14} />
-                </button>
-              </div>
-              <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-                {client.transactions.slice(0, 3).map(txn => (
-                  <TransactionItem key={txn.id} transaction={txn} />
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'bookings' && (
-          <div className="space-y-4">
-            <h2 className="text-white font-semibold mb-4">Your Bookings</h2>
-            {client.activeBookings.length > 0 ? (
-              client.activeBookings.map(booking => (
-                <BookingCard
-                  key={booking.id}
-                  booking={booking}
-                  onViewCode={handleViewMeetupCode}
-                />
-              ))
-            ) : (
-              <div className="text-center py-12">
-                <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-white/5 flex items-center justify-center">
-                  <Calendar size={32} className="text-white/30" />
-                </div>
-                <h3 className="text-white font-medium mb-2">No active bookings</h3>
-                <p className="text-white/50 text-sm mb-4">Browse models to make a booking</p>
-                <Link
-                  to="/explore/all"
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-pink-500 hover:bg-pink-600 rounded-xl text-white text-sm font-medium transition-colors"
-                >
-                  <Users size={16} />
-                  Explore Models
-                </Link>
-              </div>
-            )}
-
-            {/* Booking Tips */}
-            <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4 mt-6">
-              <h4 className="text-blue-300 font-medium mb-2 flex items-center gap-2">
-                <AlertTriangle size={16} />
-                Meetup Tips
+            {/* How It Works */}
+            <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
+              <h4 className="text-blue-300 font-medium mb-3 flex items-center gap-2">
+                <Shield size={16} />
+                How Hush Works
               </h4>
-              <ul className="text-blue-200/70 text-sm space-y-1">
-                <li>• Always verify the meetup code with the model</li>
-                <li>• Pay remaining balance directly to the model</li>
-                <li>• Confirm the meetup after to maintain your success rate</li>
-              </ul>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'history' && (
-          <div>
-            <h2 className="text-white font-semibold mb-4">Transaction History</h2>
-            <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-              {client.transactions.length > 0 ? (
-                client.transactions.map(txn => (
-                  <TransactionItem key={txn.id} transaction={txn} />
-                ))
-              ) : (
-                <div className="text-center py-8">
-                  <History size={32} className="text-white/30 mx-auto mb-2" />
-                  <p className="text-white/50">No transactions yet</p>
-                </div>
-              )}
+              <ol className="text-blue-200/70 text-sm space-y-2">
+                <li className="flex items-start gap-2">
+                  <span className="bg-blue-500/20 w-5 h-5 rounded-full flex items-center justify-center text-xs flex-shrink-0">1</span>
+                  <span>Choose a verification tier and pay your trust deposit</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="bg-blue-500/20 w-5 h-5 rounded-full flex items-center justify-center text-xs flex-shrink-0">2</span>
+                  <span>Unlock contact info and photos for models you like</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="bg-blue-500/20 w-5 h-5 rounded-full flex items-center justify-center text-xs flex-shrink-0">3</span>
+                  <span>Book meetups with a 50% deposit, pay the rest in person</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="bg-blue-500/20 w-5 h-5 rounded-full flex items-center justify-center text-xs flex-shrink-0">4</span>
+                  <span>Get your trust deposit back after successful meetups!</span>
+                </li>
+              </ol>
             </div>
           </div>
         )}
 
         {activeTab === 'favorites' && (
           <div>
-            <h2 className="text-white font-semibold mb-4">Saved Models ({client.favorites.length})</h2>
-            {client.favorites.length > 0 ? (
+            <h2 className="text-white font-semibold mb-4">Saved Models ({favorites.length})</h2>
+            {favorites.length > 0 ? (
               <div className="space-y-2">
-                {client.favorites.map(fav => (
-                  <FavoriteModelCard
-                    key={fav.username}
-                    username={fav.username}
-                    unlockedContact={client.unlockedContacts.includes(fav.username)}
-                    unlockedPhotos={client.unlockedPhotos.includes(fav.username)}
-                  />
+                {favorites.map(username => (
+                  <FavoriteModelCard key={username} username={username} />
                 ))}
               </div>
             ) : (
@@ -669,122 +543,273 @@ export default function ClientDashboardPage() {
             )}
           </div>
         )}
+
+        {activeTab === 'settings' && (
+          <div className="space-y-4">
+            <h2 className="text-white font-semibold mb-4">Account Settings</h2>
+
+            {/* Edit Profile */}
+            <button
+              onClick={handleEditProfile}
+              className="w-full flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-pink-500/20 rounded-lg">
+                  <Edit3 size={18} className="text-pink-400" />
+                </div>
+                <div className="text-left">
+                  <p className="text-white font-medium">Edit Profile</p>
+                  <p className="text-white/50 text-sm">Change your display name</p>
+                </div>
+              </div>
+              <ChevronRight size={20} className="text-white/30" />
+            </button>
+
+            {/* Deposit / Upgrade */}
+            <button
+              onClick={() => setShowDepositModal(true)}
+              className="w-full flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-purple-500/20 rounded-lg">
+                  <Wallet size={18} className="text-purple-400" />
+                </div>
+                <div className="text-left">
+                  <p className="text-white font-medium">
+                    {user.hasPaidTrustDeposit ? 'Upgrade Tier' : 'Make Trust Deposit'}
+                  </p>
+                  <p className="text-white/50 text-sm">
+                    {user.hasPaidTrustDeposit
+                      ? `Current: ${tierData?.name || 'None'}`
+                      : 'Choose a verification tier'}
+                  </p>
+                </div>
+              </div>
+              <ChevronRight size={20} className="text-white/30" />
+            </button>
+
+            {/* Logout */}
+            <button
+              onClick={() => setShowLogoutConfirm(true)}
+              className="w-full flex items-center justify-between p-4 bg-red-500/10 border border-red-500/30 rounded-xl hover:bg-red-500/20 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-red-500/20 rounded-lg">
+                  <LogOut size={18} className="text-red-400" />
+                </div>
+                <div className="text-left">
+                  <p className="text-red-300 font-medium">Sign Out</p>
+                  <p className="text-red-300/50 text-sm">Log out of your account</p>
+                </div>
+              </div>
+              <ChevronRight size={20} className="text-red-300/30" />
+            </button>
+
+            {/* Register as Different Type */}
+            <div className="pt-4 border-t border-white/10">
+              <p className="text-white/50 text-sm mb-3">Want to become a model instead?</p>
+              <button
+                onClick={() => {
+                  logout();
+                  navigate('/auth');
+                }}
+                className="text-pink-400 text-sm hover:text-pink-300 transition-colors"
+              >
+                Sign out and register as a Creator →
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Bottom Navigation */}
       <div className="fixed bottom-0 left-0 right-0 bg-gray-900/95 backdrop-blur-sm border-t border-white/10 px-4 py-3">
         <div className="max-w-2xl mx-auto flex items-center justify-around">
-          <Link to="/" className="flex flex-col items-center gap-1 text-white/50 hover:text-white transition-colors">
-            <Home size={20} />
-            <span className="text-xs">Home</span>
-          </Link>
           <Link to="/explore/all" className="flex flex-col items-center gap-1 text-white/50 hover:text-white transition-colors">
             <Users size={20} />
             <span className="text-xs">Explore</span>
           </Link>
+          <Link to="/reviews" className="flex flex-col items-center gap-1 text-white/50 hover:text-white transition-colors">
+            <Star size={20} />
+            <span className="text-xs">Reviews</span>
+          </Link>
           <Link to="/dashboard" className="flex flex-col items-center gap-1 text-pink-400">
-            <Wallet size={20} />
-            <span className="text-xs">Dashboard</span>
+            <User size={20} />
+            <span className="text-xs">Profile</span>
           </Link>
         </div>
       </div>
 
-      {/* Meetup Code Modal */}
+      {/* Deposit Modal */}
       <Modal
-        isOpen={showMeetupCodeModal}
-        onClose={() => setShowMeetupCodeModal(false)}
-        title="🔐 Meetup Code"
+        isOpen={showDepositModal}
+        onClose={closeDepositModal}
+        title={depositStep === 'select' ? "💎 Choose Your Tier" : depositStep === 'payment' ? "💳 Make Payment" : "✅ Success!"}
+        size="lg"
       >
-        {selectedBooking && (
+        {depositStep === 'select' && (
           <div className="space-y-4">
-            <div className="bg-gradient-to-br from-pink-500/20 to-purple-500/20 border border-pink-500/30 rounded-xl p-6 text-center">
-              <p className="text-white/60 text-sm mb-2">Your unique meetup code</p>
-              <p className="text-4xl font-mono font-bold text-white tracking-wider mb-4">
-                {selectedBooking.meetupCode}
+            <p className="text-white/60 text-sm mb-4">
+              Your trust deposit unlocks full access and is refundable after successful meetups.
+            </p>
+
+            {Object.keys(PLATFORM_CONFIG.verificationTiers).map(tierId => (
+              <TierSelectionCard
+                key={tierId}
+                tier={tierId}
+                isSelected={selectedTier === tierId}
+                onSelect={handleSelectTier}
+                isCurrentTier={user.hasPaidTrustDeposit && currentTier === tierId}
+              />
+            ))}
+
+            <button
+              onClick={handleProceedToPayment}
+              disabled={!selectedTier || (user.hasPaidTrustDeposit && currentTier === selectedTier)}
+              className={`w-full py-4 rounded-xl text-white font-semibold transition-all ${
+                selectedTier && !(user.hasPaidTrustDeposit && currentTier === selectedTier)
+                  ? 'bg-pink-500 hover:bg-pink-600'
+                  : 'bg-white/20 cursor-not-allowed'
+              }`}
+            >
+              Continue to Payment
+            </button>
+          </div>
+        )}
+
+        {depositStep === 'payment' && selectedTier && (
+          <div className="space-y-4">
+            <div className={`p-4 rounded-xl ${getTierColor(selectedTier).bg} ${getTierColor(selectedTier).border} border`}>
+              <div className="flex items-center gap-3 mb-2">
+                <span className={getTierColor(selectedTier).accent}>{getTierIcon(selectedTier)}</span>
+                <span className={`font-semibold ${getTierColor(selectedTier).text}`}>
+                  {getTierData(selectedTier)?.name}
+                </span>
+              </div>
+              <p className="text-2xl font-bold text-white">
+                {formatNaira(getTierData(selectedTier)?.deposit || 0)}
               </p>
-              <button
-                onClick={copyMeetupCode}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 mx-auto ${
-                  codeCopied
-                    ? 'bg-green-500 text-white'
-                    : 'bg-white/10 text-white hover:bg-white/20'
-                }`}
-              >
-                {codeCopied ? <CheckCircle size={16} /> : <Copy size={16} />}
-                {codeCopied ? 'Copied!' : 'Copy Code'}
-              </button>
             </div>
 
-            <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
-              <h4 className="text-blue-300 font-medium mb-2">How to use</h4>
-              <ol className="text-blue-200/70 text-sm space-y-2">
-                <li>1. Meet {selectedBooking.modelName} at the agreed location</li>
-                <li>2. Share this code with {selectedBooking.modelName}</li>
-                <li>3. {selectedBooking.modelName} will confirm the code on their end</li>
-                <li>4. Pay the remaining balance ({formatNaira(selectedBooking.totalAmount - selectedBooking.depositPaid)})</li>
-              </ol>
+            <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+              <p className="text-white/70 text-sm font-medium mb-3">Transfer to:</p>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-white/50 text-sm">Bank</span>
+                  <span className="text-white font-medium">{PLATFORM_CONFIG.trustDepositAccount.provider}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-white/50 text-sm">Account Number</span>
+                  <span className="text-white font-mono font-medium">{PLATFORM_CONFIG.trustDepositAccount.number}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-white/50 text-sm">Account Name</span>
+                  <span className="text-white font-medium">{PLATFORM_CONFIG.trustDepositAccount.name}</span>
+                </div>
+              </div>
             </div>
 
             <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3">
               <p className="text-amber-300 text-sm flex items-center gap-2">
                 <AlertTriangle size={14} />
-                Do not share this code with anyone except {selectedBooking.modelName}
+                In demo mode, click below to simulate payment
               </p>
             </div>
+
+            <button
+              onClick={handleConfirmDeposit}
+              className="w-full py-4 bg-green-500 hover:bg-green-600 rounded-xl text-white font-semibold transition-all"
+            >
+              I've Made the Transfer
+            </button>
+
+            <button
+              onClick={() => setDepositStep('select')}
+              className="w-full py-3 bg-white/10 hover:bg-white/20 rounded-xl text-white font-medium transition-colors"
+            >
+              Go Back
+            </button>
+          </div>
+        )}
+
+        {depositStep === 'confirm' && (
+          <div className="text-center py-6">
+            <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-green-500/20 flex items-center justify-center">
+              <CheckCircle size={40} className="text-green-400" />
+            </div>
+            <h3 className="text-xl font-bold text-white mb-2">You're Verified!</h3>
+            <p className="text-white/60 text-sm mb-6">
+              Your {getTierData(selectedTier)?.name} tier is now active. You can browse models, unlock contacts, and book meetups.
+            </p>
+            <button
+              onClick={closeDepositModal}
+              className="w-full py-4 bg-pink-500 hover:bg-pink-600 rounded-xl text-white font-semibold transition-all"
+            >
+              Start Exploring
+            </button>
           </div>
         )}
       </Modal>
 
-      {/* Upgrade Tier Modal */}
+      {/* Edit Profile Modal */}
       <Modal
-        isOpen={showUpgradeModal}
-        onClose={() => setShowUpgradeModal(false)}
-        title="⬆️ Upgrade Your Tier"
-        size="lg"
+        isOpen={showEditProfileModal}
+        onClose={() => setShowEditProfileModal(false)}
+        title="✏️ Edit Profile"
       >
         <div className="space-y-4">
-          <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-            <div className="flex items-center gap-3 mb-2">
-              <span className={tierColors.accent}>{getTierIcon(client.tier)}</span>
-              <div>
-                <p className="text-white/50 text-xs">Current tier</p>
-                <p className={`font-semibold ${tierColors.text}`}>{tierData?.name}</p>
-              </div>
-            </div>
+          <div>
+            <label className="text-white/70 text-sm mb-2 block">Display Name</label>
+            <input
+              type="text"
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              placeholder="e.g. John D."
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/40 focus:border-pink-500 focus:outline-none"
+            />
+            <p className="text-white/40 text-xs mt-2">
+              This name is shown to models when you book
+            </p>
           </div>
 
-          <p className="text-white/60 text-sm">Upgrade to unlock more benefits:</p>
+          <button
+            onClick={handleSaveProfile}
+            disabled={editName.trim().length < 2}
+            className={`w-full py-4 rounded-xl text-white font-semibold transition-all ${
+              editName.trim().length >= 2
+                ? 'bg-pink-500 hover:bg-pink-600'
+                : 'bg-white/20 cursor-not-allowed'
+            }`}
+          >
+            Save Changes
+          </button>
+        </div>
+      </Modal>
 
-          {/* Available upgrades */}
-          {client.tier === 'visitor' && (
-            <>
-              <UpgradeTierCard currentTier="visitor" targetTier="verified" onUpgrade={() => {}} />
-              <UpgradeTierCard currentTier="visitor" targetTier="baller" onUpgrade={() => {}} />
-              <UpgradeTierCard currentTier="visitor" targetTier="bossman" onUpgrade={() => {}} />
-            </>
-          )}
-          {client.tier === 'verified' && (
-            <>
-              <UpgradeTierCard currentTier="verified" targetTier="baller" onUpgrade={() => {}} />
-              <UpgradeTierCard currentTier="verified" targetTier="bossman" onUpgrade={() => {}} />
-            </>
-          )}
-          {client.tier === 'baller' && (
-            <UpgradeTierCard currentTier="baller" targetTier="bossman" onUpgrade={() => {}} />
-          )}
-          {client.tier === 'bossman' && (
-            <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 text-center">
-              <Crown size={32} className="text-amber-400 mx-auto mb-2" />
-              <p className="text-amber-300 font-medium">You're at the highest tier!</p>
-              <p className="text-amber-300/60 text-sm">Enjoy all Bossman benefits</p>
-            </div>
-          )}
+      {/* Logout Confirmation Modal */}
+      <Modal
+        isOpen={showLogoutConfirm}
+        onClose={() => setShowLogoutConfirm(false)}
+        title="Sign Out"
+      >
+        <div className="space-y-4">
+          <p className="text-white/70">
+            Are you sure you want to sign out? You'll need to verify your phone number again to log back in.
+          </p>
 
-          <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-3">
-            <p className="text-green-300 text-sm flex items-center gap-2">
-              <Gift size={14} />
-              Your deposit difference will be adjusted automatically
-            </p>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowLogoutConfirm(false)}
+              className="flex-1 py-3 bg-white/10 hover:bg-white/20 rounded-xl text-white font-medium transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleLogout}
+              className="flex-1 py-3 bg-red-500 hover:bg-red-600 rounded-xl text-white font-semibold transition-all"
+            >
+              Sign Out
+            </button>
           </div>
         </div>
       </Modal>
