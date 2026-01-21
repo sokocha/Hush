@@ -255,12 +255,8 @@ const MeetupCard = ({ meetup, onCancel }) => {
 
       <div className="flex items-center justify-between pt-3 border-t border-white/10">
         <div>
-          <p className="text-white/40 text-xs">Total</p>
+          <p className="text-white/40 text-xs">Rate</p>
           <p className="text-white font-bold">{formatNaira(meetup.totalPrice)}</p>
-        </div>
-        <div className="text-right">
-          <p className="text-white/40 text-xs">Deposit Paid</p>
-          <p className="text-green-400 font-medium">{formatNaira(meetup.depositAmount)}</p>
         </div>
         {meetup.clientCode && (meetup.status === 'pending' || meetup.status === 'confirmed') && (
           <div className="text-right">

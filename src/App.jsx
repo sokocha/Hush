@@ -657,8 +657,6 @@ const MeetupModal = ({ isOpen, onClose, clientState, onNeedsTrustDeposit, modelC
     const rates = formData.locationType === 'outcall' && hasOutcall ? modelConfig.pricing.meetupOutcall : modelConfig.pricing.meetupIncall;
     return formData.duration === 'overnight' ? rates.overnight : rates[formData.duration] || rates[1];
   };
-  const depositAmount = Math.round(getMeetupPrice() * modelConfig.pricing.depositPercent);
-  const balanceAmount = getMeetupPrice() - depositAmount;
   const isFormValid = formData.date && formData.time && formData.location && agreedToTerms;
 
   // Get available time slots based on model's schedule and selected date
@@ -705,10 +703,11 @@ const MeetupModal = ({ isOpen, onClose, clientState, onNeedsTrustDeposit, modelC
       onClose();
       return;
     }
-    setStep(2);
+    // Skip payment step, go directly to confirmation
+    handleConfirmBooking();
   };
 
-  const handlePaymentConfirm = () => {
+  const handleConfirmBooking = () => {
     setCodes({ client: generateCode('C'), creator: generateCode('X') });
     setStep(4);
   };
@@ -726,20 +725,18 @@ const MeetupModal = ({ isOpen, onClose, clientState, onNeedsTrustDeposit, modelC
         duration: formData.duration,
         specialRequests: formData.specialRequests,
         totalPrice: getMeetupPrice(),
-        depositAmount,
-        balanceAmount,
         clientCode: codes.client,
       });
     }
 
     // Build WhatsApp message with special requests if provided
-    let message = `🌹 MEETUP BOOKING\n\nName: ${clientState.name || 'Client'}\nDate: ${formData.date}\nTime: ${formData.time}\nType: ${formData.locationType === 'incall' ? 'Incall' : 'Outcall'}\nArea: ${formData.location}\nDuration: ${formData.duration === 'overnight' ? 'Overnight' : formData.duration + 'hr'}`;
+    let message = `🌹 MEETUP BOOKING\n\nName: ${clientState.name || 'Client'}\nDate: ${formData.date}\nTime: ${formData.time}\nType: ${formData.locationType === 'incall' ? 'Incall' : 'Outcall'}\nArea: ${formData.location}\nDuration: ${formData.duration === 'overnight' ? 'Overnight' : formData.duration + 'hr'}\nRate: ${formatNaira(getMeetupPrice())}`;
 
     if (formData.specialRequests.trim()) {
       message += `\n\n📝 SPECIAL REQUESTS:\n${formData.specialRequests.trim()}`;
     }
 
-    message += `\n\nTotal: ${formatNaira(getMeetupPrice())}\nDeposit: ${formatNaira(depositAmount)} sent to your ${modelConfig.creatorPayments[0].provider}\nBalance: ${formatNaira(balanceAmount)} at meetup\n\n🔐 MY CODE: ${codes.client}`;
+    message += `\n\n🔐 MY CODE: ${codes.client}`;
 
     window.open(`https://wa.me/${modelConfig.contact.whatsapp}?text=${encodeURIComponent(message)}`, '_blank');
     resetAndClose();
@@ -919,17 +916,16 @@ const MeetupModal = ({ isOpen, onClose, clientState, onNeedsTrustDeposit, modelC
 
           <label className="flex items-start gap-3 p-3 bg-white/5 rounded-xl cursor-pointer border border-white/10">
             <input type="checkbox" checked={agreedToTerms} onChange={(e) => setAgreedToTerms(e.target.checked)} className="w-5 h-5 mt-0.5 rounded border-white/30 bg-white/10 text-pink-500" />
-            <span className="text-white/70 text-xs">I agree: 50% deposit required • Pay {modelConfig.profile.name} directly • Code exchange at meetup</span>
+            <span className="text-white/70 text-xs">I agree to exchange codes with {modelConfig.profile.name} at the meetup for verification</span>
           </label>
 
           {/* Price summary */}
           <div className="bg-pink-500/10 border border-pink-500/30 rounded-xl p-4">
-            <div className="flex justify-between items-center mb-2">
+            <div className="flex justify-between items-center">
               <span className="text-white/60 text-sm">{formData.locationType === 'incall' ? '🏠 Incall' : '🚗 Outcall'} • {formData.duration === 'overnight' ? 'Overnight' : formData.duration + 'hr'}</span>
               <span className="text-white font-bold text-lg">{formatNaira(getMeetupPrice())}</span>
             </div>
-            <div className="flex justify-between text-sm"><span className="text-white/60">Deposit (pay now):</span><span className="text-pink-300 font-bold">{formatNaira(depositAmount)}</span></div>
-            <div className="flex justify-between text-sm mt-1"><span className="text-white/60">Balance (at meetup):</span><span className="text-white/80">{formatNaira(balanceAmount)}</span></div>
+            <p className="text-white/40 text-xs mt-2">Payment handled directly between you and {modelConfig.profile.name}</p>
           </div>
 
           <button
@@ -937,42 +933,32 @@ const MeetupModal = ({ isOpen, onClose, clientState, onNeedsTrustDeposit, modelC
             disabled={!isFormValid}
             className={`w-full py-4 rounded-xl font-semibold ${isFormValid ? 'bg-pink-500 hover:bg-pink-600 text-white' : 'bg-white/10 text-white/40 cursor-not-allowed'}`}
           >
-            {!clientState.tier ? 'Get Verified to Book' : 'Pay Deposit'}
+            {!clientState.tier ? 'Get Verified to Book' : 'Confirm Booking'}
           </button>
         </div>
-      )}
-
-      {step === 2 && (
-        <P2PPaymentStep
-          amount={depositAmount}
-          serviceName={`Meetup deposit (${modelConfig.profile.name})`}
-          onBack={() => setStep(1)}
-          onConfirm={handlePaymentConfirm}
-          creatorPayments={modelConfig.creatorPayments}
-          creatorName={modelConfig.profile.name}
-        />
       )}
 
       {step === 4 && (
         <div className="space-y-4 py-2">
           <div className="text-center">
             <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4"><CheckCircle size={40} className="text-green-400" /></div>
-            <h4 className="text-xl font-bold text-white mb-2">Deposit Sent! 🌹</h4>
-            <p className="text-white/60 text-sm">{modelConfig.profile.name} will confirm receipt</p>
+            <h4 className="text-xl font-bold text-white mb-2">Booking Confirmed! 🌹</h4>
+            <p className="text-white/60 text-sm">Send the details to {modelConfig.profile.name} on WhatsApp</p>
           </div>
 
           <div className="bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border-2 border-blue-500/50 rounded-xl p-5 text-center">
-            <p className="text-blue-300 font-medium mb-2"><Key size={16} className="inline mr-1" />YOUR CODE</p>
+            <p className="text-blue-300 font-medium mb-2"><Key size={16} className="inline mr-1" />YOUR VERIFICATION CODE</p>
             <div className="bg-black/40 rounded-xl p-4 mb-2"><p className="text-4xl font-mono font-bold text-white tracking-widest">{codes.client}</p></div>
-            <p className="text-white/60 text-sm">Give this to {modelConfig.profile.name} when you meet</p>
+            <p className="text-white/60 text-sm">Share this with {modelConfig.profile.name} when you meet</p>
           </div>
-          
+
           <div className="bg-white/5 rounded-xl p-4 border border-white/10 text-sm">
             <div className="grid grid-cols-2 gap-2">
               <div className="text-white/60">Type:</div><div className="text-white">{formData.locationType === 'incall' ? '🏠 Incall' : '🚗 Outcall'}</div>
               <div className="text-white/60">Date:</div><div className="text-white">{formData.date}</div>
               <div className="text-white/60">Time:</div><div className="text-white">{formData.time}</div>
               <div className="text-white/60">Area:</div><div className="text-white">{formData.location}</div>
+              <div className="text-white/60">Rate:</div><div className="text-white">{formatNaira(getMeetupPrice())}</div>
             </div>
             {formData.specialRequests.trim() && (
               <div className="border-t border-white/10 mt-3 pt-3">
@@ -980,16 +966,12 @@ const MeetupModal = ({ isOpen, onClose, clientState, onNeedsTrustDeposit, modelC
                 <p className="text-white text-xs">{formData.specialRequests.trim()}</p>
               </div>
             )}
-            <div className="border-t border-white/10 mt-3 pt-3">
-              <div className="flex justify-between"><span className="text-white/60">Deposit:</span><span className="text-yellow-400">{formatNaira(depositAmount)} (pending)</span></div>
-              <div className="flex justify-between"><span className="text-white/60">Balance:</span><span className="text-white">{formatNaira(balanceAmount)}</span></div>
-            </div>
           </div>
-          
+
           <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3">
-            <p className="text-amber-200 text-sm"><strong>⚠️</strong> Exchange codes at meetup, then pay balance</p>
+            <p className="text-amber-200 text-sm"><strong>⚠️</strong> Exchange verification codes when you meet. Handle payment directly with {modelConfig.profile.name}.</p>
           </div>
-          
+
           <button onClick={handleComplete} className="w-full py-4 bg-green-500 hover:bg-green-600 rounded-xl text-white font-semibold flex items-center justify-center gap-2"><Send size={18} />Notify on WhatsApp</button>
         </div>
       )}

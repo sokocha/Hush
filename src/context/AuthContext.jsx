@@ -18,7 +18,7 @@ const DEFAULT_CLIENT_STATE = {
   name: '',
   registeredAt: null,
   // Meetup bookings array
-  meetups: [], // Array of { id, creatorUsername, creatorName, date, time, locationType, location, duration, specialRequests, totalPrice, depositAmount, balanceAmount, clientCode, status: 'pending'|'confirmed'|'declined'|'rescheduled'|'completed'|'cancelled', createdAt, statusUpdatedAt }
+  meetups: [], // Array of { id, creatorUsername, creatorName, date, time, locationType, location, duration, specialRequests, totalPrice, clientCode, status: 'pending'|'confirmed'|'declined'|'rescheduled'|'completed'|'cancelled', createdAt, statusUpdatedAt }
 };
 
 const DEFAULT_CREATOR_STATE = {
