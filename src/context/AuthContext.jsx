@@ -33,12 +33,13 @@ const DEFAULT_CREATOR_STATE = {
   tagline: '',
   bio: '',
   pricing: {
-    unlockContact: 1000,
-    unlockPhotos: 5000,
-    meetupIncall: { 1: 50000, 2: 80000, overnight: 150000 },
-    meetupOutcall: { 1: 70000, 2: 100000, overnight: 200000 },
+    unlockContact: 0,
+    unlockPhotos: 0,
+    meetupIncall: { 1: 0, 2: 0, overnight: 0 },
+    meetupOutcall: { 1: 0, 2: 0, overnight: 0 },
     depositPercent: 0.5,
   },
+  photos: [], // Array of { id, url, blob, capturedAt, isPreview }
   extras: [],
   boundaries: [],
   stats: {
@@ -47,6 +48,7 @@ const DEFAULT_CREATOR_STATE = {
     verifiedMeetups: 0,
     meetupSuccessRate: 0,
     repeatClients: 0,
+    profileViews: 0,
   },
   registeredAt: null,
   pendingVerification: true,
