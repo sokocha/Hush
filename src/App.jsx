@@ -37,6 +37,43 @@ const MOCK_CLIENT = {
 const formatNaira = (amount) => `₦${amount.toLocaleString()}`;
 const generateCode = (prefix) => `${prefix}-${Math.floor(1000 + Math.random() * 9000)}`;
 
+// Helper to calculate time until code unlock (20 minutes before meetup)
+const getCodeUnlockInfo = (meetupDate, meetupTime) => {
+  if (!meetupDate || !meetupTime) return { isUnlocked: false, timeRemaining: null };
+
+  // Parse the meetup date and time
+  const [hours, minutes] = meetupTime.match(/(\d+):(\d+)/).slice(1).map(Number);
+  const isPM = meetupTime.includes('PM');
+  const isAM = meetupTime.includes('AM');
+
+  let hour24 = hours;
+  if (isPM && hours !== 12) hour24 = hours + 12;
+  if (isAM && hours === 12) hour24 = 0;
+
+  const meetupDateTime = new Date(meetupDate);
+  meetupDateTime.setHours(hour24, minutes || 0, 0, 0);
+
+  // Code unlocks 20 minutes before meetup
+  const unlockTime = new Date(meetupDateTime.getTime() - 20 * 60 * 1000);
+  const now = new Date();
+
+  if (now >= unlockTime) {
+    return { isUnlocked: true, timeRemaining: null };
+  }
+
+  const diff = unlockTime - now;
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const hrs = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+  let timeString = '';
+  if (days > 0) timeString += `${days}d `;
+  if (hrs > 0) timeString += `${hrs}h `;
+  timeString += `${mins}m`;
+
+  return { isUnlocked: false, timeRemaining: timeString.trim(), unlockTime };
+};
+
 // ═══════════════════════════════════════════════════════════
 // MODAL WRAPPER
 // ═══════════════════════════════════════════════════════════
@@ -967,11 +1004,33 @@ const MeetupModal = ({ isOpen, onClose, clientState, onNeedsTrustDeposit, modelC
             <p className="text-white/60 text-sm">Send the details to {modelConfig.profile.name} on WhatsApp</p>
           </div>
 
-          <div className="bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border-2 border-blue-500/50 rounded-xl p-5 text-center">
-            <p className="text-blue-300 font-medium mb-2"><Key size={16} className="inline mr-1" />YOUR VERIFICATION CODE</p>
-            <div className="bg-black/40 rounded-xl p-4 mb-2"><p className="text-4xl font-mono font-bold text-white tracking-widest">{codes.client}</p></div>
-            <p className="text-white/60 text-sm">Share this with {modelConfig.profile.name} when you meet</p>
-          </div>
+          {/* Verification Code Section - shows countdown until 20 min before meetup */}
+          {(() => {
+            const codeInfo = getCodeUnlockInfo(formData.date, formData.time);
+            return (
+              <div className={`border-2 rounded-xl p-5 text-center ${codeInfo.isUnlocked ? 'bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border-blue-500/50' : 'bg-gradient-to-r from-purple-500/10 to-blue-500/10 border-purple-500/30'}`}>
+                <p className="text-blue-300 font-medium mb-2"><Key size={16} className="inline mr-1" />YOUR VERIFICATION CODE</p>
+                {codeInfo.isUnlocked ? (
+                  <>
+                    <div className="bg-black/40 rounded-xl p-4 mb-2">
+                      <p className="text-4xl font-mono font-bold text-white tracking-widest">{codes.client}</p>
+                    </div>
+                    <p className="text-white/60 text-sm">Share this with {modelConfig.profile.name} when you meet</p>
+                  </>
+                ) : (
+                  <>
+                    <div className="bg-black/40 rounded-xl p-4 mb-2">
+                      <div className="flex items-center justify-center gap-2 text-purple-300">
+                        <Lock size={20} />
+                        <p className="text-lg font-medium">Code unlocks in {codeInfo.timeRemaining}</p>
+                      </div>
+                    </div>
+                    <p className="text-white/50 text-sm">Your code will be available 20 minutes before your meetup</p>
+                  </>
+                )}
+              </div>
+            );
+          })()}
 
           <div className="bg-white/5 rounded-xl p-4 border border-white/10 text-sm">
             <div className="grid grid-cols-2 gap-2">

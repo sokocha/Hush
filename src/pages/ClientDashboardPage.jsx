@@ -18,6 +18,43 @@ import { useFavorites } from '../hooks/useFavorites';
 
 const formatNaira = (amount) => `₦${Math.abs(amount).toLocaleString()}`;
 
+// Helper to calculate time until code unlock (20 minutes before meetup)
+const getCodeUnlockInfo = (meetupDate, meetupTime) => {
+  if (!meetupDate || !meetupTime) return { isUnlocked: false, timeRemaining: null };
+
+  // Parse the meetup date and time
+  const [hours, minutes] = meetupTime.match(/(\d+):(\d+)/).slice(1).map(Number);
+  const isPM = meetupTime.includes('PM');
+  const isAM = meetupTime.includes('AM');
+
+  let hour24 = hours;
+  if (isPM && hours !== 12) hour24 = hours + 12;
+  if (isAM && hours === 12) hour24 = 0;
+
+  const meetupDateTime = new Date(meetupDate);
+  meetupDateTime.setHours(hour24, minutes || 0, 0, 0);
+
+  // Code unlocks 20 minutes before meetup
+  const unlockTime = new Date(meetupDateTime.getTime() - 20 * 60 * 1000);
+  const now = new Date();
+
+  if (now >= unlockTime) {
+    return { isUnlocked: true, timeRemaining: null };
+  }
+
+  const diff = unlockTime - now;
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const hrs = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+  let timeString = '';
+  if (days > 0) timeString += `${days}d `;
+  if (hrs > 0) timeString += `${hrs}h `;
+  timeString += `${mins}m`;
+
+  return { isUnlocked: false, timeRemaining: timeString.trim(), unlockTime };
+};
+
 const getTierData = (tierId) => PLATFORM_CONFIG.verificationTiers[tierId];
 
 const getTierColor = (tier) => {
@@ -300,10 +337,26 @@ const MeetupCard = ({ meetup, onCancel }) => {
           <p className="text-white font-bold">{formatNaira(meetup.totalPrice)}</p>
         </div>
         {meetup.clientCode && (meetup.status === 'pending' || meetup.status === 'confirmed') && (
-          <div className="text-right">
-            <p className="text-white/40 text-xs">Your Code</p>
-            <p className="text-blue-400 font-mono font-bold">{meetup.clientCode}</p>
-          </div>
+          (() => {
+            const codeInfo = getCodeUnlockInfo(meetup.date, meetup.time);
+            return (
+              <div className="text-right">
+                {codeInfo.isUnlocked ? (
+                  <>
+                    <p className="text-white/40 text-xs">Your Code</p>
+                    <p className="text-blue-400 font-mono font-bold">{meetup.clientCode}</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-white/40 text-xs flex items-center justify-end gap-1">
+                      <Lock size={10} /> Code unlocks in
+                    </p>
+                    <p className="text-purple-400 font-medium text-sm">{codeInfo.timeRemaining}</p>
+                  </>
+                )}
+              </div>
+            );
+          })()
         )}
       </div>
     </div>
