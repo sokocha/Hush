@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Wallet, CreditCard, History, Calendar, Clock, MapPin,
   Shield, ShieldCheck, Award, Crown, BadgeCheck, ChevronRight,
@@ -271,10 +271,19 @@ const MeetupCard = ({ meetup, onCancel }) => {
 
 export default function ClientDashboardPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user, logout, updateUser, updateTier, isClient, cancelMeetup } = useAuth();
   const { favorites } = useFavorites();
 
   const [activeTab, setActiveTab] = useState('overview');
+
+  // Set active tab from URL query parameter
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam && ['overview', 'meetups', 'favorites', 'settings'].includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, [searchParams]);
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);

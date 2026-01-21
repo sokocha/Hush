@@ -645,6 +645,7 @@ const P2PPaymentStep = ({ amount, serviceName, onBack, onConfirm, creatorPayment
 // ═══════════════════════════════════════════════════════════
 
 const MeetupModal = ({ isOpen, onClose, clientState, onNeedsTrustDeposit, modelConfig, onMeetupBooked }) => {
+  const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({ date: '', time: '', locationType: 'incall', location: '', duration: '1', specialRequests: '' });
   const [agreedToTerms, setAgreedToTerms] = useState(false);
@@ -976,6 +977,11 @@ const MeetupModal = ({ isOpen, onClose, clientState, onNeedsTrustDeposit, modelC
           </div>
 
           <button onClick={handleSendWhatsApp} className="w-full py-4 bg-green-500 hover:bg-green-600 rounded-xl text-white font-semibold flex items-center justify-center gap-2"><Send size={18} />Notify on WhatsApp</button>
+
+          <div className="flex gap-3">
+            <button onClick={() => { resetAndClose(); navigate('/dashboard?tab=meetups'); }} className="flex-1 py-3 bg-white/10 hover:bg-white/20 rounded-xl text-white font-medium flex items-center justify-center gap-2 border border-white/20"><Calendar size={16} />View My Bookings</button>
+            <button onClick={resetAndClose} className="flex-1 py-3 bg-white/5 hover:bg-white/10 rounded-xl text-white/70 font-medium border border-white/10">Done</button>
+          </div>
         </div>
       )}
     </Modal>
