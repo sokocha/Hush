@@ -1750,10 +1750,76 @@ export default function App() {
             })}
           </div>
 
-          {!photosUnlocked && lockedPhotoCount > 0 && (
-            <button onClick={() => setModal('unlockPhotos')} className="w-full mt-3 py-2.5 bg-pink-500/20 hover:bg-pink-500/30 border border-pink-500/30 rounded-xl text-pink-300 text-sm font-medium flex items-center justify-center gap-2 transition-colors">
-              <Unlock size={14} />Unlock {lockedPhotoCount} more — {formatNaira(pricing.unlockPhotos)}
-            </button>
+          {/* Consolidated Unlock Widget - right after photos */}
+          {!isCreator && (!photosUnlocked || !contactUnlocked) && (
+            <div className="mt-4 p-4 bg-gradient-to-br from-white/5 to-white/[0.02] rounded-xl border border-white/10">
+              {!clientState.tier ? (
+                /* Not verified - show CTA to get verified */
+                <div className="text-center">
+                  <p className="text-white/70 text-sm mb-2">Get verified to unlock photos & contact</p>
+                  <button onClick={() => setModal('trustDeposit')} className="px-4 py-2 bg-pink-500 hover:bg-pink-600 rounded-full text-white font-medium text-sm transition-colors">
+                    Get Verified — {formatNaira(PLATFORM_CONFIG.verificationTiers.verified.deposit)}
+                  </button>
+                </div>
+              ) : (
+                /* Verified - show unlock options */
+                <div className="space-y-3">
+                  {/* Bundle option - most prominent when both locked */}
+                  {!photosUnlocked && !contactUnlocked && (
+                    <button onClick={handleUnlockBundle} className="w-full p-3 bg-gradient-to-r from-pink-500/20 to-green-500/20 rounded-xl border border-amber-500/30 hover:border-amber-500/50 transition-all">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Sparkles size={18} className="text-amber-400" />
+                          <div className="text-left">
+                            <span className="text-white font-medium text-sm">Unlock Everything</span>
+                            <p className="text-amber-300/70 text-xs">Photos + Phone • Save {formatNaira(bundleDiscount)}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-green-400 font-bold text-lg">{formatNaira(bundlePrice)}</span>
+                          <p className="text-white/40 text-xs line-through">{formatNaira(totalUnlockCost)}</p>
+                        </div>
+                      </div>
+                    </button>
+                  )}
+
+                  {/* Individual options */}
+                  <div className="grid grid-cols-2 gap-2">
+                    {/* Photos */}
+                    {photosUnlocked ? (
+                      <div className="flex items-center gap-2 p-2.5 rounded-lg bg-pink-500/20 border border-pink-500/30">
+                        <Camera size={16} className="text-pink-400" />
+                        <span className="text-pink-300 text-xs font-medium">Photos Unlocked</span>
+                      </div>
+                    ) : (
+                      <button onClick={() => setModal('unlockPhotos')} className="flex items-center justify-between p-2.5 rounded-lg bg-white/5 border border-white/10 hover:border-pink-500/30 hover:bg-pink-500/10 transition-all">
+                        <div className="flex items-center gap-2">
+                          <Camera size={16} className="text-pink-400" />
+                          <span className="text-white text-xs">Photos</span>
+                        </div>
+                        <span className="text-pink-400 text-xs font-bold">{formatNaira(pricing.unlockPhotos)}</span>
+                      </button>
+                    )}
+
+                    {/* Phone */}
+                    {contactUnlocked ? (
+                      <button onClick={() => setModal('contactRevealed')} className="flex items-center gap-2 p-2.5 rounded-lg bg-green-500/20 border border-green-500/30">
+                        <Phone size={16} className="text-green-400" />
+                        <span className="text-green-300 text-xs font-medium">Phone Unlocked</span>
+                      </button>
+                    ) : (
+                      <button onClick={() => setModal('unlockContact')} className="flex items-center justify-between p-2.5 rounded-lg bg-white/5 border border-white/10 hover:border-green-500/30 hover:bg-green-500/10 transition-all">
+                        <div className="flex items-center gap-2">
+                          <Phone size={16} className="text-green-400" />
+                          <span className="text-white text-xs">Phone</span>
+                        </div>
+                        <span className="text-green-400 text-xs font-bold">{formatNaira(pricing.unlockContact)}</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           )}
           <p className="text-white/30 text-[10px] text-center mt-2">Photos by {photos.studioName} • Tap any photo to view full-screen</p>
         </div>
@@ -1808,8 +1874,8 @@ export default function App() {
         {/* 4. BOOK NOW - Hidden for creators viewing other models */}
         {!isCreator && (
           <div className="mb-6 space-y-3">
-            {/* Show client tier status and balance with animation */}
-            {clientState.tier ? (
+            {/* Show client tier status and balance */}
+            {clientState.tier && (
               <div className={`flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/10 transition-all ${balanceAnimating ? 'animate-scaleIn' : ''}`}>
                 <div className="flex items-center gap-2">
                   <TierBadge tier={clientState.tier} />
@@ -1821,88 +1887,21 @@ export default function App() {
                   </span>
                 </div>
               </div>
-            ) : (
-              /* Empty state for zero balance - better illustration */
-              <div className="p-4 bg-gradient-to-br from-blue-500/10 to-purple-500/10 rounded-xl border border-blue-500/20 text-center">
-                <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-blue-500/20 flex items-center justify-center animate-bounce-slow">
-                  <Sparkles size={28} className="text-blue-400" />
-                </div>
-                <p className="text-white font-medium mb-1">Get Verified to Unlock</p>
-                <p className="text-white/50 text-sm mb-3">
-                  Photos + Phone = <span className="text-green-400 font-medium">{formatNaira(totalUnlockCost)}</span> from your deposit
-                </p>
-                <button onClick={() => setModal('trustDeposit')} className="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-full text-white font-medium text-sm transition-colors">
-                  Start with {formatNaira(PLATFORM_CONFIG.verificationTiers.verified.deposit)}
-                </button>
-              </div>
             )}
 
-            {/* Unlock options - show when verified but not everything unlocked */}
-            {clientState.tier && (!photosUnlocked || !contactUnlocked) && (
-              <div className="space-y-2">
-                {/* Individual unlock options */}
-                <div className="grid grid-cols-2 gap-2">
-                  {/* Photos unlock option */}
-                  {photosUnlocked ? (
-                    <div className="flex flex-col items-center gap-2 p-3 rounded-xl bg-pink-500/20 border border-pink-500/30">
-                      <Camera size={20} className="text-pink-400" />
-                      <span className="text-pink-300 font-medium text-xs">Photos Unlocked</span>
-                    </div>
-                  ) : (
-                    <button onClick={() => setModal('unlockPhotos')} className="flex flex-col items-center gap-2 p-3 rounded-xl bg-white/5 border border-white/10 hover:border-pink-500/30 hover:bg-pink-500/10 transition-all">
-                      <Camera size={20} className="text-pink-400" />
-                      <span className="text-white font-medium text-xs">Photos</span>
-                      <span className="text-pink-400 text-xs font-bold">{formatNaira(pricing.unlockPhotos)}</span>
-                    </button>
-                  )}
-
-                  {/* Phone unlock option */}
-                  {contactUnlocked ? (
-                    <button onClick={() => setModal('contactRevealed')} className="flex flex-col items-center gap-2 p-3 rounded-xl bg-green-500/20 border border-green-500/30">
-                      <Phone size={20} className="text-green-400" />
-                      <span className="text-green-300 font-medium text-xs">Phone Unlocked</span>
-                    </button>
-                  ) : (
-                    <button onClick={() => setModal('unlockContact')} className="flex flex-col items-center gap-2 p-3 rounded-xl bg-white/5 border border-white/10 hover:border-green-500/30 hover:bg-green-500/10 transition-all">
-                      <Phone size={20} className="text-green-400" />
-                      <span className="text-white font-medium text-xs">Phone</span>
-                      <span className="text-green-400 text-xs font-bold">{formatNaira(pricing.unlockContact)}</span>
-                    </button>
-                  )}
-                </div>
-
-                {/* Bundle discount - only show when both are locked */}
-                {!photosUnlocked && !contactUnlocked && (
-                  <button onClick={handleUnlockBundle} className="w-full p-3 bg-gradient-to-r from-pink-500/20 to-green-500/20 rounded-xl border border-white/20 hover:border-white/30 transition-all">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Sparkles size={16} className="text-amber-400" />
-                        <span className="text-white font-medium text-sm">Unlock Both</span>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-green-400 font-bold">{formatNaira(bundlePrice)}</span>
-                        <span className="text-amber-400 text-xs ml-2 line-through">{formatNaira(totalUnlockCost)}</span>
-                      </div>
-                    </div>
-                    <p className="text-amber-300/70 text-xs text-left mt-1">Save {formatNaira(bundleDiscount)} with bundle</p>
-                  </button>
-                )}
-              </div>
-            )}
-
-            {/* Book Meetup button - always visible */}
-            <button onClick={() => protectedAction('meetup')} className="w-full flex items-center justify-center gap-2 p-4 rounded-xl bg-pink-500/20 border border-pink-500/30 hover:border-pink-500/50 transition-all hover:scale-[1.02] active:scale-[0.98]">
-              <Heart size={24} className="text-pink-400" />
-              <span className="text-white font-medium">Book Meetup</span>
+            {/* Book Meetup button */}
+            <button onClick={() => protectedAction('meetup')} className="w-full flex items-center justify-center gap-2 p-4 rounded-xl bg-pink-500 hover:bg-pink-600 border border-pink-500 transition-all hover:scale-[1.02] active:scale-[0.98]">
+              <Heart size={24} className="text-white" />
+              <span className="text-white font-semibold">Book Meetup</span>
             </button>
 
-            {/* Get Verified CTA if not verified - shown only if they skipped the empty state above */}
+            {/* Get Verified CTA if not verified */}
             {!clientState.tier && (
               <button onClick={() => setModal('trustDeposit')} className="w-full flex items-center gap-3 p-3 rounded-xl bg-blue-500/10 border border-blue-500/30 hover:border-blue-500/50 transition-colors">
                 <ShieldCheck size={18} className="text-blue-400" />
                 <span className="flex-1 text-left">
                   <span className="text-blue-300 font-medium text-sm">Get Verified</span>
-                  <span className="text-blue-300/60 text-xs ml-2">Unlock all features</span>
+                  <span className="text-blue-300/60 text-xs ml-2">Unlock photos & contact</span>
                 </span>
                 <ChevronRight size={16} className="text-blue-400" />
               </button>
