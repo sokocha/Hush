@@ -93,7 +93,9 @@ export const MODELS = {
       meetupSuccessRate: 89,
       repeatClients: 12,
       lastSeen: "2h ago",
+      favoriteCount: 156,
     },
+    reviewHighlights: ["Professional", "On time", "As pictured"],
     creatorPayments: [
       { provider: "OPay", number: "8012345678", isPrimary: true },
       { provider: "PalmPay", number: "8012345678", isPrimary: false },
@@ -161,7 +163,9 @@ export const MODELS = {
       meetupSuccessRate: 95,
       repeatClients: 28,
       lastSeen: "Online",
+      favoriteCount: 342,
     },
+    reviewHighlights: ["Classy", "Worth it", "Stunning"],
     creatorPayments: [
       { provider: "OPay", number: "8023456789", isPrimary: true },
     ],
@@ -228,7 +232,9 @@ export const MODELS = {
       meetupSuccessRate: 87,
       repeatClients: 15,
       lastSeen: "5h ago",
+      favoriteCount: 89,
     },
+    reviewHighlights: ["Sweet", "Genuine", "Fun"],
     creatorPayments: [
       { provider: "PalmPay", number: "8034567890", isPrimary: true },
     ],
@@ -292,7 +298,9 @@ export const MODELS = {
       meetupSuccessRate: 82,
       repeatClients: 8,
       lastSeen: "1d ago",
+      favoriteCount: 67,
     },
+    reviewHighlights: ["Affordable", "Clean", "Friendly"],
     creatorPayments: [
       { provider: "OPay", number: "8045678901", isPrimary: true },
     ],
@@ -347,7 +355,9 @@ export const MODELS = {
       meetupSuccessRate: 98,
       repeatClients: 45,
       lastSeen: "Online",
+      favoriteCount: 512,
     },
+    reviewHighlights: ["Premium", "Incredible", "Worth it"],
     creatorPayments: [
       { provider: "OPay", number: "8056789012", isPrimary: true },
       { provider: "PalmPay", number: "8056789012", isPrimary: false },
@@ -407,7 +417,9 @@ export const MODELS = {
       meetupSuccessRate: 91,
       repeatClients: 22,
       lastSeen: "3d ago",
+      favoriteCount: 178,
     },
+    reviewHighlights: ["Elegant", "Classy", "Sophisticated"],
     creatorPayments: [
       { provider: "OPay", number: "8067890123", isPrimary: true },
     ],
@@ -463,7 +475,9 @@ export const MODELS = {
       meetupSuccessRate: 93,
       repeatClients: 25,
       lastSeen: "30m ago",
+      favoriteCount: 234,
     },
+    reviewHighlights: ["Best in Abuja", "Beautiful", "Fun"],
     creatorPayments: [
       { provider: "OPay", number: "8078901234", isPrimary: true },
     ],
@@ -519,7 +533,9 @@ export const MODELS = {
       meetupSuccessRate: 85,
       repeatClients: 12,
       lastSeen: "2h ago",
+      favoriteCount: 98,
     },
+    reviewHighlights: ["Real", "Genuine", "Recommended"],
     creatorPayments: [
       { provider: "PalmPay", number: "8089012345", isPrimary: true },
     ],

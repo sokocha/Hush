@@ -226,6 +226,76 @@ const TierSelectionCard = ({ tier, isSelected, onSelect, isCurrentTier, isLowerT
 // MAIN DASHBOARD
 // ═══════════════════════════════════════════════════════════
 
+// Status Timeline Component
+const StatusTimeline = ({ status }) => {
+  const steps = [
+    { key: 'requested', label: 'Requested', icon: Clock },
+    { key: 'confirmed', label: 'Confirmed', icon: CheckCircle },
+    { key: 'meetup', label: 'Meetup', icon: Calendar },
+    { key: 'completed', label: 'Done', icon: Star },
+  ];
+
+  const getStepStatus = (stepKey) => {
+    if (status === 'cancelled' || status === 'declined') {
+      if (stepKey === 'requested') return 'completed';
+      return 'cancelled';
+    }
+    if (status === 'pending') {
+      if (stepKey === 'requested') return 'current';
+      return 'pending';
+    }
+    if (status === 'confirmed') {
+      if (stepKey === 'requested') return 'completed';
+      if (stepKey === 'confirmed') return 'current';
+      return 'pending';
+    }
+    if (status === 'completed') {
+      return 'completed';
+    }
+    return 'pending';
+  };
+
+  return (
+    <div className="flex items-center justify-between mb-4 px-2">
+      {steps.map((step, index) => {
+        const stepStatus = getStepStatus(step.key);
+        const Icon = step.icon;
+        const isLast = index === steps.length - 1;
+
+        return (
+          <React.Fragment key={step.key}>
+            <div className="flex flex-col items-center">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
+                stepStatus === 'completed' ? 'bg-green-500 text-white' :
+                stepStatus === 'current' ? 'bg-pink-500 text-white ring-4 ring-pink-500/30' :
+                stepStatus === 'cancelled' ? 'bg-red-500/20 text-red-400' :
+                'bg-white/10 text-white/30'
+              }`}>
+                <Icon size={14} />
+              </div>
+              <span className={`text-[10px] mt-1 ${
+                stepStatus === 'completed' ? 'text-green-400' :
+                stepStatus === 'current' ? 'text-pink-400' :
+                stepStatus === 'cancelled' ? 'text-red-400/50' :
+                'text-white/30'
+              }`}>
+                {step.label}
+              </span>
+            </div>
+            {!isLast && (
+              <div className={`flex-1 h-0.5 mx-1 -mt-4 ${
+                stepStatus === 'completed' ? 'bg-green-500' :
+                stepStatus === 'cancelled' ? 'bg-red-500/20' :
+                'bg-white/10'
+              }`} />
+            )}
+          </React.Fragment>
+        );
+      })}
+    </div>
+  );
+};
+
 // Meetup Card Component
 const MeetupCard = ({ meetup, onCancel }) => {
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
@@ -251,6 +321,9 @@ const MeetupCard = ({ meetup, onCancel }) => {
 
   return (
     <div className={`${status.bg} ${status.border} border rounded-xl p-4`}>
+      {/* Status Timeline */}
+      <StatusTimeline status={meetup.status} />
+
       {/* Cancel Confirmation Overlay */}
       {showCancelConfirm && (
         <div className="mb-3 p-3 bg-red-500/20 border border-red-500/40 rounded-lg">
@@ -766,17 +839,19 @@ export default function ClientDashboardPage() {
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-8 bg-white/5 border border-white/10 rounded-xl">
-                  <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-white/5 flex items-center justify-center">
-                    <Calendar size={28} className="text-white/30" />
+                <div className="text-center py-10 bg-gradient-to-br from-white/5 to-white/[0.02] border border-white/10 rounded-xl">
+                  <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-br from-pink-500/20 to-purple-500/20 flex items-center justify-center">
+                    <Calendar size={32} className="text-pink-400/60" />
                   </div>
-                  <h3 className="text-white font-medium mb-1">No upcoming meetups</h3>
-                  <p className="text-white/50 text-sm mb-4">Book a meetup with a model to see it here</p>
+                  <h3 className="text-white font-semibold text-lg mb-2">No upcoming meetups</h3>
+                  <p className="text-white/50 text-sm mb-6 max-w-xs mx-auto">
+                    Your calendar is empty! Browse models and book your first meetup.
+                  </p>
                   <Link
                     to="/explore/all"
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-pink-500 hover:bg-pink-600 rounded-xl text-white text-sm font-medium transition-colors"
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 rounded-xl text-white font-medium transition-all shadow-lg shadow-pink-500/25"
                   >
-                    <Users size={16} />
+                    <Users size={18} />
                     Browse Models
                   </Link>
                 </div>
@@ -824,17 +899,22 @@ export default function ClientDashboardPage() {
                 ))}
               </div>
             ) : (
-              <div className="text-center py-12">
-                <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-white/5 flex items-center justify-center">
-                  <Heart size={32} className="text-white/30" />
+              <div className="text-center py-12 bg-gradient-to-br from-white/5 to-white/[0.02] border border-white/10 rounded-xl">
+                <div className="w-24 h-24 mx-auto mb-4 rounded-full bg-gradient-to-br from-pink-500/20 to-red-500/20 flex items-center justify-center relative">
+                  <Heart size={36} className="text-pink-400/60" />
+                  <div className="absolute -top-1 -right-1 w-8 h-8 bg-white/10 rounded-full flex items-center justify-center">
+                    <Plus size={16} className="text-white/40" />
+                  </div>
                 </div>
-                <h3 className="text-white font-medium mb-2">No favorites yet</h3>
-                <p className="text-white/50 text-sm mb-4">Save models you like for quick access</p>
+                <h3 className="text-white font-semibold text-lg mb-2">No favorites yet</h3>
+                <p className="text-white/50 text-sm mb-6 max-w-xs mx-auto">
+                  Tap the heart icon on any model profile to save them here for quick access.
+                </p>
                 <Link
                   to="/explore/all"
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-pink-500 hover:bg-pink-600 rounded-xl text-white text-sm font-medium transition-colors"
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 rounded-xl text-white font-medium transition-all shadow-lg shadow-pink-500/25"
                 >
-                  <Users size={16} />
+                  <Users size={18} />
                   Explore Models
                 </Link>
               </div>

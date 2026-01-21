@@ -1721,10 +1721,20 @@ export default function App() {
 
       {/* Pull to refresh indicator */}
       {(pullDistance > 0 || isRefreshing) && (
-        <div className="fixed top-0 left-0 right-0 z-40 flex justify-center pt-4" style={{ transform: `translateY(${Math.min(pullDistance / 2, 40)}px)` }}>
-          <div className={`p-2 bg-white/10 rounded-full ${isRefreshing ? 'animate-spin' : ''}`}>
-            <RefreshCw size={20} className="text-white/60" />
+        <div
+          className="fixed top-0 left-0 right-0 z-40 flex flex-col items-center pt-4 transition-transform"
+          style={{ transform: `translateY(${Math.min(pullDistance / 2, 40)}px)` }}
+        >
+          <div className={`p-3 bg-white/10 backdrop-blur-sm rounded-full border border-white/20 ${isRefreshing ? 'animate-spin' : ''}`}>
+            <RefreshCw
+              size={20}
+              className={`transition-all ${pullDistance > 80 ? 'text-pink-400' : 'text-white/60'}`}
+              style={{ transform: `rotate(${pullDistance * 2}deg)` }}
+            />
           </div>
+          <p className="text-white/40 text-xs mt-2">
+            {isRefreshing ? 'Refreshing...' : pullDistance > 80 ? 'Release to refresh' : 'Pull to refresh'}
+          </p>
         </div>
       )}
 
@@ -1811,18 +1821,33 @@ export default function App() {
             </button>
           </div>
 
-          <div className="grid grid-cols-5 gap-2 p-3 bg-white/5 rounded-xl border border-white/10">
+          <div className="grid grid-cols-4 gap-2 p-3 bg-white/5 rounded-xl border border-white/10">
             <div className="text-center">
               <div className="flex items-center justify-center gap-1"><Star size={14} className="text-yellow-400 fill-yellow-400" /><span className="text-white font-bold">{stats.rating}</span></div>
               <p className="text-white/40 text-xs">{stats.reviews} reviews</p>
             </div>
             <div className="text-center border-l border-white/10"><p className="text-white font-bold">{stats.verifiedMeetups}</p><p className="text-white/40 text-xs">Meetups</p></div>
             <div className="text-center border-l border-white/10">
-              <div className="flex items-center justify-center gap-1"><Target size={12} className="text-green-400" /><span className="text-green-400 font-bold">{stats.meetupSuccessRate}%</span></div>
-              <p className="text-white/40 text-xs">Success</p>
+              <div className="flex items-center justify-center gap-1"><Heart size={12} className="text-pink-400 fill-pink-400" /><span className="text-pink-400 font-bold">{stats.favoriteCount}</span></div>
+              <p className="text-white/40 text-xs">Favorites</p>
             </div>
             <div className="text-center border-l border-white/10"><p className={`font-bold ${stats.lastSeen === 'Online' ? 'text-green-400' : 'text-white'}`}>{stats.lastSeen}</p><p className="text-white/40 text-xs">Last Seen</p></div>
           </div>
+
+          {/* Review Highlights */}
+          {CONFIG.reviewHighlights && CONFIG.reviewHighlights.length > 0 && (
+            <div className="flex flex-wrap items-center justify-center gap-2 mt-3">
+              {CONFIG.reviewHighlights.map((highlight, i) => (
+                <span
+                  key={i}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs"
+                >
+                  <ThumbsUp size={10} />
+                  {highlight}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* 2. PHOTOS - Clickable gallery */}
