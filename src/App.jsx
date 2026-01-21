@@ -2001,7 +2001,38 @@ export default function App() {
           </div>
         </div>
 
-        {/* 4. BOOK NOW - Hidden for creators viewing other models */}
+        {/* 4. CONTACT - Shows when phone is unlocked */}
+        {contactUnlocked && !isCreator && (
+          <div className="mb-6">
+            <h3 className="text-white/60 text-sm font-medium flex items-center gap-2 mb-3"><Phone size={14} className="text-green-400" />Contact</h3>
+            <div className="bg-green-500/10 rounded-xl border border-green-500/30 p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-white/60 text-xs mb-1">WhatsApp Number</p>
+                  <p className="text-green-300 font-mono text-lg font-medium">+{contact.whatsapp}</p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => { navigator.clipboard.writeText(contact.whatsapp); showToast('Number copied!', 'success'); }}
+                    className="p-2.5 bg-white/10 hover:bg-white/20 rounded-lg transition-colors"
+                  >
+                    <Copy size={18} className="text-white/70" />
+                  </button>
+                  <a
+                    href={`https://wa.me/${contact.whatsapp}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-2.5 bg-green-500 hover:bg-green-600 rounded-lg transition-colors"
+                  >
+                    <MessageCircle size={18} className="text-white" />
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 5. BOOK NOW - Hidden for creators viewing other models */}
         {!isCreator && (
           <div className="mb-6 space-y-3">
             {/* Show client tier status and balance */}
