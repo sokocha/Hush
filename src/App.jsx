@@ -695,7 +695,7 @@ const ClientVerificationModal = ({ isOpen, onClose, onVerified, nextAction, blac
 
 const MeetupModal = ({ isOpen, onClose, clientState, onNeedsTrustDeposit, modelConfig }) => {
   const [step, setStep] = useState(1);
-  const [formData, setFormData] = useState({ name: '', age: '', twitter: '', date: '', time: '', locationType: 'incall', location: '', duration: '1' });
+  const [formData, setFormData] = useState({ date: '', time: '', locationType: 'incall', location: '', duration: '1' });
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [codes, setCodes] = useState({ client: '', creator: '' });
 
@@ -708,7 +708,7 @@ const MeetupModal = ({ isOpen, onClose, clientState, onNeedsTrustDeposit, modelC
   };
   const depositAmount = Math.round(getMeetupPrice() * modelConfig.pricing.depositPercent);
   const balanceAmount = getMeetupPrice() - depositAmount;
-  const isFormValid = formData.name && formData.age && formData.date && formData.time && formData.location && agreedToTerms;
+  const isFormValid = formData.date && formData.time && formData.location && agreedToTerms;
 
   const handleStartBooking = () => {
     // Check if client has any verification tier (required to initiate meetups)
@@ -726,14 +726,14 @@ const MeetupModal = ({ isOpen, onClose, clientState, onNeedsTrustDeposit, modelC
   };
 
   const handleComplete = () => {
-    window.open(`https://wa.me/${modelConfig.contact.whatsapp}?text=${encodeURIComponent(`🌹 MEETUP BOOKING\n\nName: ${formData.name}\nDate: ${formData.date}\nTime: ${formData.time}\nType: ${formData.locationType === 'incall' ? 'Incall' : 'Outcall'}\nArea: ${formData.location}\nDuration: ${formData.duration === 'overnight' ? 'Overnight' : formData.duration + 'hr'}\n\nTotal: ${formatNaira(getMeetupPrice())}\nDeposit: ${formatNaira(depositAmount)} sent to your ${modelConfig.creatorPayments[0].provider}\nBalance: ${formatNaira(balanceAmount)} at meetup\n\n🔐 MY CODE: ${codes.client}`)}`, '_blank');
+    window.open(`https://wa.me/${modelConfig.contact.whatsapp}?text=${encodeURIComponent(`🌹 MEETUP BOOKING\n\nName: ${clientState.name || 'Client'}\nDate: ${formData.date}\nTime: ${formData.time}\nType: ${formData.locationType === 'incall' ? 'Incall' : 'Outcall'}\nArea: ${formData.location}\nDuration: ${formData.duration === 'overnight' ? 'Overnight' : formData.duration + 'hr'}\n\nTotal: ${formatNaira(getMeetupPrice())}\nDeposit: ${formatNaira(depositAmount)} sent to your ${modelConfig.creatorPayments[0].provider}\nBalance: ${formatNaira(balanceAmount)} at meetup\n\n🔐 MY CODE: ${codes.client}`)}`, '_blank');
     resetAndClose();
   };
 
   const resetAndClose = () => {
     onClose();
     setStep(1);
-    setFormData({ name: '', age: '', twitter: '', date: '', time: '', locationType: 'incall', location: '', duration: '1' });
+    setFormData({ date: '', time: '', locationType: 'incall', location: '', duration: '1' });
     setAgreedToTerms(false);
     setCodes({ client: '', creator: '' });
   };
@@ -820,11 +820,6 @@ const MeetupModal = ({ isOpen, onClose, clientState, onNeedsTrustDeposit, modelC
           </div>
 
           {/* Form fields */}
-          <div className="grid grid-cols-2 gap-3">
-            <input type="text" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} placeholder="Your name *" className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-white focus:border-pink-500 focus:outline-none" />
-            <input type="number" value={formData.age} onChange={(e) => setFormData({...formData, age: e.target.value})} placeholder="Age *" min="18" className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-white focus:border-pink-500 focus:outline-none" />
-          </div>
-
           <div className="grid grid-cols-2 gap-3">
             <input type="date" value={formData.date} onChange={(e) => setFormData({...formData, date: e.target.value})} min={new Date().toISOString().split('T')[0]} className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-white focus:border-pink-500 focus:outline-none" />
             <select value={formData.time} onChange={(e) => setFormData({...formData, time: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-white focus:border-pink-500 focus:outline-none">
@@ -1332,7 +1327,8 @@ export default function App() {
   const { isRefreshing, pullDistance, handleTouchStart, handleTouchMove, handleTouchEnd } = usePullToRefresh(handleRefresh);
 
   const protectedAction = (action) => {
-    if (verifiedPhone) { setModal(action); }
+    // Authenticated users (went through proper registration with phone verification) skip quick verify
+    if (isAuthenticated || verifiedPhone) { setModal(action); }
     else { setPendingAction(action); setModal('verify'); }
   };
 

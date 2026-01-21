@@ -148,7 +148,7 @@ const AgeVerificationStep = ({ onConfirm, onExit }) => (
 );
 
 // User type selection
-const UserTypeSelection = ({ onSelect }) => (
+const UserTypeSelection = ({ onSelect, onLogin }) => (
   <div className="space-y-6">
     <div className="text-center mb-8">
       <h1 className="text-3xl font-bold text-white mb-2">Welcome to {PLATFORM_CONFIG.name}</h1>
@@ -209,8 +209,19 @@ const UserTypeSelection = ({ onSelect }) => (
       </button>
     </div>
 
+    {/* Login option for existing users */}
+    <div className="text-center pt-4 border-t border-white/10">
+      <p className="text-white/50 text-sm mb-3">Already have an account?</p>
+      <button
+        onClick={onLogin}
+        className="w-full py-3 bg-white/10 hover:bg-white/15 border border-white/20 rounded-xl text-white font-medium transition-all"
+      >
+        Login
+      </button>
+    </div>
+
     {/* Trust features */}
-    <div className="mt-8 p-4 bg-green-500/10 border border-green-500/20 rounded-xl">
+    <div className="mt-4 p-4 bg-green-500/10 border border-green-500/20 rounded-xl">
       <div className="flex items-center gap-2 mb-2">
         <Shield size={18} className="text-green-400" />
         <span className="text-green-300 font-medium text-sm">Anti-Catfish Platform</span>
@@ -221,6 +232,82 @@ const UserTypeSelection = ({ onSelect }) => (
     </div>
   </div>
 );
+
+// Login phone step (for existing users)
+const LoginPhoneStep = ({ phone, setPhone, onSubmit, onBack, isLoading }) => {
+  const [error, setError] = useState('');
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (phone.length < 10) {
+      setError('Please enter a valid phone number');
+      return;
+    }
+    setError('');
+    onSubmit();
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <button
+        type="button"
+        onClick={onBack}
+        className="flex items-center gap-2 text-white/60 hover:text-white transition-colors"
+      >
+        <ArrowLeft size={18} />
+        Back
+      </button>
+
+      <div className="text-center mb-6">
+        <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-blue-500/20 flex items-center justify-center">
+          <Phone size={32} className="text-blue-400" />
+        </div>
+        <h2 className="text-2xl font-bold text-white mb-2">Welcome back!</h2>
+        <p className="text-white/60 text-sm">
+          Enter your registered phone number to login
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <label className="text-white/70 text-sm">Phone Number</label>
+        <div className="flex gap-2">
+          <div className="flex items-center gap-2 px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white">
+            <span>🇳🇬</span>
+            <span>+234</span>
+          </div>
+          <input
+            type="tel"
+            inputMode="numeric"
+            placeholder="8012345678"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+            className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/40 focus:border-blue-500 focus:outline-none"
+          />
+        </div>
+        {error && <p className="text-red-400 text-sm">{error}</p>}
+      </div>
+
+      <button
+        type="submit"
+        disabled={isLoading || phone.length < 10}
+        className={`w-full py-4 rounded-xl text-white font-semibold transition-all ${
+          phone.length >= 10
+            ? 'bg-blue-500 hover:bg-blue-600'
+            : 'bg-white/20 cursor-not-allowed'
+        }`}
+      >
+        {isLoading ? 'Sending...' : 'Send Verification Code'}
+      </button>
+
+      <p className="text-center text-white/40 text-xs">
+        Don't have an account?{' '}
+        <button type="button" onClick={onBack} className="text-pink-400 hover:text-pink-300">
+          Register
+        </button>
+      </p>
+    </form>
+  );
+};
 
 // Phone input step
 const PhoneStep = ({ phone, setPhone, onSubmit, onBack, isLoading, userType }) => {
@@ -483,16 +570,25 @@ const ClientPreferencesStep = ({ data, setData, onSubmit, onBack }) => {
   const togglePreference = (key, value) => {
     setData(prev => {
       const current = prev[key] || [];
-      const updated = current.includes(value)
-        ? current.filter(v => v !== value)
-        : [...current, value];
+      // If selecting "No preference", clear other selections
+      if (value === 'No preference') {
+        return { ...prev, [key]: ['No preference'] };
+      }
+      // If selecting something else, remove "No preference" if present
+      const withoutNoPreference = current.filter(v => v !== 'No preference');
+      const updated = withoutNoPreference.includes(value)
+        ? withoutNoPreference.filter(v => v !== value)
+        : [...withoutNoPreference, value];
       return { ...prev, [key]: updated };
     });
   };
 
-  const setPreference = (key, value) => {
-    setData(prev => ({ ...prev, [key]: value }));
-  };
+  // Check if all required preferences are selected
+  const hasBodyType = (data.bodyTypePreferences || []).length > 0;
+  const hasSkinTone = (data.skinTonePreferences || []).length > 0;
+  const hasAge = (data.agePreferences || []).length > 0;
+  const hasServices = (data.servicePreferences || []).length > 0;
+  const canContinue = hasBodyType && hasSkinTone && hasAge && hasServices;
 
   return (
     <div className="space-y-6">
@@ -511,77 +607,92 @@ const ClientPreferencesStep = ({ data, setData, onSubmit, onBack }) => {
         </div>
         <h2 className="text-2xl font-bold text-white mb-2">Your preferences</h2>
         <p className="text-white/60 text-sm">
-          Help us show you the right models (all optional)
+          Select at least one option in each category
         </p>
       </div>
 
       <div className="space-y-5">
-        {/* Body type preference */}
+        {/* Body type preference - multi-select */}
         <div className="space-y-2">
-          <label className="text-white/70 text-sm">Body Type</label>
+          <label className="text-white/70 text-sm flex items-center gap-2">
+            Body Types
+            {!hasBodyType && <span className="text-red-400 text-xs">*required</span>}
+          </label>
           <div className="flex flex-wrap gap-2">
             {BODY_TYPE_PREFERENCES.map(type => (
               <button
                 key={type}
                 type="button"
-                onClick={() => setPreference('bodyTypePreference', type)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                  data.bodyTypePreference === type
+                onClick={() => togglePreference('bodyTypePreferences', type)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1 ${
+                  (data.bodyTypePreferences || []).includes(type)
                     ? 'bg-pink-500 text-white'
                     : 'bg-white/5 border border-white/10 text-white/70 hover:bg-white/10'
                 }`}
               >
                 {type}
+                {(data.bodyTypePreferences || []).includes(type) && <X size={12} />}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Skin tone preference */}
+        {/* Skin tone preference - multi-select */}
         <div className="space-y-2">
-          <label className="text-white/70 text-sm">Skin Tone</label>
+          <label className="text-white/70 text-sm flex items-center gap-2">
+            Skin Tones
+            {!hasSkinTone && <span className="text-red-400 text-xs">*required</span>}
+          </label>
           <div className="flex flex-wrap gap-2">
             {SKIN_TONE_PREFERENCES.map(tone => (
               <button
                 key={tone}
                 type="button"
-                onClick={() => setPreference('skinTonePreference', tone)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                  data.skinTonePreference === tone
+                onClick={() => togglePreference('skinTonePreferences', tone)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1 ${
+                  (data.skinTonePreferences || []).includes(tone)
                     ? 'bg-pink-500 text-white'
                     : 'bg-white/5 border border-white/10 text-white/70 hover:bg-white/10'
                 }`}
               >
                 {tone}
+                {(data.skinTonePreferences || []).includes(tone) && <X size={12} />}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Age preference */}
+        {/* Age preference - multi-select */}
         <div className="space-y-2">
-          <label className="text-white/70 text-sm">Age Range</label>
+          <label className="text-white/70 text-sm flex items-center gap-2">
+            Age Ranges
+            {!hasAge && <span className="text-red-400 text-xs">*required</span>}
+          </label>
           <div className="flex flex-wrap gap-2">
             {AGE_PREFERENCES.map(age => (
               <button
                 key={age}
                 type="button"
-                onClick={() => setPreference('agePreference', age)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                  data.agePreference === age
+                onClick={() => togglePreference('agePreferences', age)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1 ${
+                  (data.agePreferences || []).includes(age)
                     ? 'bg-pink-500 text-white'
                     : 'bg-white/5 border border-white/10 text-white/70 hover:bg-white/10'
                 }`}
               >
                 {age}
+                {(data.agePreferences || []).includes(age) && <X size={12} />}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Service preferences */}
+        {/* Service preferences - multi-select */}
         <div className="space-y-2">
-          <label className="text-white/70 text-sm">Services you're interested in</label>
+          <label className="text-white/70 text-sm flex items-center gap-2">
+            Services you're interested in
+            {!hasServices && <span className="text-red-400 text-xs">*required</span>}
+          </label>
           <div className="flex flex-wrap gap-2">
             {SERVICE_PREFERENCES.map(service => (
               <button
@@ -604,16 +715,14 @@ const ClientPreferencesStep = ({ data, setData, onSubmit, onBack }) => {
 
       <button
         onClick={onSubmit}
-        className="w-full py-4 bg-pink-500 hover:bg-pink-600 rounded-xl text-white font-semibold transition-all"
+        disabled={!canContinue}
+        className={`w-full py-4 rounded-xl text-white font-semibold transition-all ${
+          canContinue
+            ? 'bg-pink-500 hover:bg-pink-600'
+            : 'bg-white/20 cursor-not-allowed'
+        }`}
       >
         Continue
-      </button>
-
-      <button
-        onClick={onSubmit}
-        className="w-full py-3 text-white/50 text-sm hover:text-white/70 transition-colors"
-      >
-        Skip for now
       </button>
     </div>
   );
@@ -621,6 +730,34 @@ const ClientPreferencesStep = ({ data, setData, onSubmit, onBack }) => {
 
 // Client Step 3: Bio
 const ClientBioStep = ({ data, setData, onSubmit, onBack, isLoading }) => {
+  const [error, setError] = useState('');
+
+  // Phone number patterns to detect
+  const phonePatterns = [
+    /\b\d{10,11}\b/,           // 10-11 digit numbers
+    /\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b/, // xxx-xxx-xxxx format
+    /\b0[789][01]\d{8}\b/,     // Nigerian phone format
+    /\+\d{10,14}/,             // International format
+    /\b234\d{10}\b/,           // Nigeria country code
+  ];
+
+  const containsPhoneNumber = (text) => {
+    return phonePatterns.some(pattern => pattern.test(text));
+  };
+
+  const handleBioChange = (e) => {
+    const value = e.target.value.slice(0, 150);
+    if (containsPhoneNumber(value)) {
+      setError('Phone numbers are not allowed in your bio');
+    } else {
+      setError('');
+    }
+    setData(prev => ({ ...prev, bio: value }));
+  };
+
+  const bioTrimmed = (data.bio || '').trim();
+  const isValidBio = bioTrimmed.length >= 20 && !containsPhoneNumber(bioTrimmed);
+
   return (
     <div className="space-y-6">
       <button
@@ -638,19 +775,33 @@ const ClientBioStep = ({ data, setData, onSubmit, onBack, isLoading }) => {
         </div>
         <h2 className="text-2xl font-bold text-white mb-2">Almost done!</h2>
         <p className="text-white/60 text-sm">
-          Add a short bio to introduce yourself (optional)
+          Add a short bio to introduce yourself
         </p>
       </div>
 
       <div className="space-y-2">
-        <label className="text-white/70 text-sm">About you <span className="text-white/40">(max 150 characters)</span></label>
+        <label className="text-white/70 text-sm flex items-center gap-2">
+          About you <span className="text-white/40">(20-150 characters)</span>
+          {bioTrimmed.length < 20 && <span className="text-red-400 text-xs">*required</span>}
+        </label>
         <textarea
           placeholder="e.g. Chill guy looking for good company on weekends. Respectful and generous."
           value={data.bio || ''}
-          onChange={(e) => setData(prev => ({ ...prev, bio: e.target.value.slice(0, 150) }))}
-          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/40 focus:border-pink-500 focus:outline-none resize-none h-24"
+          onChange={handleBioChange}
+          className={`w-full bg-white/5 border rounded-xl px-4 py-3 text-white placeholder-white/40 focus:outline-none resize-none h-24 ${
+            error ? 'border-red-500 focus:border-red-500' : 'border-white/10 focus:border-pink-500'
+          }`}
         />
-        <p className="text-white/40 text-xs text-right">{(data.bio || '').length}/150</p>
+        <div className="flex justify-between items-center">
+          {error ? (
+            <p className="text-red-400 text-xs">{error}</p>
+          ) : bioTrimmed.length < 20 ? (
+            <p className="text-white/40 text-xs">Min 20 characters ({20 - bioTrimmed.length} more needed)</p>
+          ) : (
+            <p className="text-green-400 text-xs">Looks good!</p>
+          )}
+          <p className="text-white/40 text-xs">{bioTrimmed.length}/150</p>
+        </div>
       </div>
 
       {/* Summary */}
@@ -659,16 +810,23 @@ const ClientBioStep = ({ data, setData, onSubmit, onBack, isLoading }) => {
         <div className="text-white/50 text-xs space-y-1">
           <p>Name: <span className="text-white">{data.name}</span></p>
           <p>Location: <span className="text-white">{data.preferredLocation || 'Not set'}</span></p>
-          {data.bodyTypePreference && data.bodyTypePreference !== 'No preference' && (
-            <p>Prefers: <span className="text-white">{data.bodyTypePreference}</span></p>
+          {data.bodyTypePreferences?.length > 0 && !data.bodyTypePreferences.includes('No preference') && (
+            <p>Body types: <span className="text-white">{data.bodyTypePreferences.join(', ')}</span></p>
+          )}
+          {data.agePreferences?.length > 0 && !data.agePreferences.includes('No preference') && (
+            <p>Ages: <span className="text-white">{data.agePreferences.join(', ')}</span></p>
           )}
         </div>
       </div>
 
       <button
         onClick={onSubmit}
-        disabled={isLoading}
-        className="w-full py-4 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 rounded-xl text-white font-semibold transition-all"
+        disabled={isLoading || !isValidBio}
+        className={`w-full py-4 rounded-xl text-white font-semibold transition-all ${
+          isValidBio
+            ? 'bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600'
+            : 'bg-white/20 cursor-not-allowed'
+        }`}
       >
         {isLoading ? 'Creating account...' : 'Complete Registration'}
       </button>
@@ -1103,9 +1261,10 @@ export default function AuthPage() {
   const navigate = useNavigate();
   const { registerClient, registerCreator, isAuthenticated } = useAuth();
 
-  // Step: age, select, phone, otp, profile1, profile2, profile3
+  // Step: age, select, login-phone, login-otp, phone, otp, profile1, profile2, profile3
   const [step, setStep] = useState('age');
   const [userType, setUserType] = useState(null);
+  const [isLoginFlow, setIsLoginFlow] = useState(false);
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -1114,9 +1273,9 @@ export default function AuthPage() {
   const [clientData, setClientData] = useState({
     name: '',
     preferredLocation: '',
-    bodyTypePreference: '',
-    skinTonePreference: '',
-    agePreference: '',
+    bodyTypePreferences: [],
+    skinTonePreferences: [],
+    agePreferences: [],
     servicePreferences: [],
     bio: '',
   });
@@ -1157,7 +1316,44 @@ export default function AuthPage() {
 
   const handleUserTypeSelect = (type) => {
     setUserType(type);
+    setIsLoginFlow(false);
     setStep('phone');
+  };
+
+  const handleLoginClick = () => {
+    setIsLoginFlow(true);
+    setStep('login-phone');
+  };
+
+  const handleLoginPhoneSubmit = () => {
+    setIsLoading(true);
+    setTimeout(() => {
+      setIsLoading(false);
+      setStep('login-otp');
+    }, 1000);
+  };
+
+  const handleLoginOTPSubmit = () => {
+    setIsLoading(true);
+    // In a real app, this would verify OTP and load user data from backend
+    // For now, we'll simulate a successful login by checking localStorage
+    setTimeout(() => {
+      const stored = localStorage.getItem('hush_auth');
+      if (stored) {
+        const userData = JSON.parse(stored);
+        // User data already in localStorage, just redirect
+        setIsLoading(false);
+        if (userData.userType === 'creator') {
+          navigate('/creator-dashboard');
+        } else {
+          navigate('/explore/all');
+        }
+      } else {
+        // No account found - redirect to registration
+        setIsLoading(false);
+        setStep('select');
+      }
+    }, 1000);
   };
 
   const handlePhoneSubmit = () => {
@@ -1197,9 +1393,9 @@ export default function AuthPage() {
         name: clientData.name,
         preferences: {
           location: clientData.preferredLocation,
-          bodyType: clientData.bodyTypePreference,
-          skinTone: clientData.skinTonePreference,
-          age: clientData.agePreference,
+          bodyTypes: clientData.bodyTypePreferences,
+          skinTones: clientData.skinTonePreferences,
+          ages: clientData.agePreferences,
           services: clientData.servicePreferences,
         },
         bio: clientData.bio,
@@ -1273,7 +1469,7 @@ export default function AuthPage() {
           </div>
 
           {/* Step indicator */}
-          {step !== 'age' && step !== 'select' && (
+          {step !== 'age' && step !== 'select' && !step.startsWith('login') && (
             <StepIndicator currentStep={getStepNumber()} totalSteps={totalSteps} />
           )}
 
@@ -1289,10 +1485,35 @@ export default function AuthPage() {
 
             {/* User type selection */}
             {step === 'select' && (
-              <UserTypeSelection onSelect={handleUserTypeSelect} />
+              <UserTypeSelection onSelect={handleUserTypeSelect} onLogin={handleLoginClick} />
             )}
 
-            {/* Phone step */}
+            {/* Login phone step */}
+            {step === 'login-phone' && (
+              <LoginPhoneStep
+                phone={phone}
+                setPhone={setPhone}
+                onSubmit={handleLoginPhoneSubmit}
+                onBack={() => setStep('select')}
+                isLoading={isLoading}
+              />
+            )}
+
+            {/* Login OTP step */}
+            {step === 'login-otp' && (
+              <OTPStep
+                phone={phone}
+                otp={otp}
+                setOtp={setOtp}
+                onSubmit={handleLoginOTPSubmit}
+                onResend={handleResendOTP}
+                onBack={() => setStep('login-phone')}
+                isLoading={isLoading}
+                userType="client"
+              />
+            )}
+
+            {/* Registration Phone step */}
             {step === 'phone' && (
               <PhoneStep
                 phone={phone}
@@ -1304,7 +1525,7 @@ export default function AuthPage() {
               />
             )}
 
-            {/* OTP step */}
+            {/* Registration OTP step */}
             {step === 'otp' && (
               <OTPStep
                 phone={phone}
