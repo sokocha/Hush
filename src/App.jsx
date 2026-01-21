@@ -8,7 +8,7 @@ import {
   MessageSquare, ArrowRight, ArrowLeft, Unlock, ThumbsUp,
   Ban, AlertTriangle, Key, Home, Car, DollarSign, Aperture,
   Award, Info, ShieldCheck, EyeOff, Crown, BadgeCheck,
-  Smartphone, Target, RefreshCw, Wallet, Sparkles, TrendingUp, Users, Clock
+  Smartphone, Target, RefreshCw, Wallet, Sparkles, TrendingUp, Users, Clock, Calendar
 } from 'lucide-react';
 import { PLATFORM_CONFIG, getModelByUsername, MODELS } from './data/models';
 import useFavorites from './hooks/useFavorites';
@@ -680,8 +680,13 @@ const MeetupModal = ({ isOpen, onClose, clientState, onNeedsTrustDeposit, modelC
 
     const schedule = modelConfig.schedule;
     if (!schedule) {
-      // Default time slots if no schedule set
-      return ['10:00 AM', '11:00 AM', '12:00 PM', '1:00 PM', '2:00 PM', '3:00 PM', '4:00 PM', '5:00 PM', '6:00 PM', '7:00 PM', '8:00 PM', '9:00 PM', '10:00 PM'];
+      // Default time slots if no schedule set - include all 24 hours
+      return [
+        '12:00 AM', '1:00 AM', '2:00 AM', '3:00 AM', '4:00 AM', '5:00 AM',
+        '6:00 AM', '7:00 AM', '8:00 AM', '9:00 AM', '10:00 AM', '11:00 AM',
+        '12:00 PM', '1:00 PM', '2:00 PM', '3:00 PM', '4:00 PM', '5:00 PM',
+        '6:00 PM', '7:00 PM', '8:00 PM', '9:00 PM', '10:00 PM', '11:00 PM'
+      ];
     }
 
     const selectedDate = new Date(formData.date);
@@ -1478,11 +1483,36 @@ export default function App() {
     setModal('photoGallery');
   };
 
+  // Unlock both photos and contact with bundle discount
+  const handleUnlockBundle = () => {
+    const bundleDiscountAmount = Math.round((pricing.unlockPhotos + pricing.unlockContact) * 0.1);
+    const bundlePriceTotal = pricing.unlockPhotos + pricing.unlockContact - bundleDiscountAmount;
+
+    if (!clientState.tier) {
+      setModal('trustDeposit');
+      return;
+    }
+
+    if (clientState.depositBalance < bundlePriceTotal) {
+      showToast('Insufficient balance. Top up to continue.', 'error');
+      setModal('trustDeposit');
+      return;
+    }
+
+    deductFromBalance(bundlePriceTotal);
+    setPhotosUnlocked(true);
+    setContactUnlocked(true);
+    showToast(`Bundle unlocked! You saved ${formatNaira(bundleDiscountAmount)}`, 'success');
+    setModal('contactRevealed');
+  };
+
   // Skip age verification if authenticated (they verified during registration)
   if (!ageVerified && !isAuthenticated) return <AgeVerification onVerify={handleAgeVerification} />;
 
   const lockedPhotoCount = photos.total - photos.previewCount;
   const totalUnlockCost = pricing.unlockPhotos + pricing.unlockContact;
+  const bundleDiscount = Math.round(totalUnlockCost * 0.1); // 10% discount for bundle
+  const bundlePrice = totalUnlockCost - bundleDiscount;
 
   return (
     <div
@@ -1705,7 +1735,7 @@ export default function App() {
             )}
 
             <div className="p-3 bg-green-500/5">
-              <p className="text-green-300 text-xs flex items-center gap-2"><Shield size={12} />Pay {profile.name} directly via OPay/PalmPay • 50% deposit</p>
+              <p className="text-green-300 text-xs flex items-center gap-2"><Shield size={12} />Pay {profile.name} directly via OPay/PalmPay</p>
             </div>
           </div>
         </div>
@@ -1742,42 +1772,64 @@ export default function App() {
               </div>
             )}
 
-            {/* Price comparison - show what deposit unlocks */}
-            {clientState.tier && !photosUnlocked && !contactUnlocked && (
-              <div className="p-3 bg-gradient-to-r from-green-500/10 to-emerald-500/10 rounded-xl border border-green-500/20">
-                <div className="flex items-center justify-between">
-                  <span className="text-green-300/80 text-sm">Unlock everything:</span>
-                  <div className="text-right">
-                    <span className="text-green-400 font-bold">{formatNaira(totalUnlockCost)}</span>
-                    <span className="text-green-300/50 text-xs ml-1">from balance</span>
-                  </div>
+            {/* Unlock options - show when verified but not everything unlocked */}
+            {clientState.tier && (!photosUnlocked || !contactUnlocked) && (
+              <div className="space-y-2">
+                {/* Individual unlock options */}
+                <div className="grid grid-cols-2 gap-2">
+                  {/* Photos unlock option */}
+                  {photosUnlocked ? (
+                    <div className="flex flex-col items-center gap-2 p-3 rounded-xl bg-pink-500/20 border border-pink-500/30">
+                      <Camera size={20} className="text-pink-400" />
+                      <span className="text-pink-300 font-medium text-xs">Photos Unlocked</span>
+                    </div>
+                  ) : (
+                    <button onClick={() => setModal('unlockPhotos')} className="flex flex-col items-center gap-2 p-3 rounded-xl bg-white/5 border border-white/10 hover:border-pink-500/30 hover:bg-pink-500/10 transition-all">
+                      <Camera size={20} className="text-pink-400" />
+                      <span className="text-white font-medium text-xs">Photos</span>
+                      <span className="text-pink-400 text-xs font-bold">{formatNaira(pricing.unlockPhotos)}</span>
+                    </button>
+                  )}
+
+                  {/* Phone unlock option */}
+                  {contactUnlocked ? (
+                    <button onClick={() => setModal('contactRevealed')} className="flex flex-col items-center gap-2 p-3 rounded-xl bg-green-500/20 border border-green-500/30">
+                      <Phone size={20} className="text-green-400" />
+                      <span className="text-green-300 font-medium text-xs">Phone Unlocked</span>
+                    </button>
+                  ) : (
+                    <button onClick={() => setModal('unlockContact')} className="flex flex-col items-center gap-2 p-3 rounded-xl bg-white/5 border border-white/10 hover:border-green-500/30 hover:bg-green-500/10 transition-all">
+                      <Phone size={20} className="text-green-400" />
+                      <span className="text-white font-medium text-xs">Phone</span>
+                      <span className="text-green-400 text-xs font-bold">{formatNaira(pricing.unlockContact)}</span>
+                    </button>
+                  )}
                 </div>
-                <div className="flex items-center gap-2 mt-1 text-xs text-green-300/60">
-                  <span>Photos ({formatNaira(pricing.unlockPhotos)})</span>
-                  <span>+</span>
-                  <span>Phone ({formatNaira(pricing.unlockContact)})</span>
-                </div>
+
+                {/* Bundle discount - only show when both are locked */}
+                {!photosUnlocked && !contactUnlocked && (
+                  <button onClick={handleUnlockBundle} className="w-full p-3 bg-gradient-to-r from-pink-500/20 to-green-500/20 rounded-xl border border-white/20 hover:border-white/30 transition-all">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Sparkles size={16} className="text-amber-400" />
+                        <span className="text-white font-medium text-sm">Unlock Both</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-green-400 font-bold">{formatNaira(bundlePrice)}</span>
+                        <span className="text-amber-400 text-xs ml-2 line-through">{formatNaira(totalUnlockCost)}</span>
+                      </div>
+                    </div>
+                    <p className="text-amber-300/70 text-xs text-left mt-1">Save {formatNaira(bundleDiscount)} with bundle</p>
+                  </button>
+                )}
               </div>
             )}
 
-            {/* Two buttons in a row */}
-            <div className="grid grid-cols-2 gap-2">
-              <button onClick={() => protectedAction('meetup')} className="flex flex-col items-center gap-2 p-4 rounded-xl bg-pink-500/20 border border-pink-500/30 hover:border-pink-500/50 transition-all hover:scale-[1.02] active:scale-[0.98]">
-                <Heart size={24} className="text-pink-400" />
-                <span className="text-white font-medium text-xs text-center">Book Meetup</span>
-              </button>
-              {contactUnlocked ? (
-                <button onClick={() => setModal('contactRevealed')} className="flex flex-col items-center gap-2 p-4 rounded-xl bg-green-500/20 border border-green-500/30 transition-all hover:scale-[1.02] active:scale-[0.98]">
-                  <Phone size={24} className="text-green-400" />
-                  <span className="text-green-300 font-medium text-xs text-center">Unlocked</span>
-                </button>
-              ) : (
-                <button onClick={() => setModal('unlockContact')} className="flex flex-col items-center gap-2 p-4 rounded-xl bg-green-500/10 border border-green-500/30 hover:border-green-500/50 transition-all hover:scale-[1.02] active:scale-[0.98]">
-                  <Phone size={24} className="text-green-400" />
-                  <span className="text-green-300 font-medium text-xs text-center">{formatNaira(pricing.unlockContact)}</span>
-                </button>
-              )}
-            </div>
+            {/* Book Meetup button - always visible */}
+            <button onClick={() => protectedAction('meetup')} className="w-full flex items-center justify-center gap-2 p-4 rounded-xl bg-pink-500/20 border border-pink-500/30 hover:border-pink-500/50 transition-all hover:scale-[1.02] active:scale-[0.98]">
+              <Heart size={24} className="text-pink-400" />
+              <span className="text-white font-medium">Book Meetup</span>
+            </button>
 
             {/* Get Verified CTA if not verified - shown only if they skipped the empty state above */}
             {!clientState.tier && (

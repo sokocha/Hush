@@ -191,6 +191,7 @@ const TierSelectionCard = ({ tier, isSelected, onSelect, isCurrentTier, isLowerT
 
 // Meetup Card Component
 const MeetupCard = ({ meetup, onCancel }) => {
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const modelData = getModelByUsername(meetup.creatorUsername);
   const statusColors = {
     pending: { bg: 'bg-amber-500/10', border: 'border-amber-500/30', text: 'text-amber-300', label: 'Awaiting Confirmation' },
@@ -202,8 +203,40 @@ const MeetupCard = ({ meetup, onCancel }) => {
   };
   const status = statusColors[meetup.status] || statusColors.pending;
 
+  const handleCancelClick = () => {
+    setShowCancelConfirm(true);
+  };
+
+  const handleConfirmCancel = () => {
+    onCancel(meetup.id);
+    setShowCancelConfirm(false);
+  };
+
   return (
     <div className={`${status.bg} ${status.border} border rounded-xl p-4`}>
+      {/* Cancel Confirmation Overlay */}
+      {showCancelConfirm && (
+        <div className="mb-3 p-3 bg-red-500/20 border border-red-500/40 rounded-lg">
+          <p className="text-red-200 text-sm mb-3">
+            Are you sure you want to cancel this meetup with {meetup.creatorName}?
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={handleConfirmCancel}
+              className="flex-1 py-2 bg-red-500 hover:bg-red-600 rounded-lg text-white text-sm font-medium transition-colors"
+            >
+              Yes, Cancel
+            </button>
+            <button
+              onClick={() => setShowCancelConfirm(false)}
+              className="flex-1 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white text-sm font-medium transition-colors"
+            >
+              Keep It
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-full bg-gradient-to-br from-pink-500/30 to-purple-500/30 flex items-center justify-center">
@@ -222,9 +255,9 @@ const MeetupCard = ({ meetup, onCancel }) => {
             </div>
           </div>
         </div>
-        {(meetup.status === 'pending' || meetup.status === 'confirmed') && (
+        {(meetup.status === 'pending' || meetup.status === 'confirmed') && !showCancelConfirm && (
           <button
-            onClick={() => onCancel(meetup.id)}
+            onClick={handleCancelClick}
             className="text-red-400/70 hover:text-red-400 text-xs"
           >
             Cancel

@@ -359,6 +359,7 @@ export default function CreatorDashboardPage() {
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [showDeclineModal, setShowDeclineModal] = useState(null);
   const [declineReason, setDeclineReason] = useState('');
+  const [showCancelConfirm, setShowCancelConfirm] = useState(null); // holds bookingId to cancel
 
   // Schedule editing state
   const [editingSchedule, setEditingSchedule] = useState(null);
@@ -504,9 +505,16 @@ export default function CreatorDashboardPage() {
   };
 
   const handleCancelBooking = (bookingId) => {
-    updateBookingRequestStatus(bookingId, 'cancelled');
-    setShowBookingModal(false);
-    setSelectedBooking(null);
+    setShowCancelConfirm(bookingId);
+  };
+
+  const confirmCancelBooking = () => {
+    if (showCancelConfirm) {
+      updateBookingRequestStatus(showCancelConfirm, 'cancelled');
+      setShowCancelConfirm(null);
+      setShowBookingModal(false);
+      setSelectedBooking(null);
+    }
   };
 
   // Schedule handlers
@@ -1866,6 +1874,40 @@ export default function CreatorDashboardPage() {
               className="flex-1 py-3 bg-red-500 hover:bg-red-600 rounded-xl text-white font-semibold transition-all"
             >
               Decline Booking
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Cancel Booking Confirmation Modal */}
+      <Modal
+        isOpen={!!showCancelConfirm}
+        onClose={() => setShowCancelConfirm(null)}
+        title="Cancel Booking"
+      >
+        <div className="space-y-4">
+          <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl">
+            <AlertTriangle size={24} className="text-red-400 mx-auto mb-2" />
+            <p className="text-white text-center font-medium mb-1">
+              Are you sure you want to cancel this booking?
+            </p>
+            <p className="text-white/60 text-sm text-center">
+              The client will be notified that the booking has been cancelled.
+            </p>
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowCancelConfirm(null)}
+              className="flex-1 py-3 bg-white/10 hover:bg-white/20 rounded-xl text-white font-medium transition-colors"
+            >
+              Keep Booking
+            </button>
+            <button
+              onClick={confirmCancelBooking}
+              className="flex-1 py-3 bg-red-500 hover:bg-red-600 rounded-xl text-white font-semibold transition-all"
+            >
+              Yes, Cancel
             </button>
           </div>
         </div>
