@@ -1821,7 +1821,6 @@ export default function App() {
               <div className="flex items-center justify-center gap-1"><Target size={12} className="text-green-400" /><span className="text-green-400 font-bold">{stats.meetupSuccessRate}%</span></div>
               <p className="text-white/40 text-xs">Success</p>
             </div>
-            <div className="text-center border-l border-white/10"><p className="text-white font-bold">{stats.repeatClients}</p><p className="text-white/40 text-xs">Repeat</p></div>
             <div className="text-center border-l border-white/10"><p className={`font-bold ${stats.lastSeen === 'Online' ? 'text-green-400' : 'text-white'}`}>{stats.lastSeen}</p><p className="text-white/40 text-xs">Last Seen</p></div>
           </div>
         </div>
