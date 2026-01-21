@@ -141,7 +141,10 @@ export default function ExplorePage() {
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
   const { favorites, toggleFavorite, isFavorite } = useFavorites();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isCreator, isClient } = useAuth();
+
+  // Determine the correct dashboard link based on user type
+  const dashboardLink = isCreator ? '/creator-dashboard' : '/dashboard';
 
   // Toggle extra selection
   const toggleExtra = (extra) => {
@@ -268,7 +271,7 @@ export default function ExplorePage() {
             <p className="text-white/50 text-sm">{filteredModels.length} verified models</p>
           </div>
           {isAuthenticated ? (
-            <Link to="/dashboard" className="px-4 py-2 rounded-full bg-pink-500 hover:bg-pink-600 text-white text-sm font-medium transition-colors flex items-center gap-2">
+            <Link to={dashboardLink} className="px-4 py-2 rounded-full bg-pink-500 hover:bg-pink-600 text-white text-sm font-medium transition-colors flex items-center gap-2">
               <Users size={16} />
               Profile
             </Link>

@@ -1239,7 +1239,7 @@ export default function AuthPage() {
         bio: creatorData.bio,
       });
       setIsLoading(false);
-      navigate('/dashboard');
+      navigate('/creator-dashboard');
     }, 500);
   };
 

@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from './context/AuthContext.jsx'
 import App from './App.jsx'
 import ExplorePage from './pages/ExplorePage.jsx'
 import ClientDashboardPage from './pages/ClientDashboardPage.jsx'
+import CreatorDashboardPage from './pages/CreatorDashboardPage.jsx'
 import ReviewsPage from './pages/ReviewsPage.jsx'
 import AuthPage from './pages/AuthPage.jsx'
 import './index.css'
@@ -65,6 +66,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
 
           {/* Protected routes */}
           <Route path="/dashboard" element={<ProtectedRoute><ClientDashboardPage /></ProtectedRoute>} />
+          <Route path="/creator-dashboard" element={<ProtectedRoute><CreatorDashboardPage /></ProtectedRoute>} />
 
           {/* Catch all - redirect to explore */}
           <Route path="*" element={<Navigate to="/explore/all" replace />} />

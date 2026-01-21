@@ -1267,7 +1267,10 @@ export default function App() {
   const hideToast = useCallback(() => setToast(prev => ({ ...prev, visible: false })), []);
 
   // Auth context
-  const { user, isAuthenticated, updateUser, updateTier, deductBalance } = useAuth();
+  const { user, isAuthenticated, isCreator, isClient, updateUser, updateTier, deductBalance } = useAuth();
+
+  // Determine the correct dashboard link based on user type
+  const dashboardLink = isCreator ? '/creator-dashboard' : '/dashboard';
 
   // Client state - use auth context if available, otherwise use mock for unauthenticated browsing
   const [localClientState, setLocalClientState] = useState(MOCK_CLIENT);
@@ -1421,7 +1424,7 @@ export default function App() {
           </Link>
           <Link to="/" className="text-white font-bold text-lg">{PLATFORM_CONFIG.name}</Link>
           {isAuthenticated ? (
-            <Link to="/dashboard" className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors">
+            <Link to={dashboardLink} className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors">
               <Wallet size={20} className="text-white" />
             </Link>
           ) : (
@@ -1614,86 +1617,109 @@ export default function App() {
           </div>
         </div>
 
-        {/* 4. BOOK NOW */}
-        <div className="mb-6 space-y-3">
-          {/* Show client tier status and balance with animation */}
-          {clientState.tier ? (
-            <div className={`flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/10 transition-all ${balanceAnimating ? 'animate-scaleIn' : ''}`}>
-              <div className="flex items-center gap-2">
-                <TierBadge tier={clientState.tier} />
-              </div>
-              <div className="text-right flex items-center gap-2">
-                <Wallet size={14} className="text-green-400/60" />
-                <span className={`text-green-400 font-bold transition-all ${balanceAnimating ? 'animate-number-change' : ''}`}>
-                  {formatNaira(clientState.depositBalance)}
-                </span>
-              </div>
-            </div>
-          ) : (
-            /* Empty state for zero balance - better illustration */
-            <div className="p-4 bg-gradient-to-br from-blue-500/10 to-purple-500/10 rounded-xl border border-blue-500/20 text-center">
-              <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-blue-500/20 flex items-center justify-center animate-bounce-slow">
-                <Sparkles size={28} className="text-blue-400" />
-              </div>
-              <p className="text-white font-medium mb-1">Get Verified to Unlock</p>
-              <p className="text-white/50 text-sm mb-3">
-                Photos + Phone = <span className="text-green-400 font-medium">{formatNaira(totalUnlockCost)}</span> from your deposit
-              </p>
-              <button onClick={() => setModal('trustDeposit')} className="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-full text-white font-medium text-sm transition-colors">
-                Start with {formatNaira(PLATFORM_CONFIG.verificationTiers.verified.deposit)}
-              </button>
-            </div>
-          )}
-
-          {/* Price comparison - show what deposit unlocks */}
-          {clientState.tier && !photosUnlocked && !contactUnlocked && (
-            <div className="p-3 bg-gradient-to-r from-green-500/10 to-emerald-500/10 rounded-xl border border-green-500/20">
-              <div className="flex items-center justify-between">
-                <span className="text-green-300/80 text-sm">Unlock everything:</span>
-                <div className="text-right">
-                  <span className="text-green-400 font-bold">{formatNaira(totalUnlockCost)}</span>
-                  <span className="text-green-300/50 text-xs ml-1">from balance</span>
+        {/* 4. BOOK NOW - Hidden for creators viewing other models */}
+        {!isCreator && (
+          <div className="mb-6 space-y-3">
+            {/* Show client tier status and balance with animation */}
+            {clientState.tier ? (
+              <div className={`flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/10 transition-all ${balanceAnimating ? 'animate-scaleIn' : ''}`}>
+                <div className="flex items-center gap-2">
+                  <TierBadge tier={clientState.tier} />
+                </div>
+                <div className="text-right flex items-center gap-2">
+                  <Wallet size={14} className="text-green-400/60" />
+                  <span className={`text-green-400 font-bold transition-all ${balanceAnimating ? 'animate-number-change' : ''}`}>
+                    {formatNaira(clientState.depositBalance)}
+                  </span>
                 </div>
               </div>
-              <div className="flex items-center gap-2 mt-1 text-xs text-green-300/60">
-                <span>Photos ({formatNaira(pricing.unlockPhotos)})</span>
-                <span>+</span>
-                <span>Phone ({formatNaira(pricing.unlockContact)})</span>
-              </div>
-            </div>
-          )}
-
-          {/* Two buttons in a row */}
-          <div className="grid grid-cols-2 gap-2">
-            <button onClick={() => protectedAction('meetup')} className="flex flex-col items-center gap-2 p-4 rounded-xl bg-pink-500/20 border border-pink-500/30 hover:border-pink-500/50 transition-all hover:scale-[1.02] active:scale-[0.98]">
-              <Heart size={24} className="text-pink-400" />
-              <span className="text-white font-medium text-xs text-center">Book Meetup</span>
-            </button>
-            {contactUnlocked ? (
-              <button onClick={() => setModal('contactRevealed')} className="flex flex-col items-center gap-2 p-4 rounded-xl bg-green-500/20 border border-green-500/30 transition-all hover:scale-[1.02] active:scale-[0.98]">
-                <Phone size={24} className="text-green-400" />
-                <span className="text-green-300 font-medium text-xs text-center">Unlocked</span>
-              </button>
             ) : (
-              <button onClick={() => setModal('unlockContact')} className="flex flex-col items-center gap-2 p-4 rounded-xl bg-green-500/10 border border-green-500/30 hover:border-green-500/50 transition-all hover:scale-[1.02] active:scale-[0.98]">
-                <Phone size={24} className="text-green-400" />
-                <span className="text-green-300 font-medium text-xs text-center">{formatNaira(pricing.unlockContact)}</span>
+              /* Empty state for zero balance - better illustration */
+              <div className="p-4 bg-gradient-to-br from-blue-500/10 to-purple-500/10 rounded-xl border border-blue-500/20 text-center">
+                <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-blue-500/20 flex items-center justify-center animate-bounce-slow">
+                  <Sparkles size={28} className="text-blue-400" />
+                </div>
+                <p className="text-white font-medium mb-1">Get Verified to Unlock</p>
+                <p className="text-white/50 text-sm mb-3">
+                  Photos + Phone = <span className="text-green-400 font-medium">{formatNaira(totalUnlockCost)}</span> from your deposit
+                </p>
+                <button onClick={() => setModal('trustDeposit')} className="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-full text-white font-medium text-sm transition-colors">
+                  Start with {formatNaira(PLATFORM_CONFIG.verificationTiers.verified.deposit)}
+                </button>
+              </div>
+            )}
+
+            {/* Price comparison - show what deposit unlocks */}
+            {clientState.tier && !photosUnlocked && !contactUnlocked && (
+              <div className="p-3 bg-gradient-to-r from-green-500/10 to-emerald-500/10 rounded-xl border border-green-500/20">
+                <div className="flex items-center justify-between">
+                  <span className="text-green-300/80 text-sm">Unlock everything:</span>
+                  <div className="text-right">
+                    <span className="text-green-400 font-bold">{formatNaira(totalUnlockCost)}</span>
+                    <span className="text-green-300/50 text-xs ml-1">from balance</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 mt-1 text-xs text-green-300/60">
+                  <span>Photos ({formatNaira(pricing.unlockPhotos)})</span>
+                  <span>+</span>
+                  <span>Phone ({formatNaira(pricing.unlockContact)})</span>
+                </div>
+              </div>
+            )}
+
+            {/* Two buttons in a row */}
+            <div className="grid grid-cols-2 gap-2">
+              <button onClick={() => protectedAction('meetup')} className="flex flex-col items-center gap-2 p-4 rounded-xl bg-pink-500/20 border border-pink-500/30 hover:border-pink-500/50 transition-all hover:scale-[1.02] active:scale-[0.98]">
+                <Heart size={24} className="text-pink-400" />
+                <span className="text-white font-medium text-xs text-center">Book Meetup</span>
+              </button>
+              {contactUnlocked ? (
+                <button onClick={() => setModal('contactRevealed')} className="flex flex-col items-center gap-2 p-4 rounded-xl bg-green-500/20 border border-green-500/30 transition-all hover:scale-[1.02] active:scale-[0.98]">
+                  <Phone size={24} className="text-green-400" />
+                  <span className="text-green-300 font-medium text-xs text-center">Unlocked</span>
+                </button>
+              ) : (
+                <button onClick={() => setModal('unlockContact')} className="flex flex-col items-center gap-2 p-4 rounded-xl bg-green-500/10 border border-green-500/30 hover:border-green-500/50 transition-all hover:scale-[1.02] active:scale-[0.98]">
+                  <Phone size={24} className="text-green-400" />
+                  <span className="text-green-300 font-medium text-xs text-center">{formatNaira(pricing.unlockContact)}</span>
+                </button>
+              )}
+            </div>
+
+            {/* Get Verified CTA if not verified - shown only if they skipped the empty state above */}
+            {!clientState.tier && (
+              <button onClick={() => setModal('trustDeposit')} className="w-full flex items-center gap-3 p-3 rounded-xl bg-blue-500/10 border border-blue-500/30 hover:border-blue-500/50 transition-colors">
+                <ShieldCheck size={18} className="text-blue-400" />
+                <span className="flex-1 text-left">
+                  <span className="text-blue-300 font-medium text-sm">Get Verified</span>
+                  <span className="text-blue-300/60 text-xs ml-2">Unlock all features</span>
+                </span>
+                <ChevronRight size={16} className="text-blue-400" />
               </button>
             )}
           </div>
+        )}
 
-          {/* Get Verified CTA if not verified - shown only if they skipped the empty state above */}
-          {!clientState.tier && (
-            <button onClick={() => setModal('trustDeposit')} className="w-full flex items-center gap-3 p-3 rounded-xl bg-blue-500/10 border border-blue-500/30 hover:border-blue-500/50 transition-colors">
-              <ShieldCheck size={18} className="text-blue-400" />
-              <span className="flex-1 text-left">
-                <span className="text-blue-300 font-medium text-sm">Get Verified</span>
-                <span className="text-blue-300/60 text-xs ml-2">Unlock all features</span>
-              </span>
-              <ChevronRight size={16} className="text-blue-400" />
-            </button>
-          )}
-        </div>
+        {/* Creator Notice - show when a creator views another model's profile */}
+        {isCreator && (
+          <div className="mb-6 p-4 bg-purple-500/10 border border-purple-500/30 rounded-xl">
+            <div className="flex items-start gap-3">
+              <Crown size={20} className="text-purple-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-purple-300 font-medium">You're viewing as a Creator</p>
+                <p className="text-purple-300/60 text-sm mt-1">
+                  Booking and contact features are only available for clients.
+                </p>
+                <Link
+                  to="/creator-dashboard"
+                  className="inline-flex items-center gap-1 mt-2 text-purple-400 text-sm hover:text-purple-300 transition-colors"
+                >
+                  Go to your Dashboard <ChevronRight size={14} />
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* 5. REVIEWS */}
         <div className="mb-6">
@@ -1729,23 +1755,25 @@ export default function App() {
         </div>
       </div>
 
-      {/* Sticky Bottom CTA Bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-30 bg-gradient-to-t from-black via-black/95 to-transparent pt-6 pb-4 px-4">
-        <div className="max-w-md mx-auto">
-          <button
-            onClick={() => protectedAction('meetup')}
-            className="w-full py-4 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 rounded-2xl text-white font-bold text-lg shadow-lg shadow-pink-500/30 flex items-center justify-center gap-3 transition-all hover:scale-[1.02] active:scale-[0.98]"
-          >
-            <Heart size={22} className="fill-white" />
-            Book Meetup with {profile.name}
-          </button>
-          <div className="flex items-center justify-center gap-4 mt-2 text-xs text-white/40">
-            <span className="flex items-center gap-1"><Shield size={10} />Protected</span>
-            <span className="flex items-center gap-1"><Target size={10} />{stats.meetupSuccessRate}% success</span>
-            <span className="flex items-center gap-1"><CheckCircle size={10} />Verified</span>
+      {/* Sticky Bottom CTA Bar - Hidden for creators */}
+      {!isCreator && (
+        <div className="fixed bottom-0 left-0 right-0 z-30 bg-gradient-to-t from-black via-black/95 to-transparent pt-6 pb-4 px-4">
+          <div className="max-w-md mx-auto">
+            <button
+              onClick={() => protectedAction('meetup')}
+              className="w-full py-4 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 rounded-2xl text-white font-bold text-lg shadow-lg shadow-pink-500/30 flex items-center justify-center gap-3 transition-all hover:scale-[1.02] active:scale-[0.98]"
+            >
+              <Heart size={22} className="fill-white" />
+              Book Meetup with {profile.name}
+            </button>
+            <div className="flex items-center justify-center gap-4 mt-2 text-xs text-white/40">
+              <span className="flex items-center gap-1"><Shield size={10} />Protected</span>
+              <span className="flex items-center gap-1"><Target size={10} />{stats.meetupSuccessRate}% success</span>
+              <span className="flex items-center gap-1"><CheckCircle size={10} />Verified</span>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Modals */}
       <ClientVerificationModal isOpen={modal === 'verify'} onClose={() => { setModal(null); setPendingAction(null); }} onVerified={onVerified} nextAction={pendingAction} blacklistedClients={CONFIG?.blacklistedClients || []} />
