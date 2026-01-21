@@ -1238,7 +1238,20 @@ export default function App() {
   const { username } = useParams();
   const navigate = useNavigate();
 
-  const [ageVerified, setAgeVerified] = useState(false);
+  // Age verification - skip if authenticated OR if already verified this session
+  const [ageVerified, setAgeVerified] = useState(() => {
+    // If authenticated, they've already verified during registration
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('hush_age_verified') === 'true';
+    }
+    return false;
+  });
+
+  // Handle age verification
+  const handleAgeVerification = () => {
+    setAgeVerified(true);
+    sessionStorage.setItem('hush_age_verified', 'true');
+  };
   const [contactUnlocked, setContactUnlocked] = useState(false);
   const [photosUnlocked, setPhotosUnlocked] = useState(false);
   const [verifiedPhone, setVerifiedPhone] = useState(null);
@@ -1369,7 +1382,8 @@ export default function App() {
     setModal('photoGallery');
   };
 
-  if (!ageVerified) return <AgeVerification onVerify={() => setAgeVerified(true)} />;
+  // Skip age verification if authenticated (they verified during registration)
+  if (!ageVerified && !isAuthenticated) return <AgeVerification onVerify={handleAgeVerification} />;
 
   const lockedPhotoCount = photos.total - photos.previewCount;
   const totalUnlockCost = pricing.unlockPhotos + pricing.unlockContact;

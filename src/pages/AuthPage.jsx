@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import {
   Phone, User, Shield, ChevronRight, CheckCircle,
   MapPin, Camera, Video, Sparkles, Crown, Heart,
-  ArrowLeft, Eye, EyeOff, Wallet, Users, Star
+  ArrowLeft, Wallet, Users, Star, Ban, X,
+  Ruler, Clock, DollarSign, AlertTriangle
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { PLATFORM_CONFIG } from '../data/models';
@@ -12,6 +13,51 @@ const LOCATIONS = [
   { name: "Lagos", areas: ["Lekki", "VI", "Ikoyi", "Ajah", "Ikeja", "GRA", "Maryland"] },
   { name: "Abuja", areas: ["Maitama", "Wuse", "Asokoro", "Garki", "Jabi"] },
   { name: "Port Harcourt", areas: ["GRA", "Trans Amadi", "Rumuola", "Eleme"] },
+];
+
+// Client preference options
+const BODY_TYPE_PREFERENCES = [
+  "Slim", "Athletic", "Curvy", "Thick", "BBW", "Petite", "Tall", "No preference"
+];
+
+const SKIN_TONE_PREFERENCES = [
+  "Fair", "Light", "Caramel", "Brown", "Dark", "No preference"
+];
+
+const AGE_PREFERENCES = [
+  "18-22", "23-27", "28-32", "33-40", "40+", "No preference"
+];
+
+const SERVICE_PREFERENCES = [
+  "GFE", "PSE", "Dinner dates", "Travel companion", "Overnights", "Duos"
+];
+
+// Creator profile options
+const BODY_TYPES = ["Slim", "Athletic", "Curvy", "Thick", "BBW", "Petite"];
+const SKIN_TONES = ["Fair", "Light", "Caramel", "Brown", "Dark"];
+const HEIGHT_RANGES = ["Under 5'2\"", "5'2\" - 5'5\"", "5'5\" - 5'8\"", "5'8\" - 5'11\"", "6'+"];
+
+const SERVICES_OFFERED = [
+  { id: "gfe", name: "GFE (Girlfriend Experience)", description: "Intimate, romantic companionship" },
+  { id: "pse", name: "PSE (Porn Star Experience)", description: "More adventurous encounters" },
+  { id: "duo", name: "Duo (with friend)", description: "Two companions together" },
+  { id: "dinner", name: "Dinner Date", description: "Upscale dining companionship" },
+  { id: "travel", name: "Travel Companion", description: "Trips and getaways" },
+  { id: "overnight", name: "Overnight", description: "Extended time together" },
+  { id: "event", name: "Event Date", description: "Social events and parties" },
+];
+
+const COMMON_BOUNDARIES = [
+  "No bareback",
+  "No anal",
+  "No kissing",
+  "No rough play",
+  "No filming/photos",
+  "No overnight on first booking",
+  "Outcall only to hotels",
+  "Incall only",
+  "Screening required for new clients",
+  "No same-day bookings",
 ];
 
 const formatNaira = (amount) => `₦${amount.toLocaleString()}`;
@@ -24,7 +70,6 @@ const OTPInput = ({ value, onChange, length = 6 }) => {
     newValue[index] = digit;
     onChange(newValue.join(''));
 
-    // Auto-focus next input
     if (digit && index < length - 1) {
       const next = document.getElementById(`otp-${index + 1}`);
       next?.focus();
@@ -72,6 +117,33 @@ const StepIndicator = ({ currentStep, totalSteps }) => (
         }`}
       />
     ))}
+  </div>
+);
+
+// Age verification gate
+const AgeVerificationStep = ({ onConfirm, onExit }) => (
+  <div className="space-y-6 text-center">
+    <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-pink-500/20 flex items-center justify-center">
+      <Shield size={40} className="text-pink-400" />
+    </div>
+    <h2 className="text-2xl font-bold text-white">Age Verification</h2>
+    <p className="text-white/60">
+      This platform contains adult content. You must be 18 years or older to continue.
+    </p>
+    <div className="space-y-3">
+      <button
+        onClick={onConfirm}
+        className="w-full py-4 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white font-semibold rounded-xl transition-all text-lg"
+      >
+        I am 18+ — Continue
+      </button>
+      <button
+        onClick={onExit}
+        className="w-full py-3 bg-white/10 hover:bg-white/20 text-white/70 font-medium rounded-xl transition-colors"
+      >
+        I am under 18 — Exit
+      </button>
+    </div>
   </div>
 );
 
@@ -317,13 +389,17 @@ const OTPStep = ({ phone, otp, setOtp, onSubmit, onResend, onBack, isLoading, us
   );
 };
 
-// Client profile step
-const ClientProfileStep = ({ name, setName, onSubmit, onBack, isLoading }) => {
+// ═══════════════════════════════════════════════════════════
+// CLIENT PROFILE STEPS
+// ═══════════════════════════════════════════════════════════
+
+// Client Step 1: Basic info
+const ClientBasicInfoStep = ({ data, setData, onSubmit, onBack }) => {
   const [error, setError] = useState('');
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (name.trim().length < 2) {
+    if (data.name.trim().length < 2) {
       setError('Please enter your name');
       return;
     }
@@ -346,73 +422,268 @@ const ClientProfileStep = ({ name, setName, onSubmit, onBack, isLoading }) => {
         <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-pink-500/20 flex items-center justify-center">
           <User size={32} className="text-pink-400" />
         </div>
-        <h2 className="text-2xl font-bold text-white mb-2">Create your profile</h2>
+        <h2 className="text-2xl font-bold text-white mb-2">Tell us about yourself</h2>
         <p className="text-white/60 text-sm">
-          This name will be shown to models when you book
+          This helps models know who they're meeting
         </p>
       </div>
 
-      <div className="space-y-2">
-        <label className="text-white/70 text-sm">Display Name</label>
-        <input
-          type="text"
-          placeholder="e.g. John D."
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/40 focus:border-pink-500 focus:outline-none"
-        />
-        {error && <p className="text-red-400 text-sm">{error}</p>}
-        <p className="text-white/40 text-xs">
-          You can use a nickname or first name + initial for privacy
-        </p>
-      </div>
-
-      {/* Verification tiers preview */}
-      <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
-        <p className="text-white/70 text-sm font-medium mb-3">Verification Tiers</p>
+      <div className="space-y-4">
         <div className="space-y-2">
-          {Object.values(PLATFORM_CONFIG.verificationTiers).map(tier => {
-            const tierColors = {
-              visitor: "text-gray-400",
-              verified: "text-blue-400",
-              baller: "text-purple-400",
-              bossman: "text-amber-400",
-            };
-            return (
-              <div key={tier.id} className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2">
-                  <span className={tierColors[tier.id]}>{tier.name}</span>
-                  <span className="text-white/30 text-xs">"{tier.tagline}"</span>
-                </div>
-                <span className="text-white font-medium">{formatNaira(tier.deposit)}</span>
-              </div>
-            );
-          })}
+          <label className="text-white/70 text-sm">Display Name</label>
+          <input
+            type="text"
+            placeholder="e.g. John D."
+            value={data.name}
+            onChange={(e) => setData(prev => ({ ...prev, name: e.target.value }))}
+            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/40 focus:border-pink-500 focus:outline-none"
+          />
+          {error && <p className="text-red-400 text-sm">{error}</p>}
+          <p className="text-white/40 text-xs">Use a nickname or first name + initial for privacy</p>
         </div>
-        <p className="text-white/40 text-xs mt-2">
-          You'll choose your tier after registration
-        </p>
+
+        <div className="space-y-2">
+          <label className="text-white/70 text-sm">Preferred Location</label>
+          <div className="flex gap-2">
+            {LOCATIONS.map(loc => (
+              <button
+                key={loc.name}
+                type="button"
+                onClick={() => setData(prev => ({ ...prev, preferredLocation: loc.name }))}
+                className={`flex-1 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                  data.preferredLocation === loc.name
+                    ? 'bg-pink-500 text-white'
+                    : 'bg-white/5 border border-white/10 text-white/70 hover:bg-white/10'
+                }`}
+              >
+                {loc.name}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       <button
         type="submit"
-        disabled={isLoading || name.trim().length < 2}
+        disabled={data.name.trim().length < 2}
         className={`w-full py-4 rounded-xl text-white font-semibold transition-all ${
-          name.trim().length >= 2
+          data.name.trim().length >= 2
             ? 'bg-pink-500 hover:bg-pink-600'
             : 'bg-white/20 cursor-not-allowed'
         }`}
       >
-        {isLoading ? 'Creating account...' : 'Complete Registration'}
+        Continue
       </button>
     </form>
   );
 };
 
-// Creator profile step
-const CreatorProfileStep = ({ data, setData, onSubmit, onBack, isLoading }) => {
+// Client Step 2: Preferences
+const ClientPreferencesStep = ({ data, setData, onSubmit, onBack }) => {
+  const togglePreference = (key, value) => {
+    setData(prev => {
+      const current = prev[key] || [];
+      const updated = current.includes(value)
+        ? current.filter(v => v !== value)
+        : [...current, value];
+      return { ...prev, [key]: updated };
+    });
+  };
+
+  const setPreference = (key, value) => {
+    setData(prev => ({ ...prev, [key]: value }));
+  };
+
+  return (
+    <div className="space-y-6">
+      <button
+        type="button"
+        onClick={onBack}
+        className="flex items-center gap-2 text-white/60 hover:text-white transition-colors"
+      >
+        <ArrowLeft size={18} />
+        Back
+      </button>
+
+      <div className="text-center mb-6">
+        <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-pink-500/20 flex items-center justify-center">
+          <Heart size={32} className="text-pink-400" />
+        </div>
+        <h2 className="text-2xl font-bold text-white mb-2">Your preferences</h2>
+        <p className="text-white/60 text-sm">
+          Help us show you the right models (all optional)
+        </p>
+      </div>
+
+      <div className="space-y-5">
+        {/* Body type preference */}
+        <div className="space-y-2">
+          <label className="text-white/70 text-sm">Body Type</label>
+          <div className="flex flex-wrap gap-2">
+            {BODY_TYPE_PREFERENCES.map(type => (
+              <button
+                key={type}
+                type="button"
+                onClick={() => setPreference('bodyTypePreference', type)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  data.bodyTypePreference === type
+                    ? 'bg-pink-500 text-white'
+                    : 'bg-white/5 border border-white/10 text-white/70 hover:bg-white/10'
+                }`}
+              >
+                {type}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Skin tone preference */}
+        <div className="space-y-2">
+          <label className="text-white/70 text-sm">Skin Tone</label>
+          <div className="flex flex-wrap gap-2">
+            {SKIN_TONE_PREFERENCES.map(tone => (
+              <button
+                key={tone}
+                type="button"
+                onClick={() => setPreference('skinTonePreference', tone)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  data.skinTonePreference === tone
+                    ? 'bg-pink-500 text-white'
+                    : 'bg-white/5 border border-white/10 text-white/70 hover:bg-white/10'
+                }`}
+              >
+                {tone}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Age preference */}
+        <div className="space-y-2">
+          <label className="text-white/70 text-sm">Age Range</label>
+          <div className="flex flex-wrap gap-2">
+            {AGE_PREFERENCES.map(age => (
+              <button
+                key={age}
+                type="button"
+                onClick={() => setPreference('agePreference', age)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  data.agePreference === age
+                    ? 'bg-pink-500 text-white'
+                    : 'bg-white/5 border border-white/10 text-white/70 hover:bg-white/10'
+                }`}
+              >
+                {age}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Service preferences */}
+        <div className="space-y-2">
+          <label className="text-white/70 text-sm">Services you're interested in</label>
+          <div className="flex flex-wrap gap-2">
+            {SERVICE_PREFERENCES.map(service => (
+              <button
+                key={service}
+                type="button"
+                onClick={() => togglePreference('servicePreferences', service)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1 ${
+                  (data.servicePreferences || []).includes(service)
+                    ? 'bg-purple-500 text-white'
+                    : 'bg-white/5 border border-white/10 text-white/70 hover:bg-white/10'
+                }`}
+              >
+                {service}
+                {(data.servicePreferences || []).includes(service) && <X size={12} />}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <button
+        onClick={onSubmit}
+        className="w-full py-4 bg-pink-500 hover:bg-pink-600 rounded-xl text-white font-semibold transition-all"
+      >
+        Continue
+      </button>
+
+      <button
+        onClick={onSubmit}
+        className="w-full py-3 text-white/50 text-sm hover:text-white/70 transition-colors"
+      >
+        Skip for now
+      </button>
+    </div>
+  );
+};
+
+// Client Step 3: Bio
+const ClientBioStep = ({ data, setData, onSubmit, onBack, isLoading }) => {
+  return (
+    <div className="space-y-6">
+      <button
+        type="button"
+        onClick={onBack}
+        className="flex items-center gap-2 text-white/60 hover:text-white transition-colors"
+      >
+        <ArrowLeft size={18} />
+        Back
+      </button>
+
+      <div className="text-center mb-6">
+        <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-pink-500/20 flex items-center justify-center">
+          <Sparkles size={32} className="text-pink-400" />
+        </div>
+        <h2 className="text-2xl font-bold text-white mb-2">Almost done!</h2>
+        <p className="text-white/60 text-sm">
+          Add a short bio to introduce yourself (optional)
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <label className="text-white/70 text-sm">About you <span className="text-white/40">(max 150 characters)</span></label>
+        <textarea
+          placeholder="e.g. Chill guy looking for good company on weekends. Respectful and generous."
+          value={data.bio || ''}
+          onChange={(e) => setData(prev => ({ ...prev, bio: e.target.value.slice(0, 150) }))}
+          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/40 focus:border-pink-500 focus:outline-none resize-none h-24"
+        />
+        <p className="text-white/40 text-xs text-right">{(data.bio || '').length}/150</p>
+      </div>
+
+      {/* Summary */}
+      <div className="p-4 bg-white/5 border border-white/10 rounded-xl space-y-2">
+        <p className="text-white/70 text-sm font-medium">Your profile summary</p>
+        <div className="text-white/50 text-xs space-y-1">
+          <p>Name: <span className="text-white">{data.name}</span></p>
+          <p>Location: <span className="text-white">{data.preferredLocation || 'Not set'}</span></p>
+          {data.bodyTypePreference && data.bodyTypePreference !== 'No preference' && (
+            <p>Prefers: <span className="text-white">{data.bodyTypePreference}</span></p>
+          )}
+        </div>
+      </div>
+
+      <button
+        onClick={onSubmit}
+        disabled={isLoading}
+        className="w-full py-4 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 rounded-xl text-white font-semibold transition-all"
+      >
+        {isLoading ? 'Creating account...' : 'Complete Registration'}
+      </button>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════
+// CREATOR PROFILE STEPS
+// ═══════════════════════════════════════════════════════════
+
+// Creator Step 1: Basic Info
+const CreatorBasicInfoStep = ({ data, setData, onSubmit, onBack }) => {
   const [errors, setErrors] = useState({});
-  const [selectedLocation, setSelectedLocation] = useState('');
+  const [selectedLocation, setSelectedLocation] = useState(data.location || '');
 
   const locationData = LOCATIONS.find(l => l.name === selectedLocation);
 
@@ -435,7 +706,7 @@ const CreatorProfileStep = ({ data, setData, onSubmit, onBack, isLoading }) => {
     const newErrors = {};
     if (data.name.trim().length < 2) newErrors.name = 'Name is required';
     if (data.username.trim().length < 3) newErrors.username = 'Username must be at least 3 characters';
-    if (!/^[a-z0-9_]+$/.test(data.username)) newErrors.username = 'Username can only contain lowercase letters, numbers, and underscores';
+    if (!/^[a-z0-9_]+$/.test(data.username)) newErrors.username = 'Only lowercase letters, numbers, and underscores';
     if (!data.location) newErrors.location = 'Please select your location';
     if (data.areas.length === 0) newErrors.areas = 'Please select at least one area';
 
@@ -462,9 +733,9 @@ const CreatorProfileStep = ({ data, setData, onSubmit, onBack, isLoading }) => {
         <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-purple-500/20 flex items-center justify-center">
           <Crown size={32} className="text-purple-400" />
         </div>
-        <h2 className="text-2xl font-bold text-white mb-2">Create your creator profile</h2>
+        <h2 className="text-2xl font-bold text-white mb-2">Create your profile</h2>
         <p className="text-white/60 text-sm">
-          Set up your profile to start receiving bookings
+          Let's set up your creator account
         </p>
       </div>
 
@@ -496,6 +767,19 @@ const CreatorProfileStep = ({ data, setData, onSubmit, onBack, isLoading }) => {
             />
           </div>
           {errors.username && <p className="text-red-400 text-sm">{errors.username}</p>}
+        </div>
+
+        {/* Tagline */}
+        <div className="space-y-2">
+          <label className="text-white/70 text-sm">Tagline</label>
+          <input
+            type="text"
+            placeholder="e.g. Your favorite girl 💋"
+            value={data.tagline || ''}
+            onChange={(e) => setData(prev => ({ ...prev, tagline: e.target.value }))}
+            maxLength={50}
+            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/40 focus:border-purple-500 focus:outline-none"
+          />
         </div>
 
         {/* Location */}
@@ -543,22 +827,245 @@ const CreatorProfileStep = ({ data, setData, onSubmit, onBack, isLoading }) => {
             {errors.areas && <p className="text-red-400 text-sm">{errors.areas}</p>}
           </div>
         )}
+      </div>
 
-        {/* Tagline */}
+      <button
+        type="submit"
+        className="w-full py-4 bg-purple-500 hover:bg-purple-600 rounded-xl text-white font-semibold transition-all"
+      >
+        Continue
+      </button>
+    </form>
+  );
+};
+
+// Creator Step 2: Physical Attributes
+const CreatorPhysicalStep = ({ data, setData, onSubmit, onBack }) => {
+  return (
+    <div className="space-y-6">
+      <button
+        type="button"
+        onClick={onBack}
+        className="flex items-center gap-2 text-white/60 hover:text-white transition-colors"
+      >
+        <ArrowLeft size={18} />
+        Back
+      </button>
+
+      <div className="text-center mb-6">
+        <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-purple-500/20 flex items-center justify-center">
+          <Ruler size={32} className="text-purple-400" />
+        </div>
+        <h2 className="text-2xl font-bold text-white mb-2">Your profile details</h2>
+        <p className="text-white/60 text-sm">
+          Help clients find you (shown on your profile)
+        </p>
+      </div>
+
+      <div className="space-y-5">
+        {/* Body type */}
         <div className="space-y-2">
-          <label className="text-white/70 text-sm">Tagline (optional)</label>
+          <label className="text-white/70 text-sm">Body Type</label>
+          <div className="flex flex-wrap gap-2">
+            {BODY_TYPES.map(type => (
+              <button
+                key={type}
+                type="button"
+                onClick={() => setData(prev => ({ ...prev, bodyType: type }))}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  data.bodyType === type
+                    ? 'bg-purple-500 text-white'
+                    : 'bg-white/5 border border-white/10 text-white/70 hover:bg-white/10'
+                }`}
+              >
+                {type}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Skin tone */}
+        <div className="space-y-2">
+          <label className="text-white/70 text-sm">Skin Tone</label>
+          <div className="flex flex-wrap gap-2">
+            {SKIN_TONES.map(tone => (
+              <button
+                key={tone}
+                type="button"
+                onClick={() => setData(prev => ({ ...prev, skinTone: tone }))}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  data.skinTone === tone
+                    ? 'bg-purple-500 text-white'
+                    : 'bg-white/5 border border-white/10 text-white/70 hover:bg-white/10'
+                }`}
+              >
+                {tone}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Height */}
+        <div className="space-y-2">
+          <label className="text-white/70 text-sm">Height</label>
+          <div className="flex flex-wrap gap-2">
+            {HEIGHT_RANGES.map(height => (
+              <button
+                key={height}
+                type="button"
+                onClick={() => setData(prev => ({ ...prev, height: height }))}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  data.height === height
+                    ? 'bg-purple-500 text-white'
+                    : 'bg-white/5 border border-white/10 text-white/70 hover:bg-white/10'
+                }`}
+              >
+                {height}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Age */}
+        <div className="space-y-2">
+          <label className="text-white/70 text-sm">Age</label>
           <input
-            type="text"
-            placeholder="e.g. Your favorite girl"
-            value={data.tagline}
-            onChange={(e) => setData(prev => ({ ...prev, tagline: e.target.value }))}
-            maxLength={50}
+            type="number"
+            placeholder="e.g. 24"
+            min="18"
+            max="60"
+            value={data.age || ''}
+            onChange={(e) => setData(prev => ({ ...prev, age: e.target.value }))}
             className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/40 focus:border-purple-500 focus:outline-none"
           />
         </div>
       </div>
 
-      {/* Verification info */}
+      <button
+        onClick={onSubmit}
+        className="w-full py-4 bg-purple-500 hover:bg-purple-600 rounded-xl text-white font-semibold transition-all"
+      >
+        Continue
+      </button>
+    </div>
+  );
+};
+
+// Creator Step 3: Services & Boundaries
+const CreatorServicesStep = ({ data, setData, onSubmit, onBack, isLoading }) => {
+  const toggleService = (serviceId) => {
+    setData(prev => {
+      const current = prev.services || [];
+      const updated = current.includes(serviceId)
+        ? current.filter(s => s !== serviceId)
+        : [...current, serviceId];
+      return { ...prev, services: updated };
+    });
+  };
+
+  const toggleBoundary = (boundary) => {
+    setData(prev => {
+      const current = prev.boundaries || [];
+      const updated = current.includes(boundary)
+        ? current.filter(b => b !== boundary)
+        : [...current, boundary];
+      return { ...prev, boundaries: updated };
+    });
+  };
+
+  return (
+    <div className="space-y-6">
+      <button
+        type="button"
+        onClick={onBack}
+        className="flex items-center gap-2 text-white/60 hover:text-white transition-colors"
+      >
+        <ArrowLeft size={18} />
+        Back
+      </button>
+
+      <div className="text-center mb-6">
+        <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-purple-500/20 flex items-center justify-center">
+          <Star size={32} className="text-purple-400" />
+        </div>
+        <h2 className="text-2xl font-bold text-white mb-2">Services & Boundaries</h2>
+        <p className="text-white/60 text-sm">
+          What do you offer? What are your limits?
+        </p>
+      </div>
+
+      <div className="space-y-5">
+        {/* Services offered */}
+        <div className="space-y-2">
+          <label className="text-white/70 text-sm">Services you offer</label>
+          <div className="space-y-2">
+            {SERVICES_OFFERED.map(service => (
+              <button
+                key={service.id}
+                type="button"
+                onClick={() => toggleService(service.id)}
+                className={`w-full p-3 rounded-xl text-left transition-all flex items-center gap-3 ${
+                  (data.services || []).includes(service.id)
+                    ? 'bg-purple-500/20 border border-purple-500/50'
+                    : 'bg-white/5 border border-white/10 hover:bg-white/10'
+                }`}
+              >
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                  (data.services || []).includes(service.id)
+                    ? 'border-purple-400 bg-purple-500'
+                    : 'border-white/30'
+                }`}>
+                  {(data.services || []).includes(service.id) && (
+                    <CheckCircle size={12} className="text-white" />
+                  )}
+                </div>
+                <div>
+                  <p className="text-white text-sm font-medium">{service.name}</p>
+                  <p className="text-white/50 text-xs">{service.description}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Boundaries */}
+        <div className="space-y-2">
+          <label className="text-white/70 text-sm flex items-center gap-2">
+            <Ban size={14} className="text-red-400" />
+            Your boundaries (the "Nope" list)
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {COMMON_BOUNDARIES.map(boundary => (
+              <button
+                key={boundary}
+                type="button"
+                onClick={() => toggleBoundary(boundary)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  (data.boundaries || []).includes(boundary)
+                    ? 'bg-red-500/20 border border-red-500/50 text-red-300'
+                    : 'bg-white/5 border border-white/10 text-white/70 hover:bg-white/10'
+                }`}
+              >
+                {boundary}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Bio */}
+        <div className="space-y-2">
+          <label className="text-white/70 text-sm">Bio <span className="text-white/40">(shown on your profile)</span></label>
+          <textarea
+            placeholder="Tell clients about yourself..."
+            value={data.bio || ''}
+            onChange={(e) => setData(prev => ({ ...prev, bio: e.target.value.slice(0, 200) }))}
+            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/40 focus:border-purple-500 focus:outline-none resize-none h-24"
+          />
+          <p className="text-white/40 text-xs text-right">{(data.bio || '').length}/200</p>
+        </div>
+      </div>
+
+      {/* Next steps info */}
       <div className="p-4 bg-purple-500/10 border border-purple-500/20 rounded-xl">
         <p className="text-purple-300 text-sm font-medium mb-2">Next steps after registration:</p>
         <div className="space-y-2 text-purple-300/70 text-xs">
@@ -571,48 +1078,63 @@ const CreatorProfileStep = ({ data, setData, onSubmit, onBack, isLoading }) => {
             <span>Schedule a studio photo session</span>
           </div>
           <div className="flex items-center gap-2">
-            <Star size={14} />
+            <DollarSign size={14} />
             <span>Set your pricing and availability</span>
           </div>
         </div>
       </div>
 
       <button
-        type="submit"
+        onClick={onSubmit}
         disabled={isLoading}
-        className={`w-full py-4 rounded-xl text-white font-semibold transition-all ${
-          !isLoading
-            ? 'bg-purple-500 hover:bg-purple-600'
-            : 'bg-white/20 cursor-not-allowed'
-        }`}
+        className="w-full py-4 bg-gradient-to-r from-purple-500 to-fuchsia-500 hover:from-purple-600 hover:to-fuchsia-600 rounded-xl text-white font-semibold transition-all"
       >
         {isLoading ? 'Creating account...' : 'Complete Registration'}
       </button>
-    </form>
+    </div>
   );
 };
 
-// Main Auth Page
+// ═══════════════════════════════════════════════════════════
+// MAIN AUTH PAGE
+// ═══════════════════════════════════════════════════════════
+
 export default function AuthPage() {
   const navigate = useNavigate();
   const { registerClient, registerCreator, isAuthenticated } = useAuth();
 
-  const [step, setStep] = useState('select'); // select, phone, otp, profile
-  const [userType, setUserType] = useState(null); // client, creator
+  // Step: age, select, phone, otp, profile1, profile2, profile3
+  const [step, setStep] = useState('age');
+  const [userType, setUserType] = useState(null);
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   // Client data
-  const [clientName, setClientName] = useState('');
+  const [clientData, setClientData] = useState({
+    name: '',
+    preferredLocation: '',
+    bodyTypePreference: '',
+    skinTonePreference: '',
+    agePreference: '',
+    servicePreferences: [],
+    bio: '',
+  });
 
   // Creator data
   const [creatorData, setCreatorData] = useState({
     name: '',
     username: '',
+    tagline: '',
     location: '',
     areas: [],
-    tagline: '',
+    bodyType: '',
+    skinTone: '',
+    height: '',
+    age: '',
+    services: [],
+    boundaries: [],
+    bio: '',
   });
 
   // Redirect if already authenticated
@@ -622,6 +1144,17 @@ export default function AuthPage() {
     }
   }, [isAuthenticated, navigate]);
 
+  // Handle age verification
+  const handleAgeVerified = () => {
+    // Also set in sessionStorage so they don't see it again on other pages
+    sessionStorage.setItem('hush_age_verified', 'true');
+    setStep('select');
+  };
+
+  const handleAgeExit = () => {
+    window.location.href = 'https://google.com';
+  };
+
   const handleUserTypeSelect = (type) => {
     setUserType(type);
     setStep('phone');
@@ -629,7 +1162,6 @@ export default function AuthPage() {
 
   const handlePhoneSubmit = () => {
     setIsLoading(true);
-    // Simulate OTP sending
     setTimeout(() => {
       setIsLoading(false);
       setStep('otp');
@@ -638,45 +1170,91 @@ export default function AuthPage() {
 
   const handleOTPSubmit = () => {
     setIsLoading(true);
-    // Simulate OTP verification (in real app, this would verify with backend)
     setTimeout(() => {
       setIsLoading(false);
-      // For demo, accept any 6-digit code
-      setStep('profile');
+      setStep('profile1');
     }, 1000);
   };
 
   const handleResendOTP = () => {
-    // Simulate resending OTP
     console.log('Resending OTP to', phone);
   };
 
-  const handleClientProfileSubmit = () => {
+  // Client flow handlers
+  const handleClientProfile1Submit = () => {
+    setStep('profile2');
+  };
+
+  const handleClientProfile2Submit = () => {
+    setStep('profile3');
+  };
+
+  const handleClientProfileComplete = () => {
     setIsLoading(true);
     setTimeout(() => {
       registerClient({
         phone,
-        name: clientName,
+        name: clientData.name,
+        preferences: {
+          location: clientData.preferredLocation,
+          bodyType: clientData.bodyTypePreference,
+          skinTone: clientData.skinTonePreference,
+          age: clientData.agePreference,
+          services: clientData.servicePreferences,
+        },
+        bio: clientData.bio,
       });
       setIsLoading(false);
       navigate('/explore/all');
     }, 500);
   };
 
-  const handleCreatorProfileSubmit = () => {
+  // Creator flow handlers
+  const handleCreatorProfile1Submit = () => {
+    setStep('profile2');
+  };
+
+  const handleCreatorProfile2Submit = () => {
+    setStep('profile3');
+  };
+
+  const handleCreatorProfileComplete = () => {
     setIsLoading(true);
     setTimeout(() => {
       registerCreator({
         phone,
-        ...creatorData,
+        name: creatorData.name,
+        username: creatorData.username,
+        tagline: creatorData.tagline,
+        location: creatorData.location,
+        areas: creatorData.areas,
+        physicalAttributes: {
+          bodyType: creatorData.bodyType,
+          skinTone: creatorData.skinTone,
+          height: creatorData.height,
+          age: creatorData.age,
+        },
+        services: creatorData.services,
+        boundaries: creatorData.boundaries,
+        bio: creatorData.bio,
       });
       setIsLoading(false);
-      navigate('/dashboard'); // Redirect to creator dashboard
+      navigate('/dashboard');
     }, 500);
   };
 
-  const totalSteps = userType === 'creator' ? 4 : 3;
-  const currentStepNumber = step === 'phone' ? 1 : step === 'otp' ? 2 : step === 'profile' ? 3 : 0;
+  // Calculate steps
+  const totalSteps = userType === 'creator' ? 6 : 5; // age, phone, otp, profile1, profile2, profile3
+  const getStepNumber = () => {
+    switch (step) {
+      case 'phone': return 1;
+      case 'otp': return 2;
+      case 'profile1': return 3;
+      case 'profile2': return 4;
+      case 'profile3': return 5;
+      default: return 0;
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-950 via-rose-950 to-fuchsia-950">
@@ -695,16 +1273,26 @@ export default function AuthPage() {
           </div>
 
           {/* Step indicator */}
-          {step !== 'select' && (
-            <StepIndicator currentStep={currentStepNumber} totalSteps={totalSteps} />
+          {step !== 'age' && step !== 'select' && (
+            <StepIndicator currentStep={getStepNumber()} totalSteps={totalSteps} />
           )}
 
           {/* Content */}
           <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-6">
+            {/* Age verification */}
+            {step === 'age' && (
+              <AgeVerificationStep
+                onConfirm={handleAgeVerified}
+                onExit={handleAgeExit}
+              />
+            )}
+
+            {/* User type selection */}
             {step === 'select' && (
               <UserTypeSelection onSelect={handleUserTypeSelect} />
             )}
 
+            {/* Phone step */}
             {step === 'phone' && (
               <PhoneStep
                 phone={phone}
@@ -716,6 +1304,7 @@ export default function AuthPage() {
               />
             )}
 
+            {/* OTP step */}
             {step === 'otp' && (
               <OTPStep
                 phone={phone}
@@ -729,22 +1318,60 @@ export default function AuthPage() {
               />
             )}
 
-            {step === 'profile' && userType === 'client' && (
-              <ClientProfileStep
-                name={clientName}
-                setName={setClientName}
-                onSubmit={handleClientProfileSubmit}
+            {/* Client profile steps */}
+            {step === 'profile1' && userType === 'client' && (
+              <ClientBasicInfoStep
+                data={clientData}
+                setData={setClientData}
+                onSubmit={handleClientProfile1Submit}
                 onBack={() => setStep('otp')}
+              />
+            )}
+
+            {step === 'profile2' && userType === 'client' && (
+              <ClientPreferencesStep
+                data={clientData}
+                setData={setClientData}
+                onSubmit={handleClientProfile2Submit}
+                onBack={() => setStep('profile1')}
+              />
+            )}
+
+            {step === 'profile3' && userType === 'client' && (
+              <ClientBioStep
+                data={clientData}
+                setData={setClientData}
+                onSubmit={handleClientProfileComplete}
+                onBack={() => setStep('profile2')}
                 isLoading={isLoading}
               />
             )}
 
-            {step === 'profile' && userType === 'creator' && (
-              <CreatorProfileStep
+            {/* Creator profile steps */}
+            {step === 'profile1' && userType === 'creator' && (
+              <CreatorBasicInfoStep
                 data={creatorData}
                 setData={setCreatorData}
-                onSubmit={handleCreatorProfileSubmit}
+                onSubmit={handleCreatorProfile1Submit}
                 onBack={() => setStep('otp')}
+              />
+            )}
+
+            {step === 'profile2' && userType === 'creator' && (
+              <CreatorPhysicalStep
+                data={creatorData}
+                setData={setCreatorData}
+                onSubmit={handleCreatorProfile2Submit}
+                onBack={() => setStep('profile1')}
+              />
+            )}
+
+            {step === 'profile3' && userType === 'creator' && (
+              <CreatorServicesStep
+                data={creatorData}
+                setData={setCreatorData}
+                onSubmit={handleCreatorProfileComplete}
+                onBack={() => setStep('profile2')}
                 isLoading={isLoading}
               />
             )}
