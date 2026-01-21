@@ -120,17 +120,15 @@ const CameraCapture = ({ onCapture, onClose }) => {
     const ctx = canvas.getContext('2d');
     ctx.drawImage(video, 0, 0);
 
-    canvas.toBlob((blob) => {
-      const photoUrl = URL.createObjectURL(blob);
-      onCapture({
-        id: Date.now().toString(),
-        url: photoUrl,
-        blob,
-        capturedAt: new Date().toISOString(),
-        isPreview: false,
-      });
-      setIsCapturing(false);
-    }, 'image/jpeg', 0.9);
+    // Convert to base64 for persistence in localStorage
+    const base64Data = canvas.toDataURL('image/jpeg', 0.8);
+    onCapture({
+      id: Date.now().toString(),
+      url: base64Data, // base64 string persists in localStorage
+      capturedAt: new Date().toISOString(),
+      isPreview: false,
+    });
+    setIsCapturing(false);
   };
 
   const handleClose = () => {
@@ -479,15 +477,17 @@ export default function CreatorDashboardPage() {
   const previewCount = creatorPhotos.filter(p => p.isPreview).length;
   const lockedCount = creatorPhotos.filter(p => !p.isPreview).length;
 
-  // Calculate verification progress
+  // Calculate verification progress (phone, video, photos - pricing is separate)
   const verificationSteps = [
     { id: 'phone', completed: true },
     { id: 'video', completed: user.isVideoVerified },
-    { id: 'studio', completed: user.isStudioVerified },
-    { id: 'pricing', completed: user.pricing?.meetupIncall?.[1] > 0 },
+    { id: 'photos', completed: creatorPhotos.length >= 3 },
   ];
   const completedSteps = verificationSteps.filter(s => s.completed).length;
   const verificationProgress = (completedSteps / verificationSteps.length) * 100;
+
+  // Check if pricing is configured
+  const hasPricingSet = user.pricing?.meetupIncall?.[1] > 0;
 
   const memberSince = user.registeredAt
     ? new Date(user.registeredAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
@@ -762,15 +762,6 @@ export default function CreatorDashboardPage() {
               onAction={() => setActiveTab('photos')}
             />
 
-            <VerificationStep
-              icon={DollarSign}
-              title="Set Pricing"
-              description="Configure your rates for different services"
-              status={user.pricing?.meetupIncall?.[1] > 0 ? 'completed' : 'pending'}
-              action="Set Prices"
-              onAction={handleOpenPricing}
-            />
-
             <div className="mt-6 p-4 bg-purple-500/10 border border-purple-500/20 rounded-xl">
               <h4 className="text-purple-300 font-medium mb-2">Why verification matters</h4>
               <ul className="text-purple-300/70 text-sm space-y-1">
@@ -900,6 +891,33 @@ export default function CreatorDashboardPage() {
                 </div>
               </div>
               <ChevronRight size={20} className="text-white/30" />
+            </button>
+
+            {/* Set Pricing */}
+            <button
+              onClick={handleOpenPricing}
+              className="w-full flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-green-500/20 rounded-lg">
+                  <DollarSign size={18} className="text-green-400" />
+                </div>
+                <div className="text-left">
+                  <p className="text-white font-medium">Set Pricing</p>
+                  <p className="text-white/50 text-sm">
+                    {hasPricingSet
+                      ? `Incall from ${formatNaira(user.pricing.meetupIncall[1])}`
+                      : 'Configure your rates for services'
+                    }
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {hasPricingSet && (
+                  <span className="px-2 py-0.5 bg-green-500/20 text-green-400 text-xs rounded-full">Set</span>
+                )}
+                <ChevronRight size={20} className="text-white/30" />
+              </div>
             </button>
 
             {/* Logout */}
