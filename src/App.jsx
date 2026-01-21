@@ -698,7 +698,8 @@ const P2PPaymentStep = ({ amount, serviceName, onBack, onConfirm, creatorPayment
 const MeetupModal = ({ isOpen, onClose, clientState, onNeedsTrustDeposit, modelConfig, onMeetupBooked }) => {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
-  const [formData, setFormData] = useState({ date: '', time: '', locationType: 'incall', location: '', duration: '1', specialRequests: '' });
+  const todayDate = new Date().toISOString().split('T')[0];
+  const [formData, setFormData] = useState({ date: todayDate, time: '', locationType: 'incall', location: '', duration: '1', specialRequests: '' });
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [codes, setCodes] = useState({ client: '', creator: '' });
 
@@ -803,7 +804,7 @@ const MeetupModal = ({ isOpen, onClose, clientState, onNeedsTrustDeposit, modelC
   const resetAndClose = () => {
     onClose();
     setStep(1);
-    setFormData({ date: '', time: '', locationType: 'incall', location: '', duration: '1', specialRequests: '' });
+    setFormData({ date: todayDate, time: '', locationType: 'incall', location: '', duration: '1', specialRequests: '' });
     setAgreedToTerms(false);
     setCodes({ client: '', creator: '' });
   };
