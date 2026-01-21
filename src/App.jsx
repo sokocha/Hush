@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { PLATFORM_CONFIG, getModelByUsername, MODELS } from './data/models';
 import useFavorites from './hooks/useFavorites';
+import { useAuth } from './context/AuthContext';
 
 // ═══════════════════════════════════════════════════════════
 // DEFAULT MODEL (fallback)
@@ -1252,8 +1253,13 @@ export default function App() {
   const showToast = (message, type = 'success') => setToast({ visible: true, message, type });
   const hideToast = useCallback(() => setToast(prev => ({ ...prev, visible: false })), []);
 
-  // Client state (simulated - would come from auth in real app)
-  const [clientState, setClientState] = useState(MOCK_CLIENT);
+  // Auth context
+  const { user, isAuthenticated, updateUser, updateTier, deductBalance } = useAuth();
+
+  // Client state - use auth context if available, otherwise use mock for unauthenticated browsing
+  const [localClientState, setLocalClientState] = useState(MOCK_CLIENT);
+  const clientState = isAuthenticated && user?.userType === 'client' ? user : localClientState;
+  const setClientState = isAuthenticated ? updateUser : setLocalClientState;
 
   // Favorites
   const { isFavorite, toggleFavorite } = useFavorites();
@@ -1326,13 +1332,17 @@ export default function App() {
 
   const handleTrustDepositPaid = (tier = 'verified') => {
     const tierDeposit = PLATFORM_CONFIG.verificationTiers[tier]?.deposit || 0;
-    setClientState(prev => ({
-      ...prev,
-      hasPaidTrustDeposit: true,
-      tier: tier,
-      depositBalance: tierDeposit,
-      isNewMember: false,
-    }));
+    if (isAuthenticated) {
+      updateTier(tier, tierDeposit);
+    } else {
+      setLocalClientState(prev => ({
+        ...prev,
+        hasPaidTrustDeposit: true,
+        tier: tier,
+        depositBalance: tierDeposit,
+        isNewMember: false,
+      }));
+    }
     showToast(`Welcome! ${formatNaira(tierDeposit)} deposited`, 'success');
     setBalanceAnimating(true);
     setTimeout(() => setBalanceAnimating(false), 500);
@@ -1340,10 +1350,14 @@ export default function App() {
 
   // Deduct from deposit balance for unlocks
   const deductFromBalance = (amount) => {
-    setClientState(prev => ({
-      ...prev,
-      depositBalance: Math.max(0, prev.depositBalance - amount),
-    }));
+    if (isAuthenticated) {
+      deductBalance(amount);
+    } else {
+      setLocalClientState(prev => ({
+        ...prev,
+        depositBalance: Math.max(0, prev.depositBalance - amount),
+      }));
+    }
     showToast(`${formatNaira(amount)} deducted from balance`, 'success');
     setBalanceAnimating(true);
     setTimeout(() => setBalanceAnimating(false), 500);
@@ -1392,9 +1406,15 @@ export default function App() {
             <Users size={20} className="text-white" />
           </Link>
           <Link to="/" className="text-white font-bold text-lg">{PLATFORM_CONFIG.name}</Link>
-          <Link to="/dashboard" className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors">
-            <Wallet size={20} className="text-white" />
-          </Link>
+          {isAuthenticated ? (
+            <Link to="/dashboard" className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors">
+              <Wallet size={20} className="text-white" />
+            </Link>
+          ) : (
+            <Link to="/auth" className="px-4 py-2 rounded-full bg-pink-500 hover:bg-pink-600 text-white text-sm font-medium transition-colors">
+              Login
+            </Link>
+          )}
         </div>
 
         {/* 1. PROFILE + TRUST */}

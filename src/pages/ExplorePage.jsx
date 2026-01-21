@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { getModelsList, getLocations, getAllExtras, PLATFORM_CONFIG } from '../data/models';
 import useFavorites from '../hooks/useFavorites';
+import { useAuth } from '../context/AuthContext';
 
 // Get models from shared data store
 const ALL_MODELS = getModelsList();
@@ -140,6 +141,7 @@ export default function ExplorePage() {
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
   const { favorites, toggleFavorite, isFavorite } = useFavorites();
+  const { isAuthenticated } = useAuth();
 
   // Toggle extra selection
   const toggleExtra = (extra) => {
@@ -265,6 +267,11 @@ export default function ExplorePage() {
             </h1>
             <p className="text-white/50 text-sm">{filteredModels.length} verified models</p>
           </div>
+          {!isAuthenticated && (
+            <Link to="/auth" className="px-4 py-2 rounded-full bg-pink-500 hover:bg-pink-600 text-white text-sm font-medium transition-colors">
+              Login
+            </Link>
+          )}
         </div>
 
         {/* Location tabs */}
