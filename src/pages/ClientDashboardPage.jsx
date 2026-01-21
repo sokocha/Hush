@@ -185,10 +185,10 @@ const TierSelectionCard = ({ tier, isSelected, onSelect, isCurrentTier }) => {
 const MeetupCard = ({ meetup, onCancel }) => {
   const modelData = getModelByUsername(meetup.creatorUsername);
   const statusColors = {
-    pending: { bg: 'bg-amber-500/10', border: 'border-amber-500/30', text: 'text-amber-300', label: 'Pending' },
+    pending: { bg: 'bg-amber-500/10', border: 'border-amber-500/30', text: 'text-amber-300', label: 'Awaiting Confirmation' },
     confirmed: { bg: 'bg-green-500/10', border: 'border-green-500/30', text: 'text-green-300', label: 'Confirmed' },
-    declined: { bg: 'bg-red-500/10', border: 'border-red-500/30', text: 'text-red-300', label: 'Declined' },
-    rescheduled: { bg: 'bg-blue-500/10', border: 'border-blue-500/30', text: 'text-blue-300', label: 'Rescheduled' },
+    declined: { bg: 'bg-red-500/10', border: 'border-red-500/30', text: 'text-red-300', label: 'Declined by Model' },
+    rescheduled: { bg: 'bg-blue-500/10', border: 'border-blue-500/30', text: 'text-blue-300', label: 'Reschedule Requested' },
     completed: { bg: 'bg-green-500/10', border: 'border-green-500/30', text: 'text-green-300', label: 'Completed' },
     cancelled: { bg: 'bg-gray-500/10', border: 'border-gray-500/30', text: 'text-gray-400', label: 'Cancelled' },
   };
@@ -693,9 +693,9 @@ export default function ClientDashboardPage() {
               </h4>
               <ul className="text-blue-200/70 text-sm space-y-1">
                 <li>• Always exchange verification codes at the meetup</li>
-                <li>• Pay the balance only after code verification</li>
-                <li>• If a model asks for full payment upfront, report them</li>
+                <li>• Verify codes match before proceeding</li>
                 <li>• Keep your booking confirmation as reference</li>
+                <li>• Report any suspicious behavior to us</li>
               </ul>
             </div>
           </div>

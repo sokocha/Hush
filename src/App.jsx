@@ -708,12 +708,11 @@ const MeetupModal = ({ isOpen, onClose, clientState, onNeedsTrustDeposit, modelC
   };
 
   const handleConfirmBooking = () => {
-    setCodes({ client: generateCode('C'), creator: generateCode('X') });
-    setStep(4);
-  };
+    const clientCode = generateCode('C');
+    const creatorCode = generateCode('X');
+    setCodes({ client: clientCode, creator: creatorCode });
 
-  const handleComplete = () => {
-    // Save the meetup booking
+    // Save the meetup booking immediately when confirmed
     if (onMeetupBooked) {
       onMeetupBooked({
         creatorUsername: modelConfig.profile.username,
@@ -725,10 +724,14 @@ const MeetupModal = ({ isOpen, onClose, clientState, onNeedsTrustDeposit, modelC
         duration: formData.duration,
         specialRequests: formData.specialRequests,
         totalPrice: getMeetupPrice(),
-        clientCode: codes.client,
+        clientCode: clientCode,
       });
     }
 
+    setStep(4);
+  };
+
+  const handleSendWhatsApp = () => {
     // Build WhatsApp message with special requests if provided
     let message = `🌹 MEETUP BOOKING\n\nName: ${clientState.name || 'Client'}\nDate: ${formData.date}\nTime: ${formData.time}\nType: ${formData.locationType === 'incall' ? 'Incall' : 'Outcall'}\nArea: ${formData.location}\nDuration: ${formData.duration === 'overnight' ? 'Overnight' : formData.duration + 'hr'}\nRate: ${formatNaira(getMeetupPrice())}`;
 
@@ -972,7 +975,7 @@ const MeetupModal = ({ isOpen, onClose, clientState, onNeedsTrustDeposit, modelC
             <p className="text-amber-200 text-sm"><strong>⚠️</strong> Exchange verification codes when you meet. Handle payment directly with {modelConfig.profile.name}.</p>
           </div>
 
-          <button onClick={handleComplete} className="w-full py-4 bg-green-500 hover:bg-green-600 rounded-xl text-white font-semibold flex items-center justify-center gap-2"><Send size={18} />Notify on WhatsApp</button>
+          <button onClick={handleSendWhatsApp} className="w-full py-4 bg-green-500 hover:bg-green-600 rounded-xl text-white font-semibold flex items-center justify-center gap-2"><Send size={18} />Notify on WhatsApp</button>
         </div>
       )}
     </Modal>
