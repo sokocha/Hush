@@ -6,6 +6,7 @@ import {
   TrendingUp, Heart, Clock, Users, Sparkles, X, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { getModelsList, getLocations, getAllExtras, PLATFORM_CONFIG } from '../data/models';
+import useFavorites from '../hooks/useFavorites';
 
 // Get models from shared data store
 const ALL_MODELS = getModelsList();
@@ -30,85 +31,100 @@ const LOCATIONS = [
 
 const formatNaira = (amount) => `₦${amount.toLocaleString()}`;
 
-const ModelCard = ({ model }) => (
-  <Link
-    to={`/model/${model.username}`}
-    className="block bg-white/5 rounded-2xl border border-white/10 overflow-hidden hover:border-pink-500/30 hover:bg-white/10 transition-all group"
-  >
-    {/* Photo placeholder */}
-    <div className="aspect-[3/4] bg-gradient-to-br from-pink-500/30 to-purple-500/30 relative">
-      <div className="absolute inset-0 flex items-center justify-center">
-        <span className="text-4xl font-bold text-white/30">{model.name.slice(0, 2).toUpperCase()}</span>
-      </div>
-
-      {/* Status badges */}
-      <div className="absolute top-3 left-3 flex flex-col gap-1.5">
-        {model.isOnline && (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/90 text-white text-xs font-medium">
-            <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
-            Online
-          </span>
-        )}
-        {model.isAvailable && (
-          <span className="px-2 py-0.5 rounded-full bg-blue-500/90 text-white text-xs font-medium">
-            Available
-          </span>
-        )}
-      </div>
-
-      {/* Verification badges */}
-      <div className="absolute top-3 right-3 flex flex-col gap-1">
-        {model.isVideoVerified && (
-          <span className="p-1.5 rounded-full bg-blue-500/80">
-            <Video size={12} className="text-white" />
-          </span>
-        )}
-        {model.isStudioVerified && (
-          <span className="p-1.5 rounded-full bg-cyan-500/80">
-            <Aperture size={12} className="text-white" />
-          </span>
-        )}
-      </div>
-
-      {/* Success rate badge */}
-      <div className="absolute bottom-3 left-3">
-        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-black/60 backdrop-blur-sm text-green-400 text-xs font-medium">
-          <Target size={12} />
-          {model.meetupSuccessRate}% success
-        </span>
-      </div>
-    </div>
-
-    {/* Info */}
-    <div className="p-4">
-      <div className="flex items-start justify-between mb-2">
-        <div>
-          <h3 className="text-white font-semibold text-lg group-hover:text-pink-300 transition-colors">{model.name}</h3>
-          <p className="text-white/50 text-sm">@{model.username}</p>
+const ModelCard = ({ model, isFavorite, onToggleFavorite }) => (
+  <div className="relative bg-white/5 rounded-2xl border border-white/10 overflow-hidden hover:border-pink-500/30 hover:bg-white/10 transition-all group">
+    <Link to={`/model/${model.username}`} className="block">
+      {/* Photo placeholder */}
+      <div className="aspect-[3/4] bg-gradient-to-br from-pink-500/30 to-purple-500/30 relative">
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className="text-4xl font-bold text-white/30">{model.name.slice(0, 2).toUpperCase()}</span>
         </div>
-        <div className="flex items-center gap-1 text-yellow-400">
-          <Star size={14} className="fill-yellow-400" />
-          <span className="text-white text-sm font-medium">{model.rating}</span>
+
+        {/* Status badges */}
+        <div className="absolute top-3 left-3 flex flex-col gap-1.5">
+          {model.isOnline && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/90 text-white text-xs font-medium">
+              <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
+              Online
+            </span>
+          )}
+          {model.isAvailable && (
+            <span className="px-2 py-0.5 rounded-full bg-blue-500/90 text-white text-xs font-medium">
+              Available
+            </span>
+          )}
+        </div>
+
+        {/* Verification badges */}
+        <div className="absolute top-3 right-3 flex flex-col gap-1">
+          {model.isVideoVerified && (
+            <span className="p-1.5 rounded-full bg-blue-500/80">
+              <Video size={12} className="text-white" />
+            </span>
+          )}
+          {model.isStudioVerified && (
+            <span className="p-1.5 rounded-full bg-cyan-500/80">
+              <Aperture size={12} className="text-white" />
+            </span>
+          )}
+        </div>
+
+        {/* Success rate badge */}
+        <div className="absolute bottom-3 left-3">
+          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-black/60 backdrop-blur-sm text-green-400 text-xs font-medium">
+            <Target size={12} />
+            {model.meetupSuccessRate}% success
+          </span>
         </div>
       </div>
 
-      <p className="text-white/60 text-sm mb-3">{model.tagline}</p>
+      {/* Info */}
+      <div className="p-4">
+        <div className="flex items-start justify-between mb-2">
+          <div>
+            <h3 className="text-white font-semibold text-lg group-hover:text-pink-300 transition-colors">{model.name}</h3>
+            <p className="text-white/50 text-sm">@{model.username}</p>
+          </div>
+          <div className="flex items-center gap-1 text-yellow-400">
+            <Star size={14} className="fill-yellow-400" />
+            <span className="text-white text-sm font-medium">{model.rating}</span>
+          </div>
+        </div>
 
-      <div className="flex items-center gap-2 text-xs text-white/40 mb-3">
-        <span className="flex items-center gap-1">
-          <MapPin size={12} />
-          {model.areas.slice(0, 2).join(", ")}
-        </span>
-        <span>•</span>
-        <span>{model.verifiedMeetups} meetups</span>
-      </div>
+        <p className="text-white/60 text-sm mb-3">{model.tagline}</p>
 
-      <div className="flex items-center justify-between pt-3 border-t border-white/10">
-        <span className="text-white/40 text-xs">From</span>
-        <span className="text-pink-400 font-semibold">{formatNaira(model.startingPrice)}/hr</span>
+        <div className="flex items-center gap-2 text-xs text-white/40 mb-3">
+          <span className="flex items-center gap-1">
+            <MapPin size={12} />
+            {model.areas.slice(0, 2).join(", ")}
+          </span>
+          <span>•</span>
+          <span>{model.verifiedMeetups} meetups</span>
+        </div>
+
+        <div className="flex items-center justify-between pt-3 border-t border-white/10">
+          <span className="text-white/40 text-xs">From</span>
+          <span className="text-pink-400 font-semibold">{formatNaira(model.startingPrice)}/hr</span>
+        </div>
       </div>
-    </div>
-  </Link>
+    </Link>
+
+    {/* Favorite button - positioned outside the Link */}
+    <button
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onToggleFavorite(model.username);
+      }}
+      className={`absolute bottom-[4.5rem] right-3 p-2 rounded-full transition-all z-10 ${
+        isFavorite
+          ? 'bg-pink-500 text-white'
+          : 'bg-black/60 backdrop-blur-sm text-white/70 hover:text-pink-400 hover:bg-black/80'
+      }`}
+    >
+      <Heart size={16} className={isFavorite ? 'fill-white' : ''} />
+    </button>
+  </div>
 );
 
 export default function ExplorePage() {
@@ -121,6 +137,9 @@ export default function ExplorePage() {
   const [priceRange, setPriceRange] = useState(PRICE_RANGES[0]);
   const [showOutcallOnly, setShowOutcallOnly] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+
+  const { favorites, toggleFavorite, isFavorite } = useFavorites();
 
   // Toggle extra selection
   const toggleExtra = (extra) => {
@@ -139,11 +158,12 @@ export default function ExplorePage() {
     setSelectedExtras([]);
     setPriceRange(PRICE_RANGES[0]);
     setShowOutcallOnly(false);
+    setShowFavoritesOnly(false);
   };
 
   // Check if any filters are active
   const hasActiveFilters = searchQuery || showOnlineOnly || showAvailableOnly ||
-    selectedExtras.length > 0 || priceRange !== PRICE_RANGES[0] || showOutcallOnly;
+    selectedExtras.length > 0 || priceRange !== PRICE_RANGES[0] || showOutcallOnly || showFavoritesOnly;
 
   // Normalize location for filtering
   const normalizedLocation = location?.toLowerCase() || 'all';
@@ -194,6 +214,11 @@ export default function ExplorePage() {
   // Filter by outcall availability
   if (showOutcallOnly) {
     filteredModels = filteredModels.filter(m => m.hasOutcall);
+  }
+
+  // Filter by favorites
+  if (showFavoritesOnly) {
+    filteredModels = filteredModels.filter(m => favorites.includes(m.username));
   }
 
   // Sort models
@@ -331,6 +356,20 @@ export default function ExplorePage() {
             >
               Available
             </button>
+            <button
+              onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all flex items-center gap-1.5 ${
+                showFavoritesOnly
+                  ? 'bg-pink-500/20 border border-pink-500/50 text-pink-300'
+                  : 'bg-white/10 border border-white/10 text-white/70 hover:bg-white/20'
+              }`}
+            >
+              <Heart size={14} className={showFavoritesOnly ? 'fill-pink-300' : ''} />
+              Favorites
+              {favorites.length > 0 && (
+                <span className="text-xs opacity-70">({favorites.length})</span>
+              )}
+            </button>
           </div>
 
           {/* Expanded filters panel */}
@@ -435,6 +474,15 @@ export default function ExplorePage() {
                   </button>
                 </span>
               )}
+              {showFavoritesOnly && (
+                <span className="px-2 py-1 bg-pink-500/20 border border-pink-500/30 rounded-lg text-pink-300 text-xs flex items-center gap-1">
+                  <Heart size={10} className="fill-pink-300" />
+                  Favorites
+                  <button onClick={() => setShowFavoritesOnly(false)} className="hover:text-white">
+                    <X size={12} />
+                  </button>
+                </span>
+              )}
               <button
                 onClick={clearAllFilters}
                 className="text-white/40 text-xs hover:text-white/70 transition-colors"
@@ -462,7 +510,12 @@ export default function ExplorePage() {
         {filteredModels.length > 0 ? (
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {filteredModels.map(model => (
-              <ModelCard key={model.id} model={model} />
+              <ModelCard
+                key={model.id}
+                model={model}
+                isFavorite={isFavorite(model.username)}
+                onToggleFavorite={toggleFavorite}
+              />
             ))}
           </div>
         ) : (

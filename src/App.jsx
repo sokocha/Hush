@@ -11,6 +11,7 @@ import {
   Smartphone, Target, RefreshCw, Wallet, Sparkles, TrendingUp, Users
 } from 'lucide-react';
 import { PLATFORM_CONFIG, getModelByUsername, MODELS } from './data/models';
+import useFavorites from './hooks/useFavorites';
 
 // ═══════════════════════════════════════════════════════════
 // DEFAULT MODEL (fallback)
@@ -1254,6 +1255,9 @@ export default function App() {
   // Client state (simulated - would come from auth in real app)
   const [clientState, setClientState] = useState(MOCK_CLIENT);
 
+  // Favorites
+  const { isFavorite, toggleFavorite } = useFavorites();
+
   // Load model data based on URL param or default
   const currentUsername = username || DEFAULT_USERNAME;
   const modelData = getModelByUsername(currentUsername);
@@ -1402,6 +1406,17 @@ export default function App() {
               </div>
             </div>
             {profile.isOnline && <div className="absolute bottom-1 right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-gray-900 animate-pulse-green" />}
+            {/* Favorite button */}
+            <button
+              onClick={() => toggleFavorite(currentUsername)}
+              className={`absolute -top-1 -right-1 p-2 rounded-full transition-all shadow-lg ${
+                isFavorite(currentUsername)
+                  ? 'bg-pink-500 text-white'
+                  : 'bg-white/20 text-white/70 hover:bg-white/30 hover:text-pink-400'
+              }`}
+            >
+              <Heart size={18} className={isFavorite(currentUsername) ? 'fill-white' : ''} />
+            </button>
           </div>
 
           <h1 className="text-2xl font-bold text-white mb-1">{profile.name}</h1>
@@ -1650,7 +1665,7 @@ export default function App() {
         <div className="mb-6">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-white/60 text-sm font-medium flex items-center gap-2"><ThumbsUp size={14} className="text-green-400" />Reviews</h3>
-            <button onClick={() => setModal('allReviews')} className="text-pink-400 text-xs">View all</button>
+            <Link to={`/reviews/${currentUsername}`} className="text-pink-400 text-xs hover:text-pink-300 transition-colors">View all</Link>
           </div>
           <div className="space-y-2">
             {CONFIG.reviews.slice(0, 2).map((r, i) => (
