@@ -1182,6 +1182,94 @@ const UnlockContactModal = ({ isOpen, onClose, onUnlock, clientState, onNeedsTru
   );
 };
 
+// Bundle Unlock Modal - Unlock both photos and contact with discount
+const UnlockBundleModal = ({ isOpen, onClose, onUnlock, clientState, onNeedsTrustDeposit, onDeductBalance, modelConfig }) => {
+  const resetAndClose = () => { onClose(); };
+  if (!modelConfig) return null;
+
+  const photosPrice = modelConfig.pricing.unlockPhotos;
+  const contactPrice = modelConfig.pricing.unlockContact;
+  const totalPrice = photosPrice + contactPrice;
+  const discount = Math.round(totalPrice * 0.1); // 10% discount
+  const bundlePrice = totalPrice - discount;
+  const lockedCount = modelConfig.photos.total - modelConfig.photos.previewCount;
+
+  const hasEnoughBalance = clientState?.depositBalance >= bundlePrice;
+  const shortfall = bundlePrice - (clientState?.depositBalance || 0);
+
+  const handlePayFromBalance = () => {
+    onDeductBalance(bundlePrice);
+    onUnlock();
+    resetAndClose();
+  };
+
+  return (
+    <Modal isOpen={isOpen} onClose={resetAndClose} title="✨ Unlock Everything">
+      <div className="space-y-4">
+        {/* Bundle contents */}
+        <div className="bg-gradient-to-br from-pink-500/10 to-green-500/10 border border-amber-500/30 rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Sparkles size={20} className="text-amber-400" />
+            <span className="text-white font-medium">Bundle Includes:</span>
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-white/70 flex items-center gap-2">
+                <Camera size={16} className="text-pink-400" />
+                {lockedCount} Premium Photos
+              </span>
+              <span className="text-white/50 line-through">{formatNaira(photosPrice)}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-white/70 flex items-center gap-2">
+                <Phone size={16} className="text-green-400" />
+                Direct WhatsApp Number
+              </span>
+              <span className="text-white/50 line-through">{formatNaira(contactPrice)}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Pricing */}
+        <div className="bg-white/5 rounded-xl p-6 text-center border border-white/10">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <span className="text-white/50 line-through text-lg">{formatNaira(totalPrice)}</span>
+            <span className="bg-green-500/20 text-green-400 text-xs px-2 py-1 rounded-full font-medium">
+              Save {formatNaira(discount)}
+            </span>
+          </div>
+          <p className="text-4xl font-bold text-white">{formatNaira(bundlePrice)}</p>
+          <p className="text-white/50 text-sm mt-2">Deducted from deposit balance</p>
+        </div>
+
+        {/* Balance status */}
+        <div className={`rounded-xl p-4 ${hasEnoughBalance ? 'bg-green-500/10 border border-green-500/30' : 'bg-red-500/10 border border-red-500/30'}`}>
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-white/70 text-sm">Your Balance</span>
+            <span className={`font-bold ${hasEnoughBalance ? 'text-green-400' : 'text-red-400'}`}>{formatNaira(clientState?.depositBalance || 0)}</span>
+          </div>
+          {!hasEnoughBalance && (
+            <p className="text-red-300 text-sm mt-2">
+              You need {formatNaira(shortfall)} more. Top up your deposit to continue.
+            </p>
+          )}
+        </div>
+
+        {hasEnoughBalance ? (
+          <button onClick={handlePayFromBalance} className="w-full py-4 bg-gradient-to-r from-pink-500 to-green-500 hover:from-pink-600 hover:to-green-600 rounded-xl text-white font-semibold flex items-center justify-center gap-2">
+            <Zap size={18} />
+            Unlock Everything
+          </button>
+        ) : (
+          <button onClick={() => { resetAndClose(); onNeedsTrustDeposit(); }} className="w-full py-4 bg-blue-500 hover:bg-blue-600 rounded-xl text-white font-semibold">
+            Top Up Deposit
+          </button>
+        )}
+      </div>
+    </Modal>
+  );
+};
+
 const ContactRevealedModal = ({ isOpen, onClose, modelConfig }) => {
   const [copied, setCopied] = useState(false);
   if (!modelConfig) return null;
@@ -1480,6 +1568,7 @@ export default function App() {
   const stats = CONFIG?.stats;
   const pricing = CONFIG?.pricing;
   const photos = CONFIG?.photos;
+  const contact = CONFIG?.contact;
   const hasOutcall = pricing?.meetupOutcall !== null;
 
   // Pull to refresh
@@ -1548,27 +1637,13 @@ export default function App() {
     setModal('photoGallery');
   };
 
-  // Unlock both photos and contact with bundle discount
+  // Unlock both photos and contact with bundle discount - opens modal
   const handleUnlockBundle = () => {
-    const bundleDiscountAmount = Math.round((pricing.unlockPhotos + pricing.unlockContact) * 0.1);
-    const bundlePriceTotal = pricing.unlockPhotos + pricing.unlockContact - bundleDiscountAmount;
-
     if (!clientState.tier) {
       setModal('trustDeposit');
       return;
     }
-
-    if (clientState.depositBalance < bundlePriceTotal) {
-      showToast('Insufficient balance. Top up to continue.', 'error');
-      setModal('trustDeposit');
-      return;
-    }
-
-    deductFromBalance(bundlePriceTotal);
-    setPhotosUnlocked(true);
-    setContactUnlocked(true);
-    showToast(`Bundle unlocked! You saved ${formatNaira(bundleDiscountAmount)}`, 'success');
-    setModal('contactRevealed');
+    setModal('unlockBundle');
   };
 
   // Skip age verification if authenticated (they verified during registration)
@@ -1805,7 +1880,7 @@ export default function App() {
                     {contactUnlocked ? (
                       <button onClick={() => setModal('contactRevealed')} className="flex items-center gap-2 p-2.5 rounded-lg bg-green-500/20 border border-green-500/30">
                         <Phone size={16} className="text-green-400" />
-                        <span className="text-green-300 text-xs font-medium">Phone Unlocked</span>
+                        <span className="text-green-300 text-xs font-medium font-mono">+{contact.whatsapp}</span>
                       </button>
                     ) : (
                       <button onClick={() => setModal('unlockContact')} className="flex items-center justify-between p-2.5 rounded-lg bg-white/5 border border-white/10 hover:border-green-500/30 hover:bg-green-500/10 transition-all">
@@ -1991,6 +2066,7 @@ export default function App() {
       <ContactRevealedModal isOpen={modal === 'contactRevealed'} onClose={() => setModal(null)} modelConfig={CONFIG} />
       <MeetupModal isOpen={modal === 'meetup'} onClose={() => setModal(null)} clientState={clientState} onNeedsTrustDeposit={() => setModal('trustDeposit')} modelConfig={CONFIG} onMeetupBooked={addMeetupBooking} />
       <UnlockPhotosModal isOpen={modal === 'unlockPhotos'} onClose={() => setModal(null)} onUnlock={() => setPhotosUnlocked(true)} clientState={clientState} onDeductBalance={deductFromBalance} onNeedsTrustDeposit={() => setModal('trustDeposit')} modelConfig={CONFIG} />
+      <UnlockBundleModal isOpen={modal === 'unlockBundle'} onClose={() => setModal(null)} onUnlock={() => { setPhotosUnlocked(true); setContactUnlocked(true); setModal('contactRevealed'); }} clientState={clientState} onNeedsTrustDeposit={() => setModal('trustDeposit')} onDeductBalance={deductFromBalance} modelConfig={CONFIG} />
       <AllReviewsModal isOpen={modal === 'allReviews'} onClose={() => setModal(null)} modelConfig={CONFIG} />
       <VideoVerificationModal isOpen={modal === 'videoVerify'} onClose={() => setModal(null)} modelConfig={CONFIG} />
       <PhotoVerificationModal isOpen={modal === 'photoVerify'} onClose={() => setModal(null)} modelConfig={CONFIG} />
