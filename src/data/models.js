@@ -92,7 +92,7 @@ export const MODELS = {
       verifiedMeetups: 47,
       meetupSuccessRate: 89,
       repeatClients: 12,
-      responseTime: "~30 min",
+      lastSeen: "2h ago",
     },
     creatorPayments: [
       { provider: "OPay", number: "8012345678", isPrimary: true },
@@ -160,7 +160,7 @@ export const MODELS = {
       verifiedMeetups: 89,
       meetupSuccessRate: 95,
       repeatClients: 28,
-      responseTime: "~15 min",
+      lastSeen: "Online",
     },
     creatorPayments: [
       { provider: "OPay", number: "8023456789", isPrimary: true },
@@ -227,7 +227,7 @@ export const MODELS = {
       verifiedMeetups: 52,
       meetupSuccessRate: 87,
       repeatClients: 15,
-      responseTime: "~45 min",
+      lastSeen: "5h ago",
     },
     creatorPayments: [
       { provider: "PalmPay", number: "8034567890", isPrimary: true },
@@ -291,7 +291,7 @@ export const MODELS = {
       verifiedMeetups: 28,
       meetupSuccessRate: 82,
       repeatClients: 8,
-      responseTime: "~1 hour",
+      lastSeen: "1d ago",
     },
     creatorPayments: [
       { provider: "OPay", number: "8045678901", isPrimary: true },
@@ -346,7 +346,7 @@ export const MODELS = {
       verifiedMeetups: 134,
       meetupSuccessRate: 98,
       repeatClients: 45,
-      responseTime: "~10 min",
+      lastSeen: "Online",
     },
     creatorPayments: [
       { provider: "OPay", number: "8056789012", isPrimary: true },
@@ -406,7 +406,7 @@ export const MODELS = {
       verifiedMeetups: 61,
       meetupSuccessRate: 91,
       repeatClients: 22,
-      responseTime: "~2 hours",
+      lastSeen: "3d ago",
     },
     creatorPayments: [
       { provider: "OPay", number: "8067890123", isPrimary: true },
@@ -462,7 +462,7 @@ export const MODELS = {
       verifiedMeetups: 78,
       meetupSuccessRate: 93,
       repeatClients: 25,
-      responseTime: "~20 min",
+      lastSeen: "30m ago",
     },
     creatorPayments: [
       { provider: "OPay", number: "8078901234", isPrimary: true },
@@ -518,7 +518,7 @@ export const MODELS = {
       verifiedMeetups: 41,
       meetupSuccessRate: 85,
       repeatClients: 12,
-      responseTime: "~30 min",
+      lastSeen: "2h ago",
     },
     creatorPayments: [
       { provider: "PalmPay", number: "8089012345", isPrimary: true },
