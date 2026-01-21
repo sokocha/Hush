@@ -759,8 +759,6 @@ const MeetupModal = ({ isOpen, onClose, clientState, onNeedsTrustDeposit, modelC
       message += `\n\n📝 SPECIAL REQUESTS:\n${formData.specialRequests.trim()}`;
     }
 
-    message += `\n\n🔐 MY CODE: ${codes.client}`;
-
     window.open(`https://wa.me/${modelConfig.contact.whatsapp}?text=${encodeURIComponent(message)}`, '_blank');
     resetAndClose();
   };
