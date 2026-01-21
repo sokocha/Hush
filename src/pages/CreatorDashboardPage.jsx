@@ -205,11 +205,11 @@ const CameraCapture = ({ onCapture, onClose }) => {
 };
 
 // Photo Grid Item Component
-const PhotoGridItem = ({ photo, index, onTogglePreview, onDelete, isDragging }) => (
+const PhotoGridItem = ({ photo, index, onTogglePreview, onSetProfilePhoto, onDelete, isDragging, isProfilePhoto }) => (
   <div
     className={`relative aspect-[3/4] rounded-xl overflow-hidden group ${
       isDragging ? 'ring-2 ring-purple-500' : ''
-    }`}
+    } ${isProfilePhoto ? 'ring-2 ring-pink-500' : ''}`}
   >
     <img
       src={photo.url}
@@ -217,8 +217,16 @@ const PhotoGridItem = ({ photo, index, onTogglePreview, onDelete, isDragging }) 
       className="w-full h-full object-cover"
     />
 
-    {/* Preview/Locked Badge */}
-    <div className={`absolute top-2 left-2 px-2 py-1 rounded-lg text-xs font-medium flex items-center gap-1 ${
+    {/* Profile Photo Badge */}
+    {isProfilePhoto && (
+      <div className="absolute top-2 left-2 px-2 py-1 rounded-lg text-xs font-medium flex items-center gap-1 bg-pink-500/90 text-white">
+        <User size={12} />
+        Profile
+      </div>
+    )}
+
+    {/* Preview/Locked Badge - positioned below profile badge if exists */}
+    <div className={`absolute ${isProfilePhoto ? 'top-10' : 'top-2'} left-2 px-2 py-1 rounded-lg text-xs font-medium flex items-center gap-1 ${
       photo.isPreview
         ? 'bg-green-500/90 text-white'
         : 'bg-black/60 text-white/80'
@@ -242,7 +250,16 @@ const PhotoGridItem = ({ photo, index, onTogglePreview, onDelete, isDragging }) 
     </div>
 
     {/* Actions Overlay */}
-    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+      {!isProfilePhoto && (
+        <button
+          onClick={() => onSetProfilePhoto(photo.id)}
+          className="p-2 rounded-lg bg-pink-500 text-white transition-colors"
+          title="Set as Profile Photo"
+        >
+          <User size={18} />
+        </button>
+      )}
       <button
         onClick={() => onTogglePreview(photo.id)}
         className={`p-2 rounded-lg transition-colors ${
@@ -364,6 +381,11 @@ export default function CreatorDashboardPage() {
   // Schedule editing state
   const [editingSchedule, setEditingSchedule] = useState(null);
 
+  // Service areas editing state
+  const [showEditAreasModal, setShowEditAreasModal] = useState(false);
+  const [editingAreas, setEditingAreas] = useState([]);
+  const [newAreaInput, setNewAreaInput] = useState('');
+
   // Pricing form state
   const [pricingData, setPricingData] = useState({
     unlockContact: 0,
@@ -412,6 +434,30 @@ export default function CreatorDashboardPage() {
     setShowEditProfileModal(false);
   };
 
+  // Service areas handlers
+  const handleOpenEditAreas = () => {
+    setEditingAreas(user.areas || []);
+    setNewAreaInput('');
+    setShowEditAreasModal(true);
+  };
+
+  const handleAddArea = () => {
+    const area = newAreaInput.trim();
+    if (area && !editingAreas.includes(area)) {
+      setEditingAreas([...editingAreas, area]);
+      setNewAreaInput('');
+    }
+  };
+
+  const handleRemoveArea = (areaToRemove) => {
+    setEditingAreas(editingAreas.filter(a => a !== areaToRemove));
+  };
+
+  const handleSaveAreas = () => {
+    updateUser({ areas: editingAreas });
+    setShowEditAreasModal(false);
+  };
+
   // Open pricing modal with current values
   const handleOpenPricing = () => {
     const pricing = user.pricing || {};
@@ -454,9 +500,13 @@ export default function CreatorDashboardPage() {
   // Photo handlers
   const handlePhotoCapture = (photo) => {
     const currentPhotos = user.photos || [];
-    // First photo is automatically a preview
+    // First photo is automatically a preview and profile photo
     const isFirstPhoto = currentPhotos.length === 0;
-    const newPhoto = { ...photo, isPreview: isFirstPhoto };
+    const newPhoto = {
+      ...photo,
+      isPreview: isFirstPhoto,
+      isProfilePhoto: isFirstPhoto, // First photo becomes profile photo
+    };
     updateUser({ photos: [...currentPhotos, newPhoto] });
     setShowCameraCapture(false);
   };
@@ -470,9 +520,29 @@ export default function CreatorDashboardPage() {
     updateUser({ photos: updatedPhotos });
   };
 
+  const handleSetProfilePhoto = (photoId) => {
+    const currentPhotos = user.photos || [];
+    // Remove profile status from all photos and set it on the selected one
+    const updatedPhotos = currentPhotos.map(p => ({
+      ...p,
+      isProfilePhoto: p.id === photoId,
+    }));
+    updateUser({ photos: updatedPhotos });
+  };
+
   const handleDeletePhoto = (photoId) => {
     const currentPhotos = user.photos || [];
-    const updatedPhotos = currentPhotos.filter(p => p.id !== photoId);
+    const photoToDelete = currentPhotos.find(p => p.id === photoId);
+    let updatedPhotos = currentPhotos.filter(p => p.id !== photoId);
+
+    // If deleting the profile photo, set the first remaining photo as profile
+    if (photoToDelete?.isProfilePhoto && updatedPhotos.length > 0) {
+      updatedPhotos = updatedPhotos.map((p, index) => ({
+        ...p,
+        isProfilePhoto: index === 0,
+      }));
+    }
+
     updateUser({ photos: updatedPhotos });
     setShowDeletePhotoConfirm(null);
   };
@@ -627,9 +697,17 @@ export default function CreatorDashboardPage() {
         <div className="bg-gradient-to-r from-purple-500/20 to-fuchsia-500/20 border border-purple-500/30 rounded-2xl p-4 mb-6">
           <div className="flex items-start gap-4">
             <div className="w-20 h-20 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 p-1 flex-shrink-0">
-              <div className="w-full h-full rounded-full bg-gray-900 flex items-center justify-center">
-                <span className="text-2xl font-bold text-white">{(user.name || 'U').slice(0, 2).toUpperCase()}</span>
-              </div>
+              {(() => {
+                const photos = user.photos || [];
+                const profilePhoto = photos.find(p => p.isProfilePhoto) || photos[0];
+                return profilePhoto ? (
+                  <img src={profilePhoto.url} alt="Profile" className="w-full h-full rounded-full object-cover" />
+                ) : (
+                  <div className="w-full h-full rounded-full bg-gray-900 flex items-center justify-center">
+                    <span className="text-2xl font-bold text-white">{(user.name || 'U').slice(0, 2).toUpperCase()}</span>
+                  </div>
+                );
+              })()}
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
@@ -1191,10 +1269,19 @@ export default function CreatorDashboardPage() {
 
             {/* Service Areas */}
             <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-              <h3 className="text-white font-semibold mb-3 flex items-center gap-2">
-                <MapPin size={18} className="text-purple-400" />
-                Service Areas
-              </h3>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-white font-semibold flex items-center gap-2">
+                  <MapPin size={18} className="text-purple-400" />
+                  Service Areas
+                </h3>
+                <button
+                  onClick={handleOpenEditAreas}
+                  className="text-purple-400 text-sm flex items-center gap-1 hover:text-purple-300"
+                >
+                  <Edit3 size={14} />
+                  Edit
+                </button>
+              </div>
               {user.areas?.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
                   {user.areas.map(area => (
@@ -1204,7 +1291,15 @@ export default function CreatorDashboardPage() {
                   ))}
                 </div>
               ) : (
-                <p className="text-white/50 text-sm">No service areas set. Update your profile to add areas.</p>
+                <div className="text-center py-4">
+                  <p className="text-white/50 text-sm mb-2">No service areas set</p>
+                  <button
+                    onClick={handleOpenEditAreas}
+                    className="px-4 py-2 bg-purple-500/20 border border-purple-500/30 rounded-lg text-purple-300 text-sm hover:bg-purple-500/30 transition-colors"
+                  >
+                    Add Service Areas
+                  </button>
+                </div>
               )}
             </div>
 
@@ -1288,6 +1383,32 @@ export default function CreatorDashboardPage() {
               </button>
             </div>
 
+            {/* Current Profile Photo */}
+            {creatorPhotos.length > 0 && (
+              <div className="bg-gradient-to-r from-pink-500/10 to-purple-500/10 border border-pink-500/20 rounded-xl p-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-pink-500 flex-shrink-0">
+                    {(() => {
+                      const profilePhoto = creatorPhotos.find(p => p.isProfilePhoto) || creatorPhotos[0];
+                      return profilePhoto ? (
+                        <img src={profilePhoto.url} alt="Profile" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full bg-pink-500/20 flex items-center justify-center">
+                          <User size={32} className="text-pink-300" />
+                        </div>
+                      );
+                    })()}
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="text-white font-medium mb-1">Profile Photo</h4>
+                    <p className="text-white/50 text-sm">
+                      This photo appears on your card in the explore page. Tap any photo and click the profile icon to change it.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Photo Requirements Info */}
             <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl">
               <h4 className="text-blue-300 font-medium mb-2 flex items-center gap-2">
@@ -1298,7 +1419,8 @@ export default function CreatorDashboardPage() {
                 <li>• Minimum 3 photos required for profile activation</li>
                 <li>• At least 1 preview photo (visible to all clients)</li>
                 <li>• Locked photos require clients to pay to unlock</li>
-                <li>• Photos must be taken fresh from your camera</li>
+                <li>• Your first photo becomes your profile photo by default</li>
+                <li>• Tap any photo to set it as your profile photo</li>
               </ul>
             </div>
 
@@ -1311,7 +1433,9 @@ export default function CreatorDashboardPage() {
                     photo={photo}
                     index={index}
                     onTogglePreview={handleTogglePreview}
+                    onSetProfilePhoto={handleSetProfilePhoto}
                     onDelete={(id) => setShowDeletePhotoConfirm(id)}
+                    isProfilePhoto={photo.isProfilePhoto}
                   />
                 ))}
               </div>
@@ -1934,6 +2058,95 @@ export default function CreatorDashboardPage() {
           onClose={() => setShowCameraCapture(false)}
         />
       )}
+
+      {/* Edit Service Areas Modal */}
+      <Modal
+        isOpen={showEditAreasModal}
+        onClose={() => setShowEditAreasModal(false)}
+        title="Edit Service Areas"
+      >
+        <div className="space-y-4">
+          <p className="text-white/60 text-sm">
+            Add the areas where you provide services. Clients can filter by area.
+          </p>
+
+          {/* Add new area input */}
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newAreaInput}
+              onChange={(e) => setNewAreaInput(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleAddArea()}
+              placeholder="e.g. Victoria Island, Lekki"
+              className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/40 focus:border-purple-500 focus:outline-none"
+            />
+            <button
+              onClick={handleAddArea}
+              disabled={!newAreaInput.trim()}
+              className="px-4 py-3 bg-purple-500 hover:bg-purple-600 disabled:bg-purple-500/50 disabled:cursor-not-allowed rounded-xl text-white font-medium transition-colors"
+            >
+              <Plus size={20} />
+            </button>
+          </div>
+
+          {/* Current areas */}
+          {editingAreas.length > 0 ? (
+            <div className="space-y-2">
+              <p className="text-white/50 text-xs uppercase tracking-wide">Your service areas</p>
+              <div className="flex flex-wrap gap-2">
+                {editingAreas.map(area => (
+                  <span
+                    key={area}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 bg-purple-500/20 border border-purple-500/30 rounded-lg text-purple-300 text-sm"
+                  >
+                    {area}
+                    <button
+                      onClick={() => handleRemoveArea(area)}
+                      className="text-purple-300 hover:text-red-400 transition-colors"
+                    >
+                      <X size={14} />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="py-6 text-center">
+              <MapPin size={32} className="text-white/20 mx-auto mb-2" />
+              <p className="text-white/50 text-sm">No areas added yet</p>
+            </div>
+          )}
+
+          {/* Suggested areas based on location */}
+          {user.location && (
+            <div className="space-y-2">
+              <p className="text-white/50 text-xs uppercase tracking-wide">Suggested for {user.location}</p>
+              <div className="flex flex-wrap gap-2">
+                {(user.location === 'Lagos' ? ['Victoria Island', 'Lekki', 'Ikeja', 'Ikoyi', 'Surulere', 'Ajah', 'Yaba'] :
+                  user.location === 'Abuja' ? ['Wuse', 'Maitama', 'Garki', 'Asokoro', 'Gwarinpa', 'Central Area'] :
+                  user.location === 'Port Harcourt' ? ['GRA', 'Trans Amadi', 'Old GRA', 'Rumuokoro', 'Elekahia'] :
+                  []
+                ).filter(area => !editingAreas.includes(area)).map(area => (
+                  <button
+                    key={area}
+                    onClick={() => setEditingAreas([...editingAreas, area])}
+                    className="px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-white/60 text-sm hover:bg-white/10 hover:text-white transition-colors"
+                  >
+                    + {area}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <button
+            onClick={handleSaveAreas}
+            className="w-full py-4 bg-purple-500 hover:bg-purple-600 rounded-xl text-white font-semibold transition-all"
+          >
+            Save Service Areas
+          </button>
+        </div>
+      </Modal>
     </div>
   );
 }

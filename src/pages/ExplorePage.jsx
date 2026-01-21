@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
   MapPin, Star, CheckCircle, Shield, Filter,
@@ -10,7 +10,52 @@ import useFavorites from '../hooks/useFavorites';
 import { useAuth } from '../context/AuthContext';
 
 // Get models from shared data store
-const ALL_MODELS = getModelsList();
+const HARDCODED_MODELS = getModelsList();
+
+// Helper to get registered creators from localStorage
+const getRegisteredCreators = () => {
+  try {
+    // Get all localStorage keys and find creator accounts
+    const creators = [];
+    const authData = localStorage.getItem('hush_auth');
+    if (authData) {
+      const user = JSON.parse(authData);
+      // Only include verified creators (not pending verification)
+      if (user.userType === 'creator' && !user.pendingVerification) {
+        // Transform creator data to match model format
+        const photos = user.photos || [];
+        const previewPhotos = photos.filter(p => p.isPreview);
+        const profilePhoto = photos.find(p => p.isProfilePhoto) || previewPhotos[0] || photos[0];
+
+        creators.push({
+          id: `creator-${user.username}`,
+          username: user.username,
+          name: user.name || user.username,
+          tagline: user.tagline || 'New on the platform',
+          location: user.location || 'Lagos',
+          areas: user.areas || [],
+          isOnline: true, // Assume online if recently active
+          isAvailable: true,
+          isVideoVerified: user.isVideoVerified || false,
+          isStudioVerified: user.isStudioVerified || false,
+          rating: user.stats?.rating || 0,
+          verifiedMeetups: user.stats?.verifiedMeetups || 0,
+          meetupSuccessRate: user.stats?.meetupSuccessRate || 0,
+          startingPrice: user.pricing?.meetupIncall?.[1] || 0,
+          hasOutcall: !!user.pricing?.meetupOutcall,
+          extras: user.extras || [],
+          profilePhotoUrl: profilePhoto?.url || null,
+          isRegisteredCreator: true,
+        });
+      }
+    }
+    return creators;
+  } catch (e) {
+    console.error('Error getting registered creators:', e);
+    return [];
+  }
+};
+
 const ALL_EXTRAS = getAllExtras();
 
 // Price range options
@@ -23,11 +68,11 @@ const PRICE_RANGES = [
 ];
 
 // Build locations dynamically from models data
-const LOCATIONS = [
-  { name: "All", slug: "all", count: ALL_MODELS.length },
-  { name: "Lagos", slug: "lagos", count: ALL_MODELS.filter(m => m.location === "Lagos").length },
-  { name: "Abuja", slug: "abuja", count: ALL_MODELS.filter(m => m.location === "Abuja").length },
-  { name: "Port Harcourt", slug: "port-harcourt", count: ALL_MODELS.filter(m => m.location === "Port Harcourt").length },
+const getLocationsWithCounts = (models) => [
+  { name: "All", slug: "all", count: models.length },
+  { name: "Lagos", slug: "lagos", count: models.filter(m => m.location === "Lagos").length },
+  { name: "Abuja", slug: "abuja", count: models.filter(m => m.location === "Abuja").length },
+  { name: "Port Harcourt", slug: "port-harcourt", count: models.filter(m => m.location === "Port Harcourt").length },
 ];
 
 const formatNaira = (amount) => `₦${amount.toLocaleString()}`;
@@ -35,14 +80,28 @@ const formatNaira = (amount) => `₦${amount.toLocaleString()}`;
 const ModelCard = ({ model, isFavorite, onToggleFavorite }) => (
   <div className="relative bg-white/5 rounded-2xl border border-white/10 overflow-hidden hover:border-pink-500/30 hover:bg-white/10 transition-all group">
     <Link to={`/model/${model.username}`} className="block">
-      {/* Photo placeholder */}
+      {/* Photo */}
       <div className="aspect-[3/4] bg-gradient-to-br from-pink-500/30 to-purple-500/30 relative">
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-4xl font-bold text-white/30">{model.name.slice(0, 2).toUpperCase()}</span>
-        </div>
+        {model.profilePhotoUrl ? (
+          <img
+            src={model.profilePhotoUrl}
+            alt={model.name}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="text-4xl font-bold text-white/30">{model.name.slice(0, 2).toUpperCase()}</span>
+          </div>
+        )}
 
         {/* Status badges */}
         <div className="absolute top-3 left-3 flex flex-col gap-1.5">
+          {model.isRegisteredCreator && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-500/90 text-white text-xs font-medium">
+              <Sparkles size={10} />
+              New
+            </span>
+          )}
           {model.isOnline && (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/90 text-white text-xs font-medium">
               <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
@@ -141,7 +200,16 @@ export default function ExplorePage() {
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
   const { favorites, toggleFavorite, isFavorite } = useFavorites();
-  const { isAuthenticated, isCreator, isClient } = useAuth();
+  const { isAuthenticated, isCreator, isClient, user } = useAuth();
+
+  // Combine hardcoded models with registered creators (dynamic)
+  const allModels = useMemo(() => {
+    const registeredCreators = getRegisteredCreators();
+    return [...HARDCODED_MODELS, ...registeredCreators];
+  }, [user]); // Re-compute when user changes
+
+  // Get dynamic location counts
+  const LOCATIONS = useMemo(() => getLocationsWithCounts(allModels), [allModels]);
 
   // Determine the correct dashboard link based on user type
   const dashboardLink = isCreator ? '/creator-dashboard' : '/dashboard';
@@ -175,7 +243,7 @@ export default function ExplorePage() {
   const currentLocation = LOCATIONS.find(l => l.slug === normalizedLocation) || LOCATIONS[0];
 
   // Filter models
-  let filteredModels = ALL_MODELS;
+  let filteredModels = allModels;
 
   // Filter by location
   if (normalizedLocation !== 'all') {
