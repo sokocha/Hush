@@ -18,7 +18,7 @@ import { useFavorites } from '../hooks/useFavorites';
 
 const formatNaira = (amount) => `₦${Math.abs(amount).toLocaleString()}`;
 
-// Helper to calculate time until code unlock (20 minutes before meetup)
+// Helper to calculate time until code unlock (at meetup time)
 const getCodeUnlockInfo = (meetupDate, meetupTime) => {
   if (!meetupDate || !meetupTime) return { isUnlocked: false, timeRemaining: null };
 
@@ -34,8 +34,8 @@ const getCodeUnlockInfo = (meetupDate, meetupTime) => {
   const meetupDateTime = new Date(meetupDate);
   meetupDateTime.setHours(hour24, minutes || 0, 0, 0);
 
-  // Code unlocks 20 minutes before meetup
-  const unlockTime = new Date(meetupDateTime.getTime() - 20 * 60 * 1000);
+  // Code unlocks at meetup time
+  const unlockTime = meetupDateTime;
   const now = new Date();
 
   if (now >= unlockTime) {

@@ -37,7 +37,7 @@ const MOCK_CLIENT = {
 const formatNaira = (amount) => `₦${amount.toLocaleString()}`;
 const generateCode = (prefix) => `${prefix}-${Math.floor(1000 + Math.random() * 9000)}`;
 
-// Helper to calculate time until code unlock (20 minutes before meetup)
+// Helper to calculate time until code unlock (at meetup time)
 const getCodeUnlockInfo = (meetupDate, meetupTime) => {
   if (!meetupDate || !meetupTime) return { isUnlocked: false, timeRemaining: null };
 
@@ -53,8 +53,8 @@ const getCodeUnlockInfo = (meetupDate, meetupTime) => {
   const meetupDateTime = new Date(meetupDate);
   meetupDateTime.setHours(hour24, minutes || 0, 0, 0);
 
-  // Code unlocks 20 minutes before meetup
-  const unlockTime = new Date(meetupDateTime.getTime() - 20 * 60 * 1000);
+  // Code unlocks at meetup time
+  const unlockTime = meetupDateTime;
   const now = new Date();
 
   if (now >= unlockTime) {
@@ -999,12 +999,19 @@ const MeetupModal = ({ isOpen, onClose, clientState, onNeedsTrustDeposit, modelC
       {step === 4 && (
         <div className="space-y-4 py-2">
           <div className="text-center">
-            <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4"><CheckCircle size={40} className="text-green-400" /></div>
-            <h4 className="text-xl font-bold text-white mb-2">Booking Confirmed! 🌹</h4>
-            <p className="text-white/60 text-sm">Send the details to {modelConfig.profile.name} on WhatsApp</p>
+            <div className="w-20 h-20 bg-amber-500/20 rounded-full flex items-center justify-center mx-auto mb-4"><Clock size={40} className="text-amber-400" /></div>
+            <h4 className="text-xl font-bold text-white mb-2">Booking Request Sent! 🌹</h4>
+            <p className="text-white/60 text-sm">Notify {modelConfig.profile.name} on WhatsApp and wait for confirmation</p>
           </div>
 
-          {/* Verification Code Section - shows countdown until 20 min before meetup */}
+          {/* Pending confirmation notice */}
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3">
+            <p className="text-amber-200 text-sm text-center">
+              <strong>Note:</strong> {modelConfig.profile.name} still needs to confirm this booking. You'll see the status update in your dashboard.
+            </p>
+          </div>
+
+          {/* Verification Code Section - shows countdown until meetup time */}
           {(() => {
             const codeInfo = getCodeUnlockInfo(formData.date, formData.time);
             return (
@@ -1025,7 +1032,7 @@ const MeetupModal = ({ isOpen, onClose, clientState, onNeedsTrustDeposit, modelC
                         <p className="text-lg font-medium">Code unlocks in {codeInfo.timeRemaining}</p>
                       </div>
                     </div>
-                    <p className="text-white/50 text-sm">Your code will be available 20 minutes before your meetup</p>
+                    <p className="text-white/50 text-sm">Your code will be available at your scheduled meetup time</p>
                   </>
                 )}
               </div>
