@@ -8,7 +8,7 @@ import {
   MessageSquare, ArrowRight, ArrowLeft, Unlock, ThumbsUp,
   Ban, AlertTriangle, Key, Home, Car, DollarSign, Aperture,
   Award, Info, ShieldCheck, EyeOff, Crown, BadgeCheck,
-  Smartphone, Target, RefreshCw, Wallet, Sparkles, TrendingUp, Users
+  Smartphone, Target, RefreshCw, Wallet, Sparkles, TrendingUp, Users, Clock
 } from 'lucide-react';
 import { PLATFORM_CONFIG, getModelByUsername, MODELS } from './data/models';
 import useFavorites from './hooks/useFavorites';
@@ -641,61 +641,12 @@ const P2PPaymentStep = ({ amount, serviceName, onBack, onConfirm, creatorPayment
 };
 
 // ═══════════════════════════════════════════════════════════
-// CLIENT VERIFICATION MODAL
-// ═══════════════════════════════════════════════════════════
-
-const ClientVerificationModal = ({ isOpen, onClose, onVerified, nextAction, blacklistedClients = [] }) => {
-  const [phone, setPhone] = useState('');
-  const [status, setStatus] = useState('input');
-
-  const checkBlacklist = () => {
-    setStatus('checking');
-    setTimeout(() => {
-      const cleanPhone = phone.replace(/\D/g, '');
-      setStatus(blacklistedClients.some(b => cleanPhone.includes(b.replace(/\D/g, ''))) ? 'blocked' : 'verified');
-    }, 800);
-  };
-
-  const handleContinue = () => { onVerified(phone); onClose(); setPhone(''); setStatus('input'); };
-  const resetAndClose = () => { onClose(); setPhone(''); setStatus('input'); };
-
-  return (
-    <Modal isOpen={isOpen} onClose={resetAndClose} title="🔒 Quick Verification">
-      {status === 'input' && (
-        <div className="space-y-4">
-          <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
-            <p className="text-blue-200/80 text-sm">We check your number against our community blacklist to protect creators.</p>
-          </div>
-          <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="08012345678" className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-white text-lg focus:border-pink-500 focus:outline-none" />
-          <button onClick={checkBlacklist} disabled={phone.length < 11} className={`w-full py-4 rounded-xl font-semibold ${phone.length >= 11 ? 'bg-pink-500 hover:bg-pink-600 text-white' : 'bg-white/10 text-white/40 cursor-not-allowed'}`}>Verify & Continue</button>
-        </div>
-      )}
-      {status === 'checking' && <div className="text-center py-8"><div className="w-16 h-16 border-4 border-pink-500/30 border-t-pink-500 rounded-full animate-spin mx-auto mb-4" /><p className="text-white/60">Checking...</p></div>}
-      {status === 'blocked' && (
-        <div className="text-center space-y-4 py-4">
-          <div className="w-20 h-20 bg-red-500/20 rounded-full flex items-center justify-center mx-auto"><Ban size={40} className="text-red-400" /></div>
-          <h4 className="text-xl font-bold text-white">Access Denied</h4>
-          <p className="text-white/60 text-sm">This number has been flagged.</p>
-        </div>
-      )}
-      {status === 'verified' && (
-        <div className="text-center space-y-4 py-4">
-          <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mx-auto"><CheckCircle size={40} className="text-green-400" /></div>
-          <h4 className="text-xl font-bold text-white">Verified! ✓</h4>
-          <button onClick={handleContinue} className="w-full py-4 bg-green-500 hover:bg-green-600 rounded-xl text-white font-semibold">Continue</button>
-        </div>
-      )}
-    </Modal>
-  );
-};
-
-// ═══════════════════════════════════════════════════════════
 // MEETUP MODAL (with Trust Deposit check + P2P payment)
 // ═══════════════════════════════════════════════════════════
 
-const MeetupModal = ({ isOpen, onClose, clientState, onNeedsTrustDeposit, modelConfig }) => {
+const MeetupModal = ({ isOpen, onClose, clientState, onNeedsTrustDeposit, modelConfig, onMeetupBooked }) => {
   const [step, setStep] = useState(1);
-  const [formData, setFormData] = useState({ date: '', time: '', locationType: 'incall', location: '', duration: '1' });
+  const [formData, setFormData] = useState({ date: '', time: '', locationType: 'incall', location: '', duration: '1', specialRequests: '' });
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [codes, setCodes] = useState({ client: '', creator: '' });
 
@@ -709,6 +660,43 @@ const MeetupModal = ({ isOpen, onClose, clientState, onNeedsTrustDeposit, modelC
   const depositAmount = Math.round(getMeetupPrice() * modelConfig.pricing.depositPercent);
   const balanceAmount = getMeetupPrice() - depositAmount;
   const isFormValid = formData.date && formData.time && formData.location && agreedToTerms;
+
+  // Get available time slots based on model's schedule and selected date
+  const getAvailableTimeSlots = () => {
+    if (!formData.date) return [];
+
+    const schedule = modelConfig.schedule;
+    if (!schedule) {
+      // Default time slots if no schedule set
+      return ['10:00 AM', '11:00 AM', '12:00 PM', '1:00 PM', '2:00 PM', '3:00 PM', '4:00 PM', '5:00 PM', '6:00 PM', '7:00 PM', '8:00 PM', '9:00 PM', '10:00 PM'];
+    }
+
+    const selectedDate = new Date(formData.date);
+    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const dayName = dayNames[selectedDate.getDay()];
+    const daySchedule = schedule[dayName];
+
+    if (!daySchedule?.active) return [];
+
+    // Parse start and end times
+    const [startHour] = daySchedule.start.split(':').map(Number);
+    let [endHour] = daySchedule.end.split(':').map(Number);
+
+    // Handle overnight (e.g., end at 02:00 means 2 AM next day)
+    if (endHour < startHour) endHour += 24;
+
+    const slots = [];
+    for (let hour = startHour; hour < endHour; hour++) {
+      const displayHour = hour % 24;
+      const period = displayHour >= 12 ? 'PM' : 'AM';
+      const hour12 = displayHour === 0 ? 12 : displayHour > 12 ? displayHour - 12 : displayHour;
+      slots.push(`${hour12}:00 ${period}`);
+    }
+    return slots;
+  };
+
+  const availableTimeSlots = getAvailableTimeSlots();
+  const isDateUnavailable = formData.date && availableTimeSlots.length === 0;
 
   const handleStartBooking = () => {
     // Check if client has any verification tier (required to initiate meetups)
@@ -726,14 +714,41 @@ const MeetupModal = ({ isOpen, onClose, clientState, onNeedsTrustDeposit, modelC
   };
 
   const handleComplete = () => {
-    window.open(`https://wa.me/${modelConfig.contact.whatsapp}?text=${encodeURIComponent(`🌹 MEETUP BOOKING\n\nName: ${clientState.name || 'Client'}\nDate: ${formData.date}\nTime: ${formData.time}\nType: ${formData.locationType === 'incall' ? 'Incall' : 'Outcall'}\nArea: ${formData.location}\nDuration: ${formData.duration === 'overnight' ? 'Overnight' : formData.duration + 'hr'}\n\nTotal: ${formatNaira(getMeetupPrice())}\nDeposit: ${formatNaira(depositAmount)} sent to your ${modelConfig.creatorPayments[0].provider}\nBalance: ${formatNaira(balanceAmount)} at meetup\n\n🔐 MY CODE: ${codes.client}`)}`, '_blank');
+    // Save the meetup booking
+    if (onMeetupBooked) {
+      onMeetupBooked({
+        creatorUsername: modelConfig.profile.username,
+        creatorName: modelConfig.profile.name,
+        date: formData.date,
+        time: formData.time,
+        locationType: formData.locationType,
+        location: formData.location,
+        duration: formData.duration,
+        specialRequests: formData.specialRequests,
+        totalPrice: getMeetupPrice(),
+        depositAmount,
+        balanceAmount,
+        clientCode: codes.client,
+      });
+    }
+
+    // Build WhatsApp message with special requests if provided
+    let message = `🌹 MEETUP BOOKING\n\nName: ${clientState.name || 'Client'}\nDate: ${formData.date}\nTime: ${formData.time}\nType: ${formData.locationType === 'incall' ? 'Incall' : 'Outcall'}\nArea: ${formData.location}\nDuration: ${formData.duration === 'overnight' ? 'Overnight' : formData.duration + 'hr'}`;
+
+    if (formData.specialRequests.trim()) {
+      message += `\n\n📝 SPECIAL REQUESTS:\n${formData.specialRequests.trim()}`;
+    }
+
+    message += `\n\nTotal: ${formatNaira(getMeetupPrice())}\nDeposit: ${formatNaira(depositAmount)} sent to your ${modelConfig.creatorPayments[0].provider}\nBalance: ${formatNaira(balanceAmount)} at meetup\n\n🔐 MY CODE: ${codes.client}`;
+
+    window.open(`https://wa.me/${modelConfig.contact.whatsapp}?text=${encodeURIComponent(message)}`, '_blank');
     resetAndClose();
   };
 
   const resetAndClose = () => {
     onClose();
     setStep(1);
-    setFormData({ date: '', time: '', locationType: 'incall', location: '', duration: '1' });
+    setFormData({ date: '', time: '', locationType: 'incall', location: '', duration: '1', specialRequests: '' });
     setAgreedToTerms(false);
     setCodes({ client: '', creator: '' });
   };
@@ -819,19 +834,88 @@ const MeetupModal = ({ isOpen, onClose, clientState, onNeedsTrustDeposit, modelC
             })}
           </div>
 
-          {/* Form fields */}
+          {/* Date and Time */}
           <div className="grid grid-cols-2 gap-3">
-            <input type="date" value={formData.date} onChange={(e) => setFormData({...formData, date: e.target.value})} min={new Date().toISOString().split('T')[0]} className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-white focus:border-pink-500 focus:outline-none" />
-            <select value={formData.time} onChange={(e) => setFormData({...formData, time: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-white focus:border-pink-500 focus:outline-none">
-              <option value="">Time *</option>
-              {['12:00 PM', '2:00 PM', '4:00 PM', '6:00 PM', '8:00 PM', '10:00 PM'].map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
+            <div>
+              <input
+                type="date"
+                value={formData.date}
+                onChange={(e) => setFormData({...formData, date: e.target.value, time: ''})}
+                min={new Date().toISOString().split('T')[0]}
+                className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-white focus:border-pink-500 focus:outline-none"
+              />
+            </div>
+            <div>
+              <select
+                value={formData.time}
+                onChange={(e) => setFormData({...formData, time: e.target.value})}
+                disabled={!formData.date || isDateUnavailable}
+                className={`w-full bg-white/5 border rounded-xl p-3 text-white focus:border-pink-500 focus:outline-none ${
+                  !formData.date || isDateUnavailable ? 'border-white/5 opacity-50' : 'border-white/10'
+                }`}
+              >
+                <option value="">{isDateUnavailable ? 'Unavailable' : 'Time *'}</option>
+                {availableTimeSlots.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
           </div>
+
+          {/* Unavailable date warning */}
+          {isDateUnavailable && (
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3">
+              <p className="text-amber-200 text-sm flex items-center gap-2">
+                <Clock size={14} />
+                {modelConfig.profile.name} is not available on this day. Please select another date.
+              </p>
+            </div>
+          )}
 
           <select value={formData.location} onChange={(e) => setFormData({...formData, location: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-white focus:border-pink-500 focus:outline-none">
             <option value="">Area *</option>
             {(formData.locationType === 'incall' ? modelConfig.profile.areas : ['Victoria Island', 'Lekki', 'Ikoyi', 'Ikeja', 'Mainland']).map(a => <option key={a} value={a}>{a}</option>)}
           </select>
+
+          {/* Special Requests */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-white/70 text-sm flex items-center gap-1">
+                <MessageCircle size={14} />
+                Special Requests
+                <span className="text-white/40 text-xs">(optional but recommended)</span>
+              </label>
+              <span className="text-white/40 text-xs">{formData.specialRequests.length}/300</span>
+            </div>
+
+            {/* Quick suggestion chips */}
+            <div className="flex flex-wrap gap-1.5">
+              {['Dinner first', 'Movie/Netflix', 'GFE experience', 'Roleplay', 'Massage', 'Drinks/Party', 'Overnight cuddles', 'Specific outfit'].map(suggestion => (
+                <button
+                  key={suggestion}
+                  type="button"
+                  onClick={() => {
+                    const current = formData.specialRequests;
+                    const newText = current ? `${current}, ${suggestion.toLowerCase()}` : suggestion;
+                    if (newText.length <= 300) {
+                      setFormData({...formData, specialRequests: newText});
+                    }
+                  }}
+                  className="px-2 py-1 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-white/60 text-xs transition-colors"
+                >
+                  + {suggestion}
+                </button>
+              ))}
+            </div>
+
+            <textarea
+              value={formData.specialRequests}
+              onChange={(e) => setFormData({...formData, specialRequests: e.target.value.slice(0, 300)})}
+              placeholder="Be explicit about what you want so there are no surprises. E.g.: I'd like us to watch a movie first, then dinner... or I'm interested in roleplay... or I have specific preferences for..."
+              className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-white placeholder-white/30 focus:border-pink-500 focus:outline-none resize-none h-20 text-sm"
+            />
+            <p className="text-white/40 text-xs">
+              Being clear helps {modelConfig.profile.name} prepare and ensures a better experience for both of you.
+            </p>
+          </div>
 
           <label className="flex items-start gap-3 p-3 bg-white/5 rounded-xl cursor-pointer border border-white/10">
             <input type="checkbox" checked={agreedToTerms} onChange={(e) => setAgreedToTerms(e.target.checked)} className="w-5 h-5 mt-0.5 rounded border-white/30 bg-white/10 text-pink-500" />
@@ -890,6 +974,12 @@ const MeetupModal = ({ isOpen, onClose, clientState, onNeedsTrustDeposit, modelC
               <div className="text-white/60">Time:</div><div className="text-white">{formData.time}</div>
               <div className="text-white/60">Area:</div><div className="text-white">{formData.location}</div>
             </div>
+            {formData.specialRequests.trim() && (
+              <div className="border-t border-white/10 mt-3 pt-3">
+                <div className="text-white/60 mb-1 flex items-center gap-1"><MessageCircle size={12} />Special Requests:</div>
+                <p className="text-white text-xs">{formData.specialRequests.trim()}</p>
+              </div>
+            )}
             <div className="border-t border-white/10 mt-3 pt-3">
               <div className="flex justify-between"><span className="text-white/60">Deposit:</span><span className="text-yellow-400">{formatNaira(depositAmount)} (pending)</span></div>
               <div className="flex justify-between"><span className="text-white/60">Balance:</span><span className="text-white">{formatNaira(balanceAmount)}</span></div>
@@ -1249,9 +1339,7 @@ export default function App() {
   };
   const [contactUnlocked, setContactUnlocked] = useState(false);
   const [photosUnlocked, setPhotosUnlocked] = useState(false);
-  const [verifiedPhone, setVerifiedPhone] = useState(null);
   const [modal, setModal] = useState(null);
-  const [pendingAction, setPendingAction] = useState(null);
   const [photoGalleryIndex, setPhotoGalleryIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [balanceAnimating, setBalanceAnimating] = useState(false);
@@ -1262,7 +1350,7 @@ export default function App() {
   const hideToast = useCallback(() => setToast(prev => ({ ...prev, visible: false })), []);
 
   // Auth context
-  const { user, isAuthenticated, isCreator, isClient, updateUser, updateTier, deductBalance } = useAuth();
+  const { user, isAuthenticated, isCreator, isClient, updateUser, updateTier, deductBalance, addMeetupBooking } = useAuth();
 
   // Determine the correct dashboard link based on user type
   const dashboardLink = isCreator ? '/creator-dashboard' : '/dashboard';
@@ -1327,14 +1415,18 @@ export default function App() {
   const { isRefreshing, pullDistance, handleTouchStart, handleTouchMove, handleTouchEnd } = usePullToRefresh(handleRefresh);
 
   const protectedAction = (action) => {
-    // Authenticated users (went through proper registration with phone verification) skip quick verify
-    if (isAuthenticated || verifiedPhone) { setModal(action); }
-    else { setPendingAction(action); setModal('verify'); }
-  };
-
-  const onVerified = (phone) => {
-    setVerifiedPhone(phone);
-    if (pendingAction) { setModal(pendingAction); setPendingAction(null); }
+    // Not authenticated (visitor) → redirect to signup
+    if (!isAuthenticated) {
+      navigate('/auth');
+      return;
+    }
+    // Authenticated but no tier → show tier verification modal
+    if (!clientState.tier) {
+      setModal('trustDeposit');
+      return;
+    }
+    // Authenticated with tier → proceed to action
+    setModal(action);
   };
 
   const chatUpgrade = (type) => {
@@ -1772,12 +1864,11 @@ export default function App() {
       )}
 
       {/* Modals */}
-      <ClientVerificationModal isOpen={modal === 'verify'} onClose={() => { setModal(null); setPendingAction(null); }} onVerified={onVerified} nextAction={pendingAction} blacklistedClients={CONFIG?.blacklistedClients || []} />
       <TrustDepositModal isOpen={modal === 'trustDeposit'} onClose={() => setModal(null)} onDepositPaid={handleTrustDepositPaid} />
       <InAppChatModal isOpen={modal === 'chat'} onClose={() => setModal(null)} onUpgrade={chatUpgrade} modelConfig={CONFIG} />
       <UnlockContactModal isOpen={modal === 'unlockContact'} onClose={() => setModal(null)} onUnlock={() => { setContactUnlocked(true); setModal('contactRevealed'); }} clientState={clientState} onNeedsTrustDeposit={() => setModal('trustDeposit')} onDeductBalance={deductFromBalance} modelConfig={CONFIG} />
       <ContactRevealedModal isOpen={modal === 'contactRevealed'} onClose={() => setModal(null)} modelConfig={CONFIG} />
-      <MeetupModal isOpen={modal === 'meetup'} onClose={() => setModal(null)} clientState={clientState} onNeedsTrustDeposit={() => setModal('trustDeposit')} modelConfig={CONFIG} />
+      <MeetupModal isOpen={modal === 'meetup'} onClose={() => setModal(null)} clientState={clientState} onNeedsTrustDeposit={() => setModal('trustDeposit')} modelConfig={CONFIG} onMeetupBooked={addMeetupBooking} />
       <UnlockPhotosModal isOpen={modal === 'unlockPhotos'} onClose={() => setModal(null)} onUnlock={() => setPhotosUnlocked(true)} clientState={clientState} onDeductBalance={deductFromBalance} onNeedsTrustDeposit={() => setModal('trustDeposit')} modelConfig={CONFIG} />
       <AllReviewsModal isOpen={modal === 'allReviews'} onClose={() => setModal(null)} modelConfig={CONFIG} />
       <VideoVerificationModal isOpen={modal === 'videoVerify'} onClose={() => setModal(null)} modelConfig={CONFIG} />

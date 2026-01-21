@@ -128,6 +128,15 @@ export const MODELS = {
     ],
     blacklistedClients: ["08147318959", "07012345678"],
     freeMessages: 3,
+    schedule: {
+      monday: { active: true, start: '14:00', end: '23:00' },
+      tuesday: { active: true, start: '14:00', end: '23:00' },
+      wednesday: { active: true, start: '14:00', end: '23:00' },
+      thursday: { active: true, start: '14:00', end: '23:00' },
+      friday: { active: true, start: '12:00', end: '02:00' },
+      saturday: { active: true, start: '12:00', end: '02:00' },
+      sunday: { active: false, start: '00:00', end: '00:00' },
+    },
   },
 
   bella_luxe: {
@@ -186,6 +195,15 @@ export const MODELS = {
     ],
     blacklistedClients: [],
     freeMessages: 2,
+    schedule: {
+      monday: { active: true, start: '10:00', end: '22:00' },
+      tuesday: { active: true, start: '10:00', end: '22:00' },
+      wednesday: { active: true, start: '10:00', end: '22:00' },
+      thursday: { active: true, start: '10:00', end: '22:00' },
+      friday: { active: true, start: '10:00', end: '00:00' },
+      saturday: { active: true, start: '12:00', end: '00:00' },
+      sunday: { active: true, start: '14:00', end: '20:00' },
+    },
   },
 
   amara_ng: {
@@ -241,6 +259,15 @@ export const MODELS = {
     ],
     blacklistedClients: ["08098765432"],
     freeMessages: 3,
+    schedule: {
+      monday: { active: false, start: '00:00', end: '00:00' },
+      tuesday: { active: true, start: '16:00', end: '23:00' },
+      wednesday: { active: true, start: '16:00', end: '23:00' },
+      thursday: { active: true, start: '16:00', end: '23:00' },
+      friday: { active: true, start: '14:00', end: '01:00' },
+      saturday: { active: true, start: '14:00', end: '01:00' },
+      sunday: { active: true, start: '16:00', end: '22:00' },
+    },
   },
 
   zara_elite: {

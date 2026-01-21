@@ -17,6 +17,8 @@ const DEFAULT_CLIENT_STATE = {
   phone: '',
   name: '',
   registeredAt: null,
+  // Meetup bookings array
+  meetups: [], // Array of { id, creatorUsername, creatorName, date, time, locationType, location, duration, specialRequests, totalPrice, depositAmount, balanceAmount, clientCode, status: 'pending'|'confirmed'|'declined'|'rescheduled'|'completed'|'cancelled', createdAt, statusUpdatedAt }
 };
 
 const DEFAULT_CREATOR_STATE = {
@@ -52,6 +54,18 @@ const DEFAULT_CREATOR_STATE = {
   },
   registeredAt: null,
   pendingVerification: true,
+  // Availability schedule - hours when creator is active (24hr format)
+  schedule: {
+    monday: { active: true, start: '10:00', end: '22:00' },
+    tuesday: { active: true, start: '10:00', end: '22:00' },
+    wednesday: { active: true, start: '10:00', end: '22:00' },
+    thursday: { active: true, start: '10:00', end: '22:00' },
+    friday: { active: true, start: '10:00', end: '23:00' },
+    saturday: { active: true, start: '12:00', end: '23:00' },
+    sunday: { active: false, start: '12:00', end: '20:00' },
+  },
+  // Booking requests from clients
+  bookingRequests: [], // Array of { id, clientPhone, clientName, date, time, locationType, location, duration, specialRequests, totalPrice, depositAmount, clientCode, status, createdAt }
 };
 
 const AuthContext = createContext(null);
@@ -156,7 +170,7 @@ export const AuthProvider = ({ children }) => {
     });
   };
 
-  // Record successful meetup
+  // Record successful meetup (increment counter)
   const recordMeetup = () => {
     setUser(prev => {
       if (!prev || prev.userType !== 'client') return prev;
@@ -168,6 +182,44 @@ export const AuthProvider = ({ children }) => {
         isTrustedMember: newMeetups >= 3,
       };
     });
+  };
+
+  // Add a new meetup booking (for clients)
+  const addMeetupBooking = (meetupData) => {
+    setUser(prev => {
+      if (!prev || prev.userType !== 'client') return prev;
+      const newMeetup = {
+        id: Date.now().toString(),
+        ...meetupData,
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+        statusUpdatedAt: new Date().toISOString(),
+      };
+      return {
+        ...prev,
+        meetups: [...(prev.meetups || []), newMeetup],
+      };
+    });
+  };
+
+  // Update meetup status (for clients)
+  const updateMeetupStatus = (meetupId, status) => {
+    setUser(prev => {
+      if (!prev || prev.userType !== 'client') return prev;
+      return {
+        ...prev,
+        meetups: (prev.meetups || []).map(m =>
+          m.id === meetupId
+            ? { ...m, status, statusUpdatedAt: new Date().toISOString() }
+            : m
+        ),
+      };
+    });
+  };
+
+  // Cancel a meetup (for clients)
+  const cancelMeetup = (meetupId) => {
+    updateMeetupStatus(meetupId, 'cancelled');
   };
 
   // Logout
@@ -194,6 +246,9 @@ export const AuthProvider = ({ children }) => {
     updateTier,
     deductBalance,
     recordMeetup,
+    addMeetupBooking,
+    updateMeetupStatus,
+    cancelMeetup,
     logout,
   };
 

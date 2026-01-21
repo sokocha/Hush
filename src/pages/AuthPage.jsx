@@ -1111,6 +1111,21 @@ const CreatorPhysicalStep = ({ data, setData, onSubmit, onBack }) => {
 
 // Creator Step 3: Services & Boundaries
 const CreatorServicesStep = ({ data, setData, onSubmit, onBack, isLoading }) => {
+  const [bioError, setBioError] = useState('');
+
+  // Phone number patterns to detect
+  const phonePatterns = [
+    /\b\d{10,11}\b/,
+    /\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b/,
+    /\b0[789][01]\d{8}\b/,
+    /\+\d{10,14}/,
+    /\b234\d{10}\b/,
+  ];
+
+  const containsPhoneNumber = (text) => {
+    return phonePatterns.some(pattern => pattern.test(text));
+  };
+
   const toggleService = (serviceId) => {
     setData(prev => {
       const current = prev.services || [];
@@ -1130,6 +1145,20 @@ const CreatorServicesStep = ({ data, setData, onSubmit, onBack, isLoading }) => 
       return { ...prev, boundaries: updated };
     });
   };
+
+  const handleBioChange = (e) => {
+    const value = e.target.value.slice(0, 200);
+    if (containsPhoneNumber(value)) {
+      setBioError('Phone numbers are not allowed in your bio');
+    } else {
+      setBioError('');
+    }
+    setData(prev => ({ ...prev, bio: value }));
+  };
+
+  const bioTrimmed = (data.bio || '').trim();
+  const isValidBio = bioTrimmed.length >= 30 && !containsPhoneNumber(bioTrimmed);
+  const hasServices = (data.services || []).length > 0;
 
   return (
     <div className="space-y-6">
@@ -1212,14 +1241,28 @@ const CreatorServicesStep = ({ data, setData, onSubmit, onBack, isLoading }) => 
 
         {/* Bio */}
         <div className="space-y-2">
-          <label className="text-white/70 text-sm">Bio <span className="text-white/40">(shown on your profile)</span></label>
+          <label className="text-white/70 text-sm flex items-center gap-2">
+            Bio <span className="text-white/40">(30-200 characters)</span>
+            {bioTrimmed.length < 30 && <span className="text-red-400 text-xs">*required</span>}
+          </label>
           <textarea
             placeholder="Tell clients about yourself..."
             value={data.bio || ''}
-            onChange={(e) => setData(prev => ({ ...prev, bio: e.target.value.slice(0, 200) }))}
-            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/40 focus:border-purple-500 focus:outline-none resize-none h-24"
+            onChange={handleBioChange}
+            className={`w-full bg-white/5 border rounded-xl px-4 py-3 text-white placeholder-white/40 focus:outline-none resize-none h-24 ${
+              bioError ? 'border-red-500 focus:border-red-500' : 'border-white/10 focus:border-purple-500'
+            }`}
           />
-          <p className="text-white/40 text-xs text-right">{(data.bio || '').length}/200</p>
+          <div className="flex justify-between items-center">
+            {bioError ? (
+              <p className="text-red-400 text-xs">{bioError}</p>
+            ) : bioTrimmed.length < 30 ? (
+              <p className="text-white/40 text-xs">Min 30 characters ({30 - bioTrimmed.length} more needed)</p>
+            ) : (
+              <p className="text-green-400 text-xs">Looks good!</p>
+            )}
+            <p className="text-white/40 text-xs">{bioTrimmed.length}/200</p>
+          </div>
         </div>
       </div>
 
@@ -1244,8 +1287,12 @@ const CreatorServicesStep = ({ data, setData, onSubmit, onBack, isLoading }) => 
 
       <button
         onClick={onSubmit}
-        disabled={isLoading}
-        className="w-full py-4 bg-gradient-to-r from-purple-500 to-fuchsia-500 hover:from-purple-600 hover:to-fuchsia-600 rounded-xl text-white font-semibold transition-all"
+        disabled={isLoading || !isValidBio || !hasServices}
+        className={`w-full py-4 rounded-xl text-white font-semibold transition-all ${
+          isValidBio && hasServices
+            ? 'bg-gradient-to-r from-purple-500 to-fuchsia-500 hover:from-purple-600 hover:to-fuchsia-600'
+            : 'bg-white/20 cursor-not-allowed'
+        }`}
       >
         {isLoading ? 'Creating account...' : 'Complete Registration'}
       </button>

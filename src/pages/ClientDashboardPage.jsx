@@ -181,9 +181,101 @@ const TierSelectionCard = ({ tier, isSelected, onSelect, isCurrentTier }) => {
 // MAIN DASHBOARD
 // ═══════════════════════════════════════════════════════════
 
+// Meetup Card Component
+const MeetupCard = ({ meetup, onCancel }) => {
+  const modelData = getModelByUsername(meetup.creatorUsername);
+  const statusColors = {
+    pending: { bg: 'bg-amber-500/10', border: 'border-amber-500/30', text: 'text-amber-300', label: 'Pending' },
+    confirmed: { bg: 'bg-green-500/10', border: 'border-green-500/30', text: 'text-green-300', label: 'Confirmed' },
+    declined: { bg: 'bg-red-500/10', border: 'border-red-500/30', text: 'text-red-300', label: 'Declined' },
+    rescheduled: { bg: 'bg-blue-500/10', border: 'border-blue-500/30', text: 'text-blue-300', label: 'Rescheduled' },
+    completed: { bg: 'bg-green-500/10', border: 'border-green-500/30', text: 'text-green-300', label: 'Completed' },
+    cancelled: { bg: 'bg-gray-500/10', border: 'border-gray-500/30', text: 'text-gray-400', label: 'Cancelled' },
+  };
+  const status = statusColors[meetup.status] || statusColors.pending;
+
+  return (
+    <div className={`${status.bg} ${status.border} border rounded-xl p-4`}>
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-pink-500/30 to-purple-500/30 flex items-center justify-center">
+            <span className="text-sm font-bold text-white/50">
+              {meetup.creatorName?.slice(0, 2).toUpperCase() || 'XX'}
+            </span>
+          </div>
+          <div>
+            <Link to={`/model/${meetup.creatorUsername}`} className="text-white font-semibold hover:text-pink-400">
+              {meetup.creatorName}
+            </Link>
+            <div className="flex items-center gap-2 text-white/50 text-xs">
+              <span className={`px-2 py-0.5 rounded-full ${status.bg} ${status.text} font-medium`}>
+                {status.label}
+              </span>
+            </div>
+          </div>
+        </div>
+        {(meetup.status === 'pending' || meetup.status === 'confirmed') && (
+          <button
+            onClick={() => onCancel(meetup.id)}
+            className="text-red-400/70 hover:text-red-400 text-xs"
+          >
+            Cancel
+          </button>
+        )}
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 text-sm mb-3">
+        <div className="flex items-center gap-2 text-white/60">
+          <Calendar size={14} />
+          <span>{new Date(meetup.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+        </div>
+        <div className="flex items-center gap-2 text-white/60">
+          <Clock size={14} />
+          <span>{meetup.time}</span>
+        </div>
+        <div className="flex items-center gap-2 text-white/60">
+          <MapPin size={14} />
+          <span>{meetup.location}</span>
+        </div>
+        <div className="flex items-center gap-2 text-white/60">
+          <span>{meetup.locationType === 'incall' ? '🏠' : '🚗'}</span>
+          <span>{meetup.locationType === 'incall' ? 'Incall' : 'Outcall'}</span>
+        </div>
+      </div>
+
+      {meetup.specialRequests && (
+        <div className="bg-black/20 rounded-lg p-2 mb-3">
+          <p className="text-white/40 text-xs mb-1 flex items-center gap-1">
+            <MessageCircle size={12} />
+            Special Requests:
+          </p>
+          <p className="text-white/70 text-xs">{meetup.specialRequests}</p>
+        </div>
+      )}
+
+      <div className="flex items-center justify-between pt-3 border-t border-white/10">
+        <div>
+          <p className="text-white/40 text-xs">Total</p>
+          <p className="text-white font-bold">{formatNaira(meetup.totalPrice)}</p>
+        </div>
+        <div className="text-right">
+          <p className="text-white/40 text-xs">Deposit Paid</p>
+          <p className="text-green-400 font-medium">{formatNaira(meetup.depositAmount)}</p>
+        </div>
+        {meetup.clientCode && (meetup.status === 'pending' || meetup.status === 'confirmed') && (
+          <div className="text-right">
+            <p className="text-white/40 text-xs">Your Code</p>
+            <p className="text-blue-400 font-mono font-bold">{meetup.clientCode}</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 export default function ClientDashboardPage() {
   const navigate = useNavigate();
-  const { user, logout, updateUser, updateTier, isClient } = useAuth();
+  const { user, logout, updateUser, updateTier, isClient, cancelMeetup } = useAuth();
   const { favorites } = useFavorites();
 
   const [activeTab, setActiveTab] = useState('overview');
@@ -271,8 +363,14 @@ export default function ClientDashboardPage() {
     ? Math.max(0, tierData.refund.meetups - user.successfulMeetups)
     : 0;
 
+  // Get meetups data
+  const meetups = user.meetups || [];
+  const upcomingMeetups = meetups.filter(m => m.status === 'pending' || m.status === 'confirmed');
+  const pastMeetups = meetups.filter(m => m.status === 'completed' || m.status === 'cancelled' || m.status === 'declined');
+
   const tabs = [
     { id: 'overview', label: 'Overview', icon: Home },
+    { id: 'meetups', label: 'Meetups', icon: Calendar, badge: upcomingMeetups.length > 0 ? upcomingMeetups.length : null },
     { id: 'favorites', label: 'Favorites', icon: Heart },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
@@ -391,7 +489,7 @@ export default function ClientDashboardPage() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap transition-all ${
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap transition-all relative ${
                 activeTab === tab.id
                   ? 'bg-pink-500 text-white'
                   : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'
@@ -399,6 +497,11 @@ export default function ClientDashboardPage() {
             >
               <tab.icon size={16} />
               {tab.label}
+              {tab.badge && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-pink-600 rounded-full text-xs flex items-center justify-center text-white font-bold">
+                  {tab.badge}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -465,6 +568,29 @@ export default function ClientDashboardPage() {
               </div>
             </div>
 
+            {/* Upcoming Meetups Preview */}
+            {upcomingMeetups.length > 0 && (
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-white font-semibold flex items-center gap-2">
+                    <Calendar size={18} className="text-pink-400" />
+                    Upcoming Meetups
+                  </h2>
+                  <button
+                    onClick={() => setActiveTab('meetups')}
+                    className="text-pink-400 text-sm flex items-center gap-1 hover:text-pink-300"
+                  >
+                    See all <ChevronRight size={14} />
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {upcomingMeetups.slice(0, 2).map(meetup => (
+                    <MeetupCard key={meetup.id} meetup={meetup} onCancel={cancelMeetup} />
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Favorites Preview */}
             {favorites.length > 0 && (
               <div>
@@ -512,6 +638,69 @@ export default function ClientDashboardPage() {
                   <span>Get your trust deposit back after successful meetups!</span>
                 </li>
               </ol>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'meetups' && (
+          <div className="space-y-6">
+            {/* Upcoming Meetups */}
+            <div>
+              <h2 className="text-white font-semibold mb-4 flex items-center gap-2">
+                <Calendar size={18} className="text-pink-400" />
+                Upcoming Meetups ({upcomingMeetups.length})
+              </h2>
+              {upcomingMeetups.length > 0 ? (
+                <div className="space-y-3">
+                  {upcomingMeetups.map(meetup => (
+                    <MeetupCard key={meetup.id} meetup={meetup} onCancel={cancelMeetup} />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 bg-white/5 border border-white/10 rounded-xl">
+                  <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-white/5 flex items-center justify-center">
+                    <Calendar size={28} className="text-white/30" />
+                  </div>
+                  <h3 className="text-white font-medium mb-1">No upcoming meetups</h3>
+                  <p className="text-white/50 text-sm mb-4">Book a meetup with a model to see it here</p>
+                  <Link
+                    to="/explore/all"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-pink-500 hover:bg-pink-600 rounded-xl text-white text-sm font-medium transition-colors"
+                  >
+                    <Users size={16} />
+                    Browse Models
+                  </Link>
+                </div>
+              )}
+            </div>
+
+            {/* Past Meetups */}
+            {pastMeetups.length > 0 && (
+              <div>
+                <h2 className="text-white font-semibold mb-4 flex items-center gap-2">
+                  <History size={18} className="text-white/50" />
+                  Past Meetups ({pastMeetups.length})
+                </h2>
+                <div className="space-y-3">
+                  {pastMeetups.map(meetup => (
+                    <MeetupCard key={meetup.id} meetup={meetup} onCancel={cancelMeetup} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Tips */}
+            <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
+              <h4 className="text-blue-300 font-medium mb-2 flex items-center gap-2">
+                <Shield size={16} />
+                Meetup Safety Tips
+              </h4>
+              <ul className="text-blue-200/70 text-sm space-y-1">
+                <li>• Always exchange verification codes at the meetup</li>
+                <li>• Pay the balance only after code verification</li>
+                <li>• If a model asks for full payment upfront, report them</li>
+                <li>• Keep your booking confirmation as reference</li>
+              </ul>
             </div>
           </div>
         )}
