@@ -222,6 +222,73 @@ export const AuthProvider = ({ children }) => {
     updateMeetupStatus(meetupId, 'cancelled');
   };
 
+  // Add a booking request (for creators - when client books them)
+  const addBookingRequest = (bookingData) => {
+    setUser(prev => {
+      if (!prev || prev.userType !== 'creator') return prev;
+      const newBooking = {
+        id: Date.now().toString(),
+        ...bookingData,
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+        statusUpdatedAt: new Date().toISOString(),
+      };
+      return {
+        ...prev,
+        bookingRequests: [...(prev.bookingRequests || []), newBooking],
+      };
+    });
+  };
+
+  // Update booking request status (for creators)
+  const updateBookingRequestStatus = (bookingId, status, note = '') => {
+    setUser(prev => {
+      if (!prev || prev.userType !== 'creator') return prev;
+      return {
+        ...prev,
+        bookingRequests: (prev.bookingRequests || []).map(b =>
+          b.id === bookingId
+            ? { ...b, status, statusNote: note, statusUpdatedAt: new Date().toISOString() }
+            : b
+        ),
+      };
+    });
+  };
+
+  // Record earnings for a completed booking (for creators)
+  const recordCreatorEarnings = (amount, bookingId) => {
+    setUser(prev => {
+      if (!prev || prev.userType !== 'creator') return prev;
+      const earning = {
+        id: Date.now().toString(),
+        amount,
+        bookingId,
+        date: new Date().toISOString(),
+      };
+      const currentEarnings = prev.earnings || [];
+      const currentStats = prev.stats || {};
+      return {
+        ...prev,
+        earnings: [...currentEarnings, earning],
+        stats: {
+          ...currentStats,
+          verifiedMeetups: (currentStats.verifiedMeetups || 0) + 1,
+        },
+      };
+    });
+  };
+
+  // Update creator schedule
+  const updateSchedule = (schedule) => {
+    setUser(prev => {
+      if (!prev || prev.userType !== 'creator') return prev;
+      return {
+        ...prev,
+        schedule,
+      };
+    });
+  };
+
   // Logout
   const logout = () => {
     setUser(null);
@@ -249,6 +316,11 @@ export const AuthProvider = ({ children }) => {
     addMeetupBooking,
     updateMeetupStatus,
     cancelMeetup,
+    // Creator methods
+    addBookingRequest,
+    updateBookingRequestStatus,
+    recordCreatorEarnings,
+    updateSchedule,
     logout,
   };
 

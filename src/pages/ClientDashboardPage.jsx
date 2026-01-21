@@ -455,13 +455,15 @@ export default function ClientDashboardPage() {
                 <TierBadge tier={currentTier} size="lg" />
                 <p className="text-white/50 text-xs mt-2">Member since {memberSince}</p>
               </div>
-              <button
-                onClick={() => setShowDepositModal(true)}
-                className="px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-full text-white text-sm font-medium transition-colors flex items-center gap-1"
-              >
-                <ArrowUpRight size={14} />
-                Upgrade
-              </button>
+              {currentTier !== 'bossman' && (
+                <button
+                  onClick={() => setShowDepositModal(true)}
+                  className="px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-full text-white text-sm font-medium transition-colors flex items-center gap-1"
+                >
+                  <ArrowUpRight size={14} />
+                  Upgrade
+                </button>
+              )}
             </div>
 
             {/* Wallet Balance */}
@@ -775,28 +777,30 @@ export default function ClientDashboardPage() {
               <ChevronRight size={20} className="text-white/30" />
             </button>
 
-            {/* Deposit / Upgrade */}
-            <button
-              onClick={() => setShowDepositModal(true)}
-              className="w-full flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-purple-500/20 rounded-lg">
-                  <Wallet size={18} className="text-purple-400" />
+            {/* Deposit / Upgrade - hide if already at highest tier */}
+            {!(user.hasPaidTrustDeposit && currentTier === 'bossman') && (
+              <button
+                onClick={() => setShowDepositModal(true)}
+                className="w-full flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-purple-500/20 rounded-lg">
+                    <Wallet size={18} className="text-purple-400" />
+                  </div>
+                  <div className="text-left">
+                    <p className="text-white font-medium">
+                      {user.hasPaidTrustDeposit ? 'Upgrade Tier' : 'Make Trust Deposit'}
+                    </p>
+                    <p className="text-white/50 text-sm">
+                      {user.hasPaidTrustDeposit
+                        ? `Current: ${tierData?.name || 'None'}`
+                        : 'Choose a verification tier'}
+                    </p>
+                  </div>
                 </div>
-                <div className="text-left">
-                  <p className="text-white font-medium">
-                    {user.hasPaidTrustDeposit ? 'Upgrade Tier' : 'Make Trust Deposit'}
-                  </p>
-                  <p className="text-white/50 text-sm">
-                    {user.hasPaidTrustDeposit
-                      ? `Current: ${tierData?.name || 'None'}`
-                      : 'Choose a verification tier'}
-                  </p>
-                </div>
-              </div>
-              <ChevronRight size={20} className="text-white/30" />
-            </button>
+                <ChevronRight size={20} className="text-white/30" />
+              </button>
+            )}
 
             {/* Logout */}
             <button

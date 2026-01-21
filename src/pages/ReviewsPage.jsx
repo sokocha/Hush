@@ -161,7 +161,6 @@ export default function ReviewsPage() {
   const [ratingFilter, setRatingFilter] = useState("all");
   const [sortBy, setSortBy] = useState("recent");
   const [searchQuery, setSearchQuery] = useState("");
-  const [showVerifiedOnly, setShowVerifiedOnly] = useState(false);
 
   // Get reviews based on whether we're viewing a specific model or all reviews
   const isAllReviews = !username || username === 'all';
@@ -191,11 +190,6 @@ export default function ReviewsPage() {
       reviews = reviews.filter(r => r.rating === ratingFilter);
     }
 
-    // Filter by verified
-    if (showVerifiedOnly) {
-      reviews = reviews.filter(r => r.verified);
-    }
-
     // Filter by search
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
@@ -221,7 +215,7 @@ export default function ReviewsPage() {
     }
 
     return reviews;
-  }, [allReviews, ratingFilter, sortBy, searchQuery, showVerifiedOnly]);
+  }, [allReviews, ratingFilter, sortBy, searchQuery]);
 
   // Handle model not found
   if (!isAllReviews && !modelData) {
@@ -261,7 +255,7 @@ export default function ReviewsPage() {
             </h1>
             <p className="text-white/50 text-sm">
               {filteredReviews.length} review{filteredReviews.length !== 1 ? 's' : ''}
-              {(ratingFilter !== "all" || showVerifiedOnly || searchQuery) && " (filtered)"}
+              {(ratingFilter !== "all" || searchQuery) && " (filtered)"}
             </p>
           </div>
         </div>
@@ -311,18 +305,6 @@ export default function ReviewsPage() {
             <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none" />
           </div>
 
-          {/* Verified only toggle */}
-          <button
-            onClick={() => setShowVerifiedOnly(!showVerifiedOnly)}
-            className={`px-4 py-2 rounded-xl text-sm font-medium transition-all flex items-center gap-1.5 ${
-              showVerifiedOnly
-                ? 'bg-green-500/20 border border-green-500/50 text-green-300'
-                : 'bg-white/10 border border-white/10 text-white/70 hover:bg-white/20'
-            }`}
-          >
-            <CheckCircle size={14} />
-            Verified Only
-          </button>
         </div>
 
         {/* Reviews list */}
@@ -343,16 +325,15 @@ export default function ReviewsPage() {
             </div>
             <h3 className="text-white font-medium mb-2">No reviews found</h3>
             <p className="text-white/50 text-sm mb-4">
-              {searchQuery || ratingFilter !== "all" || showVerifiedOnly
+              {searchQuery || ratingFilter !== "all"
                 ? "Try adjusting your filters"
                 : "No reviews yet"}
             </p>
-            {(searchQuery || ratingFilter !== "all" || showVerifiedOnly) && (
+            {(searchQuery || ratingFilter !== "all") && (
               <button
                 onClick={() => {
                   setSearchQuery("");
                   setRatingFilter("all");
-                  setShowVerifiedOnly(false);
                 }}
                 className="px-4 py-2 bg-pink-500 hover:bg-pink-600 rounded-xl text-white text-sm font-medium transition-colors"
               >

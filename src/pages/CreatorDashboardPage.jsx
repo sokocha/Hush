@@ -6,7 +6,8 @@ import {
   Settings, LogOut, Edit3, ChevronLeft, ChevronRight,
   MapPin, Target, TrendingUp, Eye, Phone, MessageCircle,
   Ban, Sparkles, Award, X, Plus, Image, Trash2, Lock, Unlock,
-  GripVertical, RotateCcw
+  GripVertical, RotateCcw, CalendarDays, Wallet, ClipboardList,
+  CheckCheck, XCircle, User, MessageSquare, RefreshCw
 } from 'lucide-react';
 import { PLATFORM_CONFIG } from '../data/models';
 import { useAuth } from '../context/AuthContext';
@@ -342,7 +343,7 @@ const VerificationStep = ({ icon: Icon, title, description, status, action, onAc
 
 export default function CreatorDashboardPage() {
   const navigate = useNavigate();
-  const { user, logout, updateUser, isCreator } = useAuth();
+  const { user, logout, updateUser, isCreator, updateBookingRequestStatus, recordCreatorEarnings, updateSchedule } = useAuth();
 
   const [activeTab, setActiveTab] = useState('overview');
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
@@ -351,6 +352,16 @@ export default function CreatorDashboardPage() {
   const [showCameraCapture, setShowCameraCapture] = useState(false);
   const [showDeletePhotoConfirm, setShowDeletePhotoConfirm] = useState(null);
   const [editData, setEditData] = useState({});
+
+  // Booking management state
+  const [bookingFilter, setBookingFilter] = useState('all');
+  const [selectedBooking, setSelectedBooking] = useState(null);
+  const [showBookingModal, setShowBookingModal] = useState(false);
+  const [showDeclineModal, setShowDeclineModal] = useState(null);
+  const [declineReason, setDeclineReason] = useState('');
+
+  // Schedule editing state
+  const [editingSchedule, setEditingSchedule] = useState(null);
 
   // Pricing form state
   const [pricingData, setPricingData] = useState({
@@ -472,6 +483,79 @@ export default function CreatorDashboardPage() {
     updateUser({ photos: currentPhotos });
   };
 
+  // Booking handlers
+  const handleConfirmBooking = (bookingId) => {
+    updateBookingRequestStatus(bookingId, 'confirmed');
+    setShowBookingModal(false);
+    setSelectedBooking(null);
+  };
+
+  const handleDeclineBooking = (bookingId) => {
+    updateBookingRequestStatus(bookingId, 'declined', declineReason);
+    setShowDeclineModal(null);
+    setDeclineReason('');
+  };
+
+  const handleCompleteBooking = (booking) => {
+    updateBookingRequestStatus(booking.id, 'completed');
+    recordCreatorEarnings(booking.totalPrice, booking.id);
+    setShowBookingModal(false);
+    setSelectedBooking(null);
+  };
+
+  const handleCancelBooking = (bookingId) => {
+    updateBookingRequestStatus(bookingId, 'cancelled');
+    setShowBookingModal(false);
+    setSelectedBooking(null);
+  };
+
+  // Schedule handlers
+  const handleSaveSchedule = () => {
+    if (editingSchedule) {
+      updateSchedule(editingSchedule);
+      setEditingSchedule(null);
+    }
+  };
+
+  const handleToggleDay = (day) => {
+    const schedule = editingSchedule || user.schedule;
+    setEditingSchedule({
+      ...schedule,
+      [day]: {
+        ...schedule[day],
+        active: !schedule[day].active,
+      },
+    });
+  };
+
+  const handleUpdateTime = (day, field, value) => {
+    const schedule = editingSchedule || user.schedule;
+    setEditingSchedule({
+      ...schedule,
+      [day]: {
+        ...schedule[day],
+        [field]: value,
+      },
+    });
+  };
+
+  // Get bookings data
+  const bookings = user.bookingRequests || [];
+  const filteredBookings = bookingFilter === 'all'
+    ? bookings
+    : bookings.filter(b => b.status === bookingFilter);
+
+  const pendingBookings = bookings.filter(b => b.status === 'pending');
+  const confirmedBookings = bookings.filter(b => b.status === 'confirmed');
+  const completedBookings = bookings.filter(b => b.status === 'completed');
+
+  // Get earnings data
+  const earnings = user.earnings || [];
+  const totalEarnings = earnings.reduce((sum, e) => sum + e.amount, 0);
+  const thisMonthEarnings = earnings
+    .filter(e => new Date(e.date).getMonth() === new Date().getMonth())
+    .reduce((sum, e) => sum + e.amount, 0);
+
   // Get photos data
   const creatorPhotos = user.photos || [];
   const previewCount = creatorPhotos.filter(p => p.isPreview).length;
@@ -495,6 +579,9 @@ export default function CreatorDashboardPage() {
 
   const tabs = [
     { id: 'overview', label: 'Overview', icon: Crown },
+    { id: 'bookings', label: 'Bookings', icon: ClipboardList },
+    { id: 'earnings', label: 'Earnings', icon: Wallet },
+    { id: 'availability', label: 'Availability', icon: CalendarDays },
     { id: 'photos', label: 'Photos', icon: Image },
     { id: 'verification', label: 'Verification', icon: Shield },
     { id: 'settings', label: 'Settings', icon: Settings },
@@ -727,6 +814,364 @@ export default function CreatorDashboardPage() {
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {activeTab === 'bookings' && (
+          <div className="space-y-6">
+            {/* Booking Stats */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 text-center">
+                <p className="text-2xl font-bold text-white">{pendingBookings.length}</p>
+                <p className="text-amber-300/70 text-xs">Pending</p>
+              </div>
+              <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-3 text-center">
+                <p className="text-2xl font-bold text-white">{confirmedBookings.length}</p>
+                <p className="text-blue-300/70 text-xs">Confirmed</p>
+              </div>
+              <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-3 text-center">
+                <p className="text-2xl font-bold text-white">{completedBookings.length}</p>
+                <p className="text-green-300/70 text-xs">Completed</p>
+              </div>
+            </div>
+
+            {/* Filter Tabs */}
+            <div className="flex gap-2 overflow-x-auto hide-scrollbar">
+              {[
+                { id: 'all', label: 'All' },
+                { id: 'pending', label: 'Pending' },
+                { id: 'confirmed', label: 'Confirmed' },
+                { id: 'completed', label: 'Completed' },
+                { id: 'declined', label: 'Declined' },
+                { id: 'cancelled', label: 'Cancelled' },
+              ].map(filter => (
+                <button
+                  key={filter.id}
+                  onClick={() => setBookingFilter(filter.id)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
+                    bookingFilter === filter.id
+                      ? 'bg-purple-500 text-white'
+                      : 'bg-white/5 text-white/60 hover:bg-white/10'
+                  }`}
+                >
+                  {filter.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Bookings List */}
+            {filteredBookings.length > 0 ? (
+              <div className="space-y-3">
+                {filteredBookings.map(booking => (
+                  <div
+                    key={booking.id}
+                    onClick={() => {
+                      setSelectedBooking(booking);
+                      setShowBookingModal(true);
+                    }}
+                    className="bg-white/5 border border-white/10 rounded-xl p-4 cursor-pointer hover:bg-white/10 transition-colors"
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center">
+                          <User size={18} className="text-purple-400" />
+                        </div>
+                        <div>
+                          <p className="text-white font-medium">{booking.clientName || 'Client'}</p>
+                          <p className="text-white/50 text-xs">{booking.clientPhone}</p>
+                        </div>
+                      </div>
+                      <span className={`px-2 py-1 rounded-lg text-xs font-medium ${
+                        booking.status === 'pending' ? 'bg-amber-500/20 text-amber-300' :
+                        booking.status === 'confirmed' ? 'bg-blue-500/20 text-blue-300' :
+                        booking.status === 'completed' ? 'bg-green-500/20 text-green-300' :
+                        booking.status === 'declined' ? 'bg-red-500/20 text-red-300' :
+                        'bg-white/10 text-white/50'
+                      }`}>
+                        {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div className="flex items-center gap-2 text-white/60">
+                        <Calendar size={14} />
+                        <span>{booking.date}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-white/60">
+                        <Clock size={14} />
+                        <span>{booking.time} • {booking.duration}hr</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-white/60">
+                        <MapPin size={14} />
+                        <span>{booking.locationType === 'incall' ? 'Incall' : 'Outcall'}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-green-400 font-medium">
+                        <DollarSign size={14} />
+                        <span>{formatNaira(booking.totalPrice)}</span>
+                      </div>
+                    </div>
+
+                    {booking.specialRequests && (
+                      <div className="mt-3 pt-3 border-t border-white/10">
+                        <p className="text-white/40 text-xs flex items-center gap-1">
+                          <MessageSquare size={12} />
+                          {booking.specialRequests}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="py-12 text-center">
+                <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-4">
+                  <ClipboardList size={32} className="text-white/30" />
+                </div>
+                <h3 className="text-white font-medium mb-2">No Bookings</h3>
+                <p className="text-white/50 text-sm">
+                  {bookingFilter === 'all'
+                    ? "You haven't received any booking requests yet"
+                    : `No ${bookingFilter} bookings`}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'earnings' && (
+          <div className="space-y-6">
+            {/* Earnings Summary */}
+            <div className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-500/30 rounded-2xl p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-3 bg-green-500/20 rounded-xl">
+                  <Wallet size={24} className="text-green-400" />
+                </div>
+                <div>
+                  <p className="text-white/60 text-sm">Total Earnings</p>
+                  <p className="text-3xl font-bold text-white">{formatNaira(totalEarnings)}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/10">
+                <div>
+                  <p className="text-white/50 text-xs">This Month</p>
+                  <p className="text-xl font-bold text-green-400">{formatNaira(thisMonthEarnings)}</p>
+                </div>
+                <div>
+                  <p className="text-white/50 text-xs">Completed Meetups</p>
+                  <p className="text-xl font-bold text-white">{completedBookings.length}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Earnings Stats */}
+            <div className="grid grid-cols-2 gap-3">
+              <StatCard
+                icon={Target}
+                label="Success Rate"
+                value={`${user.stats?.meetupSuccessRate || 0}%`}
+                subValue="Completed meetups"
+                color="green"
+              />
+              <StatCard
+                icon={Heart}
+                label="Repeat Clients"
+                value={user.stats?.repeatClients || 0}
+                subValue="Loyal clients"
+                color="pink"
+              />
+            </div>
+
+            {/* Recent Earnings */}
+            <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+              <h3 className="text-white font-semibold mb-4 flex items-center gap-2">
+                <TrendingUp size={18} className="text-green-400" />
+                Recent Earnings
+              </h3>
+              {earnings.length > 0 ? (
+                <div className="space-y-3">
+                  {earnings.slice(-10).reverse().map(earning => {
+                    const booking = bookings.find(b => b.id === earning.bookingId);
+                    return (
+                      <div key={earning.id} className="flex items-center justify-between py-2 border-b border-white/5 last:border-0">
+                        <div>
+                          <p className="text-white font-medium">{booking?.clientName || 'Client'}</p>
+                          <p className="text-white/40 text-xs">
+                            {new Date(earning.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          </p>
+                        </div>
+                        <span className="text-green-400 font-bold">+{formatNaira(earning.amount)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="py-8 text-center">
+                  <p className="text-white/50 text-sm">No earnings recorded yet</p>
+                  <p className="text-white/30 text-xs mt-1">Complete your first booking to start earning</p>
+                </div>
+              )}
+            </div>
+
+            {/* Pricing Reminder */}
+            {!hasPricingSet && (
+              <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle size={20} className="text-amber-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="text-amber-300 font-medium">Set Your Pricing</h4>
+                    <p className="text-amber-300/70 text-sm mb-2">
+                      You haven't set your rates yet. Set your pricing to start receiving bookings.
+                    </p>
+                    <button
+                      onClick={() => {
+                        setActiveTab('settings');
+                        setTimeout(() => handleOpenPricing(), 100);
+                      }}
+                      className="px-4 py-2 bg-amber-500 hover:bg-amber-600 rounded-lg text-white text-sm font-medium transition-colors"
+                    >
+                      Set Pricing
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'availability' && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-white font-semibold">Availability Schedule</h2>
+                <p className="text-white/50 text-sm">Set when you're available for bookings</p>
+              </div>
+              {editingSchedule && (
+                <button
+                  onClick={handleSaveSchedule}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 rounded-xl text-white text-sm font-medium transition-colors"
+                >
+                  <CheckCheck size={16} />
+                  Save
+                </button>
+              )}
+            </div>
+
+            {/* Schedule Grid */}
+            <div className="space-y-3">
+              {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map(day => {
+                const schedule = (editingSchedule || user.schedule)?.[day] || { active: false, start: '10:00', end: '22:00' };
+                return (
+                  <div
+                    key={day}
+                    className={`p-4 rounded-xl border transition-colors ${
+                      schedule.active
+                        ? 'bg-purple-500/10 border-purple-500/30'
+                        : 'bg-white/5 border-white/10'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => handleToggleDay(day)}
+                          className={`w-12 h-7 rounded-full transition-colors relative ${
+                            schedule.active ? 'bg-purple-500' : 'bg-white/20'
+                          }`}
+                        >
+                          <div className={`absolute top-1 w-5 h-5 rounded-full bg-white transition-all ${
+                            schedule.active ? 'left-6' : 'left-1'
+                          }`} />
+                        </button>
+                        <span className={`font-medium capitalize ${schedule.active ? 'text-white' : 'text-white/50'}`}>
+                          {day}
+                        </span>
+                      </div>
+
+                      {schedule.active && (
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="time"
+                            value={schedule.start}
+                            onChange={(e) => handleUpdateTime(day, 'start', e.target.value)}
+                            className="bg-white/10 border border-white/20 rounded-lg px-2 py-1 text-white text-sm focus:border-purple-500 focus:outline-none"
+                          />
+                          <span className="text-white/40">to</span>
+                          <input
+                            type="time"
+                            value={schedule.end}
+                            onChange={(e) => handleUpdateTime(day, 'end', e.target.value)}
+                            className="bg-white/10 border border-white/20 rounded-lg px-2 py-1 text-white text-sm focus:border-purple-500 focus:outline-none"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Quick Actions */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  const allActive = {};
+                  ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].forEach(day => {
+                    allActive[day] = { active: true, start: '10:00', end: '22:00' };
+                  });
+                  setEditingSchedule(allActive);
+                }}
+                className="flex-1 py-3 bg-white/10 hover:bg-white/20 rounded-xl text-white/70 text-sm font-medium transition-colors"
+              >
+                Enable All Days
+              </button>
+              <button
+                onClick={() => {
+                  const weekdays = {};
+                  ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'].forEach(day => {
+                    weekdays[day] = { active: true, start: '10:00', end: '22:00' };
+                  });
+                  ['saturday', 'sunday'].forEach(day => {
+                    weekdays[day] = { active: false, start: '10:00', end: '22:00' };
+                  });
+                  setEditingSchedule(weekdays);
+                }}
+                className="flex-1 py-3 bg-white/10 hover:bg-white/20 rounded-xl text-white/70 text-sm font-medium transition-colors"
+              >
+                Weekdays Only
+              </button>
+            </div>
+
+            {/* Service Areas */}
+            <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+              <h3 className="text-white font-semibold mb-3 flex items-center gap-2">
+                <MapPin size={18} className="text-purple-400" />
+                Service Areas
+              </h3>
+              {user.areas?.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {user.areas.map(area => (
+                    <span key={area} className="px-3 py-1.5 bg-purple-500/20 border border-purple-500/30 rounded-lg text-purple-300 text-sm">
+                      {area}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-white/50 text-sm">No service areas set. Update your profile to add areas.</p>
+              )}
+            </div>
+
+            {/* Info */}
+            <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl">
+              <h4 className="text-blue-300 font-medium mb-2 flex items-center gap-2">
+                <CalendarDays size={16} />
+                How Availability Works
+              </h4>
+              <ul className="text-blue-300/70 text-sm space-y-1">
+                <li>• Clients can only book during your active hours</li>
+                <li>• Toggle days on/off to control when you accept bookings</li>
+                <li>• Set specific start and end times for each day</li>
+                <li>• Changes are saved automatically</li>
+              </ul>
+            </div>
           </div>
         )}
 
@@ -1236,6 +1681,191 @@ export default function CreatorDashboardPage() {
               className="flex-1 py-3 bg-red-500 hover:bg-red-600 rounded-xl text-white font-semibold transition-all"
             >
               Delete
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Booking Detail Modal */}
+      <Modal
+        isOpen={showBookingModal && selectedBooking}
+        onClose={() => {
+          setShowBookingModal(false);
+          setSelectedBooking(null);
+        }}
+        title="Booking Details"
+        size="lg"
+      >
+        {selectedBooking && (
+          <div className="space-y-4">
+            {/* Client Info */}
+            <div className="flex items-center gap-3 p-3 bg-white/5 rounded-xl">
+              <div className="w-12 h-12 rounded-full bg-purple-500/20 flex items-center justify-center">
+                <User size={24} className="text-purple-400" />
+              </div>
+              <div>
+                <p className="text-white font-medium">{selectedBooking.clientName || 'Client'}</p>
+                <p className="text-white/50 text-sm">{selectedBooking.clientPhone}</p>
+              </div>
+            </div>
+
+            {/* Booking Details */}
+            <div className="space-y-3">
+              <div className="flex justify-between items-center py-2 border-b border-white/10">
+                <span className="text-white/60 flex items-center gap-2"><Calendar size={14} /> Date</span>
+                <span className="text-white font-medium">{selectedBooking.date}</span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-white/10">
+                <span className="text-white/60 flex items-center gap-2"><Clock size={14} /> Time</span>
+                <span className="text-white font-medium">{selectedBooking.time}</span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-white/10">
+                <span className="text-white/60 flex items-center gap-2"><Clock size={14} /> Duration</span>
+                <span className="text-white font-medium">{selectedBooking.duration} hour{selectedBooking.duration > 1 ? 's' : ''}</span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-white/10">
+                <span className="text-white/60 flex items-center gap-2"><MapPin size={14} /> Type</span>
+                <span className="text-white font-medium">{selectedBooking.locationType === 'incall' ? 'Incall' : 'Outcall'}</span>
+              </div>
+              {selectedBooking.location && (
+                <div className="flex justify-between items-center py-2 border-b border-white/10">
+                  <span className="text-white/60 flex items-center gap-2"><MapPin size={14} /> Location</span>
+                  <span className="text-white font-medium text-right max-w-[60%]">{selectedBooking.location}</span>
+                </div>
+              )}
+              <div className="flex justify-between items-center py-2 border-b border-white/10">
+                <span className="text-white/60 flex items-center gap-2"><DollarSign size={14} /> Total</span>
+                <span className="text-green-400 font-bold">{formatNaira(selectedBooking.totalPrice)}</span>
+              </div>
+              {selectedBooking.depositAmount && (
+                <div className="flex justify-between items-center py-2 border-b border-white/10">
+                  <span className="text-white/60">Deposit Paid</span>
+                  <span className="text-white font-medium">{formatNaira(selectedBooking.depositAmount)}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Special Requests */}
+            {selectedBooking.specialRequests && (
+              <div className="p-3 bg-white/5 rounded-xl">
+                <p className="text-white/50 text-xs mb-1 flex items-center gap-1">
+                  <MessageSquare size={12} /> Special Requests
+                </p>
+                <p className="text-white text-sm">{selectedBooking.specialRequests}</p>
+              </div>
+            )}
+
+            {/* Client Code */}
+            {selectedBooking.clientCode && selectedBooking.status === 'confirmed' && (
+              <div className="p-4 bg-purple-500/10 border border-purple-500/30 rounded-xl text-center">
+                <p className="text-purple-300 text-xs mb-1">Verification Code</p>
+                <p className="text-2xl font-mono font-bold text-white tracking-wider">{selectedBooking.clientCode}</p>
+                <p className="text-purple-300/60 text-xs mt-1">Client will show this code at meetup</p>
+              </div>
+            )}
+
+            {/* Status */}
+            <div className={`p-3 rounded-xl text-center ${
+              selectedBooking.status === 'pending' ? 'bg-amber-500/20 border border-amber-500/30' :
+              selectedBooking.status === 'confirmed' ? 'bg-blue-500/20 border border-blue-500/30' :
+              selectedBooking.status === 'completed' ? 'bg-green-500/20 border border-green-500/30' :
+              selectedBooking.status === 'declined' ? 'bg-red-500/20 border border-red-500/30' :
+              'bg-white/10 border border-white/20'
+            }`}>
+              <span className={`text-sm font-medium ${
+                selectedBooking.status === 'pending' ? 'text-amber-300' :
+                selectedBooking.status === 'confirmed' ? 'text-blue-300' :
+                selectedBooking.status === 'completed' ? 'text-green-300' :
+                selectedBooking.status === 'declined' ? 'text-red-300' :
+                'text-white/60'
+              }`}>
+                Status: {selectedBooking.status.charAt(0).toUpperCase() + selectedBooking.status.slice(1)}
+              </span>
+            </div>
+
+            {/* Actions */}
+            {selectedBooking.status === 'pending' && (
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowBookingModal(false);
+                    setShowDeclineModal(selectedBooking.id);
+                  }}
+                  className="flex-1 py-3 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 rounded-xl text-red-300 font-medium transition-colors flex items-center justify-center gap-2"
+                >
+                  <XCircle size={18} />
+                  Decline
+                </button>
+                <button
+                  onClick={() => handleConfirmBooking(selectedBooking.id)}
+                  className="flex-1 py-3 bg-green-500 hover:bg-green-600 rounded-xl text-white font-semibold transition-all flex items-center justify-center gap-2"
+                >
+                  <CheckCircle size={18} />
+                  Confirm
+                </button>
+              </div>
+            )}
+
+            {selectedBooking.status === 'confirmed' && (
+              <div className="flex gap-3">
+                <button
+                  onClick={() => handleCancelBooking(selectedBooking.id)}
+                  className="flex-1 py-3 bg-white/10 hover:bg-white/20 rounded-xl text-white/70 font-medium transition-colors"
+                >
+                  Cancel Booking
+                </button>
+                <button
+                  onClick={() => handleCompleteBooking(selectedBooking)}
+                  className="flex-1 py-3 bg-green-500 hover:bg-green-600 rounded-xl text-white font-semibold transition-all flex items-center justify-center gap-2"
+                >
+                  <CheckCheck size={18} />
+                  Mark Complete
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </Modal>
+
+      {/* Decline Booking Modal */}
+      <Modal
+        isOpen={!!showDeclineModal}
+        onClose={() => {
+          setShowDeclineModal(null);
+          setDeclineReason('');
+        }}
+        title="Decline Booking"
+      >
+        <div className="space-y-4">
+          <p className="text-white/70">
+            Are you sure you want to decline this booking request? You can optionally provide a reason.
+          </p>
+
+          <div className="space-y-2">
+            <label className="text-white/70 text-sm">Reason (optional)</label>
+            <textarea
+              value={declineReason}
+              onChange={(e) => setDeclineReason(e.target.value)}
+              placeholder="e.g. Not available on this date"
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/40 focus:border-purple-500 focus:outline-none resize-none h-20"
+            />
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              onClick={() => {
+                setShowDeclineModal(null);
+                setDeclineReason('');
+              }}
+              className="flex-1 py-3 bg-white/10 hover:bg-white/20 rounded-xl text-white font-medium transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => handleDeclineBooking(showDeclineModal)}
+              className="flex-1 py-3 bg-red-500 hover:bg-red-600 rounded-xl text-white font-semibold transition-all"
+            >
+              Decline Booking
             </button>
           </div>
         </div>
