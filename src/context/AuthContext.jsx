@@ -15,7 +15,8 @@ const DEFAULT_CLIENT_STATE = {
   monthsOnPlatform: 0,
   isTrustedMember: false,
   phone: '',
-  name: '',
+  username: '', // Unique, immutable username set during registration
+  name: '', // Display name (can be changed)
   registeredAt: null,
   // Meetup bookings array
   meetups: [], // Array of { id, creatorUsername, creatorName, date, time, locationType, location, duration, specialRequests, totalPrice, clientCode, status: 'pending'|'confirmed'|'declined'|'rescheduled'|'completed'|'cancelled', createdAt, statusUpdatedAt }
@@ -114,7 +115,8 @@ export const AuthProvider = ({ children }) => {
     const newUser = {
       ...DEFAULT_CLIENT_STATE,
       phone: data.phone,
-      name: data.name,
+      username: data.username, // Unique, immutable
+      name: data.name, // Display name
       registeredAt: new Date().toISOString(),
     };
     setUser(newUser);

@@ -482,17 +482,65 @@ const OTPStep = ({ phone, otp, setOtp, onSubmit, onResend, onBack, isLoading, us
 
 // Client Step 1: Basic info
 const ClientBasicInfoStep = ({ data, setData, onSubmit, onBack }) => {
-  const [error, setError] = useState('');
+  const [errors, setErrors] = useState({});
+  const [usernameChecking, setUsernameChecking] = useState(false);
+  const [usernameAvailable, setUsernameAvailable] = useState(null);
+
+  // Validate username format (lowercase letters, numbers, underscores only, 3-20 chars)
+  const validateUsername = (username) => {
+    if (!username) return false;
+    const regex = /^[a-z0-9_]{3,20}$/;
+    return regex.test(username);
+  };
+
+  // Simulate username availability check (in real app, this would be an API call)
+  const checkUsernameAvailability = (username) => {
+    if (!validateUsername(username)) {
+      setUsernameAvailable(null);
+      return;
+    }
+    setUsernameChecking(true);
+    // Simulate API delay
+    setTimeout(() => {
+      // In production, check against database
+      // For now, just check it's not a reserved word
+      const reserved = ['admin', 'hush', 'support', 'help', 'system'];
+      setUsernameAvailable(!reserved.includes(username.toLowerCase()));
+      setUsernameChecking(false);
+    }, 300);
+  };
+
+  const handleUsernameChange = (value) => {
+    // Convert to lowercase and remove invalid characters
+    const sanitized = value.toLowerCase().replace(/[^a-z0-9_]/g, '');
+    setData(prev => ({ ...prev, username: sanitized }));
+    checkUsernameAvailability(sanitized);
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    const newErrors = {};
+
+    if (!validateUsername(data.username)) {
+      newErrors.username = 'Username must be 3-20 characters (letters, numbers, underscores only)';
+    } else if (usernameAvailable === false) {
+      newErrors.username = 'This username is already taken';
+    }
+
     if (data.name.trim().length < 2) {
-      setError('Please enter your name');
+      newErrors.name = 'Please enter your display name';
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
       return;
     }
-    setError('');
+
+    setErrors({});
     onSubmit();
   };
+
+  const isFormValid = validateUsername(data.username) && usernameAvailable && data.name.trim().length >= 2;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -516,6 +564,38 @@ const ClientBasicInfoStep = ({ data, setData, onSubmit, onBack }) => {
       </div>
 
       <div className="space-y-4">
+        {/* Username field - unique and immutable */}
+        <div className="space-y-2">
+          <label className="text-white/70 text-sm">Username</label>
+          <div className="relative">
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40">@</span>
+            <input
+              type="text"
+              placeholder="johndoe"
+              value={data.username}
+              onChange={(e) => handleUsernameChange(e.target.value)}
+              className={`w-full bg-white/5 border rounded-xl pl-8 pr-10 py-3 text-white placeholder-white/40 focus:outline-none ${
+                errors.username ? 'border-red-500' : usernameAvailable === true ? 'border-green-500' : 'border-white/10 focus:border-pink-500'
+              }`}
+              maxLength={20}
+            />
+            {usernameChecking && (
+              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                <div className="w-5 h-5 border-2 border-white/30 border-t-pink-500 rounded-full animate-spin" />
+              </div>
+            )}
+            {!usernameChecking && usernameAvailable === true && (
+              <CheckCircle size={20} className="absolute right-3 top-1/2 -translate-y-1/2 text-green-500" />
+            )}
+            {!usernameChecking && usernameAvailable === false && (
+              <X size={20} className="absolute right-3 top-1/2 -translate-y-1/2 text-red-500" />
+            )}
+          </div>
+          {errors.username && <p className="text-red-400 text-sm">{errors.username}</p>}
+          <p className="text-white/40 text-xs">This cannot be changed later. Letters, numbers, and underscores only.</p>
+        </div>
+
+        {/* Display Name field */}
         <div className="space-y-2">
           <label className="text-white/70 text-sm">Display Name</label>
           <input
@@ -523,10 +603,12 @@ const ClientBasicInfoStep = ({ data, setData, onSubmit, onBack }) => {
             placeholder="e.g. John D."
             value={data.name}
             onChange={(e) => setData(prev => ({ ...prev, name: e.target.value }))}
-            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/40 focus:border-pink-500 focus:outline-none"
+            className={`w-full bg-white/5 border rounded-xl px-4 py-3 text-white placeholder-white/40 focus:outline-none ${
+              errors.name ? 'border-red-500' : 'border-white/10 focus:border-pink-500'
+            }`}
           />
-          {error && <p className="text-red-400 text-sm">{error}</p>}
-          <p className="text-white/40 text-xs">Use a nickname or first name + initial for privacy</p>
+          {errors.name && <p className="text-red-400 text-sm">{errors.name}</p>}
+          <p className="text-white/40 text-xs">This is what models will see. You can change it later.</p>
         </div>
 
         <div className="space-y-2">
@@ -552,9 +634,9 @@ const ClientBasicInfoStep = ({ data, setData, onSubmit, onBack }) => {
 
       <button
         type="submit"
-        disabled={data.name.trim().length < 2}
+        disabled={!isFormValid}
         className={`w-full py-4 rounded-xl text-white font-semibold transition-all ${
-          data.name.trim().length >= 2
+          isFormValid
             ? 'bg-pink-500 hover:bg-pink-600'
             : 'bg-white/20 cursor-not-allowed'
         }`}
@@ -1318,7 +1400,8 @@ export default function AuthPage() {
 
   // Client data
   const [clientData, setClientData] = useState({
-    name: '',
+    username: '', // Unique, immutable
+    name: '', // Display name
     preferredLocation: '',
     bodyTypePreferences: [],
     skinTonePreferences: [],
@@ -1437,6 +1520,7 @@ export default function AuthPage() {
     setTimeout(() => {
       registerClient({
         phone,
+        username: clientData.username,
         name: clientData.name,
         preferences: {
           location: clientData.preferredLocation,
