@@ -738,11 +738,11 @@ export default function CreatorDashboardPage() {
                 color="green"
               />
               <StatCard
-                icon={Heart}
-                label="Repeat Clients"
-                value={user.stats?.repeatClients || 0}
-                subValue="Loyal clients"
-                color="pink"
+                icon={Wallet}
+                label="This Month"
+                value={formatNaira(thisMonthEarnings)}
+                subValue="Earnings"
+                color="green"
               />
             </div>
 
@@ -948,25 +948,66 @@ export default function CreatorDashboardPage() {
 
         {activeTab === 'earnings' && (
           <div className="space-y-6">
-            {/* Earnings Summary */}
-            <div className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-500/30 rounded-2xl p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-3 bg-green-500/20 rounded-xl">
-                  <Wallet size={24} className="text-green-400" />
+            {/* Earnings Badge - Bragging Rights */}
+            <div className="relative overflow-hidden bg-gradient-to-br from-amber-500/20 via-yellow-500/20 to-orange-500/20 border border-amber-500/40 rounded-2xl p-6">
+              {/* Decorative elements */}
+              <div className="absolute top-0 right-0 w-32 h-32 bg-amber-400/10 rounded-full blur-2xl" />
+              <div className="absolute bottom-0 left-0 w-24 h-24 bg-yellow-400/10 rounded-full blur-2xl" />
+
+              <div className="relative">
+                {/* Trophy/Crown icon */}
+                <div className="flex items-center justify-center mb-4">
+                  <div className="relative">
+                    <div className="w-20 h-20 bg-gradient-to-br from-amber-400 to-yellow-500 rounded-full flex items-center justify-center shadow-lg shadow-amber-500/30">
+                      <Crown size={36} className="text-white" />
+                    </div>
+                    <div className="absolute -top-1 -right-1 w-7 h-7 bg-green-500 rounded-full flex items-center justify-center border-2 border-gray-900">
+                      <CheckCircle size={14} className="text-white" />
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-white/60 text-sm">Total Earnings</p>
-                  <p className="text-3xl font-bold text-white">{formatNaira(totalEarnings)}</p>
+
+                {/* Total Earnings - Big and Prominent */}
+                <div className="text-center mb-4">
+                  <p className="text-amber-300/80 text-sm font-medium mb-1">Total Lifetime Earnings</p>
+                  <p className="text-4xl md:text-5xl font-bold text-white tracking-tight">{formatNaira(totalEarnings)}</p>
                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/10">
-                <div>
-                  <p className="text-white/50 text-xs">This Month</p>
-                  <p className="text-xl font-bold text-green-400">{formatNaira(thisMonthEarnings)}</p>
+
+                {/* Earnings Tier Badge */}
+                <div className="flex justify-center mb-4">
+                  {totalEarnings >= 1000000 ? (
+                    <span className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-yellow-500 rounded-full text-white font-bold text-sm shadow-lg">
+                      <Award size={16} />
+                      Millionaire Status 🔥
+                    </span>
+                  ) : totalEarnings >= 500000 ? (
+                    <span className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full text-white font-bold text-sm shadow-lg">
+                      <Sparkles size={16} />
+                      Rising Star ⭐
+                    </span>
+                  ) : totalEarnings >= 100000 ? (
+                    <span className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full text-white font-bold text-sm shadow-lg">
+                      <TrendingUp size={16} />
+                      On The Rise 📈
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-2 px-4 py-2 bg-white/20 rounded-full text-white font-medium text-sm">
+                      <Star size={16} />
+                      Just Getting Started
+                    </span>
+                  )}
                 </div>
-                <div>
-                  <p className="text-white/50 text-xs">Completed Meetups</p>
-                  <p className="text-xl font-bold text-white">{completedBookings.length}</p>
+
+                {/* Stats row */}
+                <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/10">
+                  <div className="text-center">
+                    <p className="text-white/50 text-xs">This Month</p>
+                    <p className="text-2xl font-bold text-green-400">{formatNaira(thisMonthEarnings)}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-white/50 text-xs">Completed Meetups</p>
+                    <p className="text-2xl font-bold text-white">{completedBookings.length}</p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -981,11 +1022,11 @@ export default function CreatorDashboardPage() {
                 color="green"
               />
               <StatCard
-                icon={Heart}
-                label="Repeat Clients"
-                value={user.stats?.repeatClients || 0}
-                subValue="Loyal clients"
-                color="pink"
+                icon={Calendar}
+                label="Avg. Per Meetup"
+                value={completedBookings.length > 0 ? formatNaira(Math.round(totalEarnings / completedBookings.length)) : '—'}
+                subValue="Average earning"
+                color="purple"
               />
             </div>
 
@@ -1613,29 +1654,6 @@ export default function CreatorDashboardPage() {
             </div>
           )}
 
-          {/* Deposit Percentage */}
-          <div className="space-y-3">
-            <h4 className="text-white font-medium flex items-center gap-2">
-              <DollarSign size={16} className="text-amber-400" />
-              Booking Deposit
-            </h4>
-            <div className="flex items-center gap-4">
-              <input
-                type="range"
-                min="0"
-                max="100"
-                step="10"
-                value={pricingData.depositPercent}
-                onChange={(e) => setPricingData(prev => ({ ...prev, depositPercent: parseInt(e.target.value) }))}
-                className="flex-1 accent-purple-500"
-              />
-              <span className="text-white font-bold w-16 text-right">{pricingData.depositPercent}%</span>
-            </div>
-            <p className="text-white/40 text-xs">
-              Clients pay this % upfront to confirm bookings. The rest is paid at the meetup.
-            </p>
-          </div>
-
           {/* Summary */}
           <div className="p-4 bg-purple-500/10 border border-purple-500/20 rounded-xl">
             <h4 className="text-purple-300 font-medium mb-3">Pricing Summary</h4>
@@ -1650,10 +1668,6 @@ export default function CreatorDashboardPage() {
                   <span className="text-white font-medium">{formatNaira(pricingData.meetupOutcall1)}</span>
                 </div>
               )}
-              <div className="flex justify-between">
-                <span className="text-white/60">Deposit Required</span>
-                <span className="text-white font-medium">{pricingData.depositPercent}% upfront</span>
-              </div>
             </div>
           </div>
 
