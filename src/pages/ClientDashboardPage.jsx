@@ -128,19 +128,21 @@ const FavoriteModelCard = ({ username }) => {
   );
 };
 
-const TierSelectionCard = ({ tier, isSelected, onSelect, isCurrentTier }) => {
+const TierSelectionCard = ({ tier, isSelected, onSelect, isCurrentTier, isLowerTier }) => {
   const tierData = getTierData(tier);
   const colors = getTierColor(tier);
 
   if (!tierData) return null;
 
+  const isDisabled = isCurrentTier || isLowerTier;
+
   return (
     <button
-      onClick={() => !isCurrentTier && onSelect(tier)}
-      disabled={isCurrentTier}
+      onClick={() => !isDisabled && onSelect(tier)}
+      disabled={isDisabled}
       className={`w-full p-4 rounded-xl border text-left transition-all ${
-        isCurrentTier
-          ? 'opacity-50 cursor-not-allowed'
+        isDisabled
+          ? 'opacity-40 cursor-not-allowed'
           : isSelected
             ? `${colors.bg} ${colors.border} ring-2 ring-pink-500`
             : `bg-white/5 border-white/10 hover:${colors.bg} hover:${colors.border}`
@@ -154,13 +156,19 @@ const TierSelectionCard = ({ tier, isSelected, onSelect, isCurrentTier }) => {
           <div className="flex items-center gap-2">
             <p className={`font-semibold ${colors.text}`}>{tierData.name}</p>
             {isCurrentTier && (
-              <span className="text-xs bg-white/10 px-2 py-0.5 rounded-full text-white/50">Current</span>
+              <span className="text-xs bg-green-500/20 px-2 py-0.5 rounded-full text-green-400">Current</span>
+            )}
+            {isLowerTier && !isCurrentTier && (
+              <span className="text-xs bg-white/10 px-2 py-0.5 rounded-full text-white/40">N/A</span>
             )}
           </div>
           <p className={`text-xs ${colors.accent}`}>"{tierData.tagline}"</p>
         </div>
         <div className="text-right">
           <p className="text-white font-bold">{formatNaira(tierData.deposit)}</p>
+          {isLowerTier && !isCurrentTier && (
+            <p className="text-white/30 text-xs">Can't downgrade</p>
+          )}
         </div>
       </div>
       <div className="flex flex-wrap gap-1 mt-2">
@@ -170,7 +178,7 @@ const TierSelectionCard = ({ tier, isSelected, onSelect, isCurrentTier }) => {
       </div>
       {tierData.refund && (
         <p className="text-white/40 text-xs mt-2">
-          Refundable after {tierData.refund.meetups} meetups or {tierData.refund.months} months
+          Refundable after {tierData.refund.meetups} meetups
         </p>
       )}
     </button>
@@ -328,6 +336,14 @@ export default function ClientDashboardPage() {
   };
 
   const handleSelectTier = (tier) => {
+    // Prevent selecting lower tiers
+    if (user.hasPaidTrustDeposit && currentTier) {
+      const selectedTierDeposit = PLATFORM_CONFIG.verificationTiers[tier]?.deposit || 0;
+      const currentTierDeposit = PLATFORM_CONFIG.verificationTiers[currentTier]?.deposit || 0;
+      if (selectedTierDeposit < currentTierDeposit) {
+        return; // Can't downgrade
+      }
+    }
     setSelectedTier(tier);
   };
 
@@ -843,19 +859,28 @@ export default function ClientDashboardPage() {
       >
         {depositStep === 'select' && (
           <div className="space-y-4">
-            <p className="text-white/60 text-sm mb-4">
-              Your trust deposit unlocks full access and is refundable after successful meetups.
-            </p>
+            <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3">
+              <p className="text-blue-200/80 text-sm">
+                <strong>Lifetime verification</strong> — Your deposit becomes <strong>store credit</strong> for unlocking photos, contacts, and premium features.
+              </p>
+            </div>
 
-            {Object.keys(PLATFORM_CONFIG.verificationTiers).map(tierId => (
-              <TierSelectionCard
-                key={tierId}
-                tier={tierId}
-                isSelected={selectedTier === tierId}
-                onSelect={handleSelectTier}
-                isCurrentTier={user.hasPaidTrustDeposit && currentTier === tierId}
-              />
-            ))}
+            {Object.keys(PLATFORM_CONFIG.verificationTiers).map(tierId => {
+              const tierDeposit = PLATFORM_CONFIG.verificationTiers[tierId]?.deposit || 0;
+              const currentTierDeposit = PLATFORM_CONFIG.verificationTiers[currentTier]?.deposit || 0;
+              const isLowerTier = user.hasPaidTrustDeposit && tierDeposit < currentTierDeposit;
+              const isCurrentTierSelected = user.hasPaidTrustDeposit && currentTier === tierId;
+              return (
+                <TierSelectionCard
+                  key={tierId}
+                  tier={tierId}
+                  isSelected={selectedTier === tierId}
+                  onSelect={handleSelectTier}
+                  isCurrentTier={isCurrentTierSelected}
+                  isLowerTier={isLowerTier}
+                />
+              );
+            })}
 
             <button
               onClick={handleProceedToPayment}
@@ -866,7 +891,7 @@ export default function ClientDashboardPage() {
                   : 'bg-white/20 cursor-not-allowed'
               }`}
             >
-              Continue to Payment
+              {user.hasPaidTrustDeposit ? 'Upgrade Tier' : 'Continue to Payment'}
             </button>
           </div>
         )}
@@ -932,9 +957,21 @@ export default function ClientDashboardPage() {
               <CheckCircle size={40} className="text-green-400" />
             </div>
             <h3 className="text-xl font-bold text-white mb-2">You're Verified!</h3>
-            <p className="text-white/60 text-sm mb-6">
-              Your {getTierData(selectedTier)?.name} tier is now active. You can browse models, unlock contacts, and book meetups.
+            <p className="text-white/60 text-sm mb-4">
+              Your {getTierData(selectedTier)?.name} tier is now active forever.
             </p>
+
+            {/* Store credit info */}
+            <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4 mb-6 text-left">
+              <div className="flex items-center gap-2 mb-2">
+                <Wallet size={16} className="text-green-400" />
+                <p className="text-green-300 font-medium">Store Credit: {formatNaira(getTierData(selectedTier)?.deposit || 0)}</p>
+              </div>
+              <p className="text-green-200/70 text-sm">
+                Your deposit is now store credit. Use it to unlock photos, contacts, and more!
+              </p>
+            </div>
+
             <button
               onClick={closeDepositModal}
               className="w-full py-4 bg-pink-500 hover:bg-pink-600 rounded-xl text-white font-semibold transition-all"

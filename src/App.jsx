@@ -349,10 +349,13 @@ const TrustDepositModal = ({ isOpen, onClose, onDepositPaid }) => {
           <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
             <h4 className="text-white font-medium mb-2 flex items-center gap-2">
               <Info size={18} className="text-blue-400" />
-              Why verify?
+              Lifetime Verification
             </h4>
-            <p className="text-blue-200/80 text-sm leading-relaxed">
-              Your deposit level shows escorts how serious you are. Higher tiers get better access and priority treatment.
+            <p className="text-blue-200/80 text-sm leading-relaxed mb-2">
+              Your deposit is a <strong>one-time</strong> verification that lasts forever. The full amount becomes your <strong>store credit</strong> for unlocking photos, contacts, and other premium features.
+            </p>
+            <p className="text-blue-200/60 text-xs">
+              Higher tiers show models you're serious and give you priority access.
             </p>
           </div>
 
@@ -513,6 +516,17 @@ const TrustDepositModal = ({ isOpen, onClose, onDepositPaid }) => {
             Your {formatNaira(currentTier.deposit)} deposit is being verified.
           </p>
 
+          {/* Store credit info */}
+          <div className="bg-green-500/10 rounded-xl p-4 border border-green-500/30 text-left">
+            <div className="flex items-center gap-2 mb-2">
+              <Wallet size={16} className="text-green-400" />
+              <p className="text-green-300 font-medium">Store Credit: {formatNaira(currentTier.deposit)}</p>
+            </div>
+            <p className="text-green-200/70 text-sm">
+              Your deposit is now store credit. Use it to unlock photos, contacts, and premium features.
+            </p>
+          </div>
+
           {/* Benefits unlocked */}
           <div className="bg-white/5 rounded-xl p-4 border border-white/10 text-left">
             <p className="text-white/60 text-sm mb-2">You can now:</p>
@@ -527,15 +541,15 @@ const TrustDepositModal = ({ isOpen, onClose, onDepositPaid }) => {
           </div>
 
           {currentTier.refund && (
-            <div className="bg-green-500/10 rounded-xl p-4 border border-green-500/30 text-left">
-              <p className="text-green-300 text-sm mb-2">Refund progress:</p>
+            <div className="bg-blue-500/10 rounded-xl p-4 border border-blue-500/30 text-left">
+              <p className="text-blue-300 text-sm mb-2">Bonus: Get your deposit back!</p>
               <div className="flex items-center gap-3">
                 <div className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
-                  <div className="h-full w-0 bg-green-500 rounded-full" />
+                  <div className="h-full w-0 bg-blue-500 rounded-full" />
                 </div>
                 <span className="text-white/60 text-sm">0/{currentTier.refund.meetups}</span>
               </div>
-              <p className="text-white/40 text-xs mt-2">Complete {currentTier.refund.meetups} meetups to get your deposit back</p>
+              <p className="text-white/40 text-xs mt-2">Complete {currentTier.refund.meetups} meetups and get your {formatNaira(currentTier.deposit)} back (keep the credit too!)</p>
             </div>
           )}
 
@@ -1499,12 +1513,12 @@ export default function App() {
         {/* Top Navigation */}
         <div className="flex items-center justify-between mb-6">
           <Link to="/explore/all" className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors">
-            <Users size={20} className="text-white" />
+            <ChevronLeft size={20} className="text-white" />
           </Link>
-          <Link to="/" className="text-white font-bold text-lg">{PLATFORM_CONFIG.name}</Link>
+          <Link to="/explore/all" className="text-white font-bold text-lg">{PLATFORM_CONFIG.name}</Link>
           {isAuthenticated ? (
             <Link to={dashboardLink} className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors">
-              <Wallet size={20} className="text-white" />
+              <Users size={20} className="text-white" />
             </Link>
           ) : (
             <Link to="/auth" className="px-4 py-2 rounded-full bg-pink-500 hover:bg-pink-600 text-white text-sm font-medium transition-colors">

@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import {
   MapPin, Star, CheckCircle, Shield, Filter,
   ChevronLeft, Search, Target, Video, Aperture,
-  TrendingUp, Heart, Clock, Users, Sparkles, X, ChevronDown, ChevronUp
+  TrendingUp, Heart, Clock, Users, Sparkles, X, ChevronDown, ChevronUp, User
 } from 'lucide-react';
 import { getModelsList, getLocations, getAllExtras, PLATFORM_CONFIG } from '../data/models';
 import useFavorites from '../hooks/useFavorites';
@@ -261,19 +261,15 @@ export default function ExplorePage() {
       <div className="relative max-w-4xl mx-auto px-4 py-6">
         {/* Header */}
         <div className="flex items-center gap-4 mb-6">
-          <Link to="/" className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors">
-            <ChevronLeft size={24} className="text-white" />
+          <Link to="/explore/all" className="text-white font-bold text-xl">
+            {PLATFORM_CONFIG.name}
           </Link>
           <div className="flex-1">
-            <h1 className="text-2xl font-bold text-white">
-              {normalizedLocation === 'all' ? 'All Models' : `Models in ${currentLocation.name}`}
-            </h1>
             <p className="text-white/50 text-sm">{filteredModels.length} verified models</p>
           </div>
           {isAuthenticated ? (
-            <Link to={dashboardLink} className="px-4 py-2 rounded-full bg-pink-500 hover:bg-pink-600 text-white text-sm font-medium transition-colors flex items-center gap-2">
-              <Users size={16} />
-              Profile
+            <Link to={dashboardLink} className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors">
+              <Users size={20} className="text-white" />
             </Link>
           ) : (
             <Link to="/auth" className="px-4 py-2 rounded-full bg-pink-500 hover:bg-pink-600 text-white text-sm font-medium transition-colors">

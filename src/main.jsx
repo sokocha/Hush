@@ -57,7 +57,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
           <Route path="/auth" element={<PublicRoute><AuthPage /></PublicRoute>} />
 
           {/* Public routes (can view without auth, but some features require auth) */}
-          <Route path="/" element={<App />} />
+          <Route path="/" element={<Navigate to="/explore/all" replace />} />
           <Route path="/model/:username" element={<App />} />
           <Route path="/explore" element={<ExplorePage />} />
           <Route path="/explore/:location" element={<ExplorePage />} />
