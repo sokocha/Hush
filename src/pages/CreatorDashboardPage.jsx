@@ -1090,6 +1090,190 @@ export default function CreatorDashboardPage() {
             </button>
           )}
         </div>
+
+        {/* Pricing Modal - needs to be inside onboarding return */}
+        <Modal
+          isOpen={showPricingModal}
+          onClose={() => { setShowPricingModal(false); setShowPricingErrors(false); }}
+          title="Set Your Pricing"
+          size="lg"
+        >
+          <div className="space-y-6">
+            {/* Required fields note */}
+            <p className="text-white/50 text-sm">
+              Fields marked with <span className="text-red-400">*</span> are required
+            </p>
+
+            {/* Unlock Fees */}
+            <div className="space-y-4">
+              <h4 className="text-white font-medium flex items-center gap-2">
+                <Lock size={16} className="text-purple-400" />
+                Unlock Fees
+              </h4>
+              <div className="grid grid-cols-2 gap-3">
+                <PricingInput
+                  label="Contact Info"
+                  value={pricingData.unlockContact}
+                  onChange={(v) => setPricingData(prev => ({ ...prev, unlockContact: v }))}
+                  placeholder="1,000"
+                  hint="To view your WhatsApp"
+                  required
+                  showError={showPricingErrors}
+                />
+                <PricingInput
+                  label="All Photos"
+                  value={pricingData.unlockPhotos}
+                  onChange={(v) => setPricingData(prev => ({ ...prev, unlockPhotos: v }))}
+                  placeholder="5,000"
+                  hint="To unlock locked photos"
+                  required
+                  showError={showPricingErrors}
+                />
+              </div>
+            </div>
+
+            {/* Incall Rates */}
+            <div className="space-y-4">
+              <h4 className="text-white font-medium flex items-center gap-2">
+                <MapPin size={16} className="text-green-400" />
+                Incall Rates
+                <span className="text-white/40 text-xs font-normal">(Client comes to you)</span>
+              </h4>
+              <div className="grid grid-cols-3 gap-3">
+                <PricingInput
+                  label="1 Hour"
+                  value={pricingData.meetupIncall1}
+                  onChange={(v) => setPricingData(prev => ({ ...prev, meetupIncall1: v }))}
+                  placeholder="50,000"
+                  required
+                  showError={showPricingErrors}
+                />
+                <PricingInput
+                  label="2 Hours"
+                  value={pricingData.meetupIncall2}
+                  onChange={(v) => setPricingData(prev => ({ ...prev, meetupIncall2: v }))}
+                  placeholder="80,000"
+                  required
+                  showError={showPricingErrors}
+                />
+                <PricingInput
+                  label="Overnight"
+                  value={pricingData.meetupIncallOvernight}
+                  onChange={(v) => setPricingData(prev => ({ ...prev, meetupIncallOvernight: v }))}
+                  placeholder="150,000"
+                  required
+                  showError={showPricingErrors}
+                />
+              </div>
+            </div>
+
+            {/* Outcall Toggle */}
+            <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl">
+              <div>
+                <p className="text-white font-medium">Enable Outcall</p>
+                <p className="text-white/50 text-sm">You travel to the client</p>
+              </div>
+              <button
+                onClick={() => setPricingData(prev => ({ ...prev, enableOutcall: !prev.enableOutcall }))}
+                className={`w-12 h-7 rounded-full transition-colors relative ${
+                  pricingData.enableOutcall ? 'bg-purple-500' : 'bg-white/20'
+                }`}
+              >
+                <div className={`absolute top-1 w-5 h-5 rounded-full bg-white transition-all ${
+                  pricingData.enableOutcall ? 'left-6' : 'left-1'
+                }`} />
+              </button>
+            </div>
+
+            {/* Outcall Rates */}
+            {pricingData.enableOutcall && (
+              <div className="space-y-4">
+                <h4 className="text-white font-medium flex items-center gap-2">
+                  <Target size={16} className="text-blue-400" />
+                  Outcall Rates
+                  <span className="text-white/40 text-xs font-normal">(You go to client)</span>
+                </h4>
+                <div className="grid grid-cols-3 gap-3">
+                  <PricingInput
+                    label="1 Hour"
+                    value={pricingData.meetupOutcall1}
+                    onChange={(v) => setPricingData(prev => ({ ...prev, meetupOutcall1: v }))}
+                    placeholder="70,000"
+                  />
+                  <PricingInput
+                    label="2 Hours"
+                    value={pricingData.meetupOutcall2}
+                    onChange={(v) => setPricingData(prev => ({ ...prev, meetupOutcall2: v }))}
+                    placeholder="100,000"
+                  />
+                  <PricingInput
+                    label="Overnight"
+                    value={pricingData.meetupOutcallOvernight}
+                    onChange={(v) => setPricingData(prev => ({ ...prev, meetupOutcallOvernight: v }))}
+                    placeholder="200,000"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Summary */}
+            <div className="p-4 bg-purple-500/10 border border-purple-500/20 rounded-xl">
+              <h4 className="text-purple-300 font-medium mb-3">Pricing Summary</h4>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-white/60">Incall (1hr)</span>
+                  <span className="text-white font-medium">{formatNaira(pricingData.meetupIncall1)}</span>
+                </div>
+                {pricingData.enableOutcall && (
+                  <div className="flex justify-between">
+                    <span className="text-white/60">Outcall (1hr)</span>
+                    <span className="text-white font-medium">{formatNaira(pricingData.meetupOutcall1)}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Validation error message */}
+            {showPricingErrors && !isPricingFormValid && (
+              <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl">
+                <p className="text-red-400 text-sm font-medium mb-1">Please fill in all required fields:</p>
+                <p className="text-red-300/70 text-xs">{getMissingPricingFields().join(', ')}</p>
+              </div>
+            )}
+
+            <button
+              onClick={() => {
+                if (isPricingFormValid) {
+                  handleSavePricing();
+                  setShowPricingErrors(false);
+                  // After saving pricing, move to next onboarding step
+                  if (showOnboarding && onboardingStep === 2) {
+                    setOnboardingStep(3);
+                  }
+                } else {
+                  setShowPricingErrors(true);
+                }
+              }}
+              className={`w-full py-4 rounded-xl text-white font-semibold transition-all ${
+                isPricingFormValid
+                  ? 'bg-purple-500 hover:bg-purple-600'
+                  : 'bg-purple-500/50 hover:bg-purple-500/70'
+              }`}
+            >
+              {isPricingFormValid ? 'Save Pricing' : 'Complete Required Fields'}
+            </button>
+          </div>
+        </Modal>
+
+        {/* Video Call Scheduling Modal - for onboarding */}
+        <VideoCallScheduleModal
+          isOpen={showVideoCallSchedule}
+          onClose={() => setShowVideoCallSchedule(false)}
+          onSchedule={handleVideoCallScheduled}
+        />
+
+        {/* Confetti */}
+        <Confetti active={showConfetti} />
       </div>
     );
   }
