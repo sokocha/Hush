@@ -732,8 +732,6 @@ export default function CreatorDashboardPage() {
   ];
 
   const currentOnboardingStep = onboardingSteps[onboardingStep];
-  const completedSteps = onboardingSteps.filter(s => s.isComplete).length;
-  const totalActionSteps = onboardingSteps.filter(s => s.action).length;
 
   // Show onboarding overlay for new registrations
   if (showOnboarding) {
