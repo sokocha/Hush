@@ -46,7 +46,7 @@ const Confetti = ({ active }) => {
 };
 
 // Photo milestone celebration modal
-const PhotoMilestoneModal = ({ isOpen, onClose, onContinue }) => {
+const PhotoMilestoneModal = ({ isOpen, onClose, onContinue, onAddMore }) => {
   if (!isOpen) return null;
 
   return (
@@ -61,7 +61,7 @@ const PhotoMilestoneModal = ({ isOpen, onClose, onContinue }) => {
         </p>
         <div className="flex gap-3">
           <button
-            onClick={onClose}
+            onClick={onAddMore}
             className="flex-1 py-3 bg-white/10 hover:bg-white/20 rounded-xl text-white font-medium transition-colors"
           >
             Add More
@@ -1386,6 +1386,10 @@ export default function CreatorDashboardPage() {
           isOpen={showPhotoMilestone}
           onClose={() => setShowPhotoMilestone(false)}
           onContinue={handlePhotoMilestoneContinue}
+          onAddMore={() => {
+            setShowPhotoMilestone(false);
+            setShowCameraCapture(true);
+          }}
         />
 
         {/* Confetti */}
@@ -3043,6 +3047,10 @@ export default function CreatorDashboardPage() {
         isOpen={showPhotoMilestone}
         onClose={() => setShowPhotoMilestone(false)}
         onContinue={handlePhotoMilestoneContinue}
+        onAddMore={() => {
+          setShowPhotoMilestone(false);
+          setShowCameraCapture(true);
+        }}
       />
 
       {/* Video Call Scheduling Modal */}
