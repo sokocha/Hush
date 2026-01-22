@@ -143,6 +143,42 @@ CREATE TABLE IF NOT EXISTS creator_boundaries (
 CREATE INDEX idx_creator_boundaries_creator ON creator_boundaries(creator_id);
 
 -- ============================================
+-- FAVORITES (Client favorites for creators)
+-- ============================================
+CREATE TABLE IF NOT EXISTS favorites (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+  creator_id UUID NOT NULL REFERENCES creators(id) ON DELETE CASCADE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(client_id, creator_id)
+);
+
+CREATE INDEX idx_favorites_client ON favorites(client_id);
+CREATE INDEX idx_favorites_creator ON favorites(creator_id);
+
+-- Add favorite_count column to creators
+ALTER TABLE creators ADD COLUMN IF NOT EXISTS favorite_count INTEGER DEFAULT 0;
+
+-- Function to update creator favorite count
+CREATE OR REPLACE FUNCTION update_creator_favorite_count()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    UPDATE creators SET favorite_count = favorite_count + 1 WHERE id = NEW.creator_id;
+  ELSIF TG_OP = 'DELETE' THEN
+    UPDATE creators SET favorite_count = favorite_count - 1 WHERE id = OLD.creator_id;
+  END IF;
+  RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger to auto-update favorite count
+DROP TRIGGER IF EXISTS favorites_count_trigger ON favorites;
+CREATE TRIGGER favorites_count_trigger
+AFTER INSERT OR DELETE ON favorites
+FOR EACH ROW EXECUTE FUNCTION update_creator_favorite_count();
+
+-- ============================================
 -- BOOKINGS
 -- ============================================
 CREATE TABLE IF NOT EXISTS bookings (

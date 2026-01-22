@@ -1,5 +1,5 @@
-import React, { useState, useRef, useCallback } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   Crown, Shield, Video, Camera, DollarSign, Calendar,
   CheckCircle, Clock, AlertTriangle, Star, Users, Heart,
@@ -360,7 +360,15 @@ const VerificationStep = ({ icon: Icon, title, description, status, action, onAc
 
 export default function CreatorDashboardPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, logout, updateUser, isCreator, updateBookingRequestStatus, recordCreatorEarnings, updateSchedule } = useAuth();
+
+  // Check if this is a new registration coming from auth page
+  const isNewRegistration = location.state?.newRegistration;
+
+  // Onboarding state - show setup flow for new registrations or incomplete profiles
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingStep, setOnboardingStep] = useState(0);
 
   const [activeTab, setActiveTab] = useState('overview');
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
@@ -399,6 +407,22 @@ export default function CreatorDashboardPage() {
     depositPercent: 50,
     enableOutcall: true,
   });
+
+  // Check if profile is complete (has photos and pricing set)
+  const hasPhotos = user?.photos?.length > 0;
+  const hasPricing = user?.pricing?.meetupIncall?.[1] > 0;
+  const isProfileComplete = hasPhotos && hasPricing;
+
+  // Show onboarding for new registrations or incomplete profiles
+  useEffect(() => {
+    if (isNewRegistration || (!isProfileComplete && user && isCreator)) {
+      setShowOnboarding(true);
+      // Clear the navigation state so refresh doesn't re-trigger
+      if (isNewRegistration) {
+        navigate(location.pathname, { replace: true, state: {} });
+      }
+    }
+  }, [isNewRegistration, isProfileComplete, user, isCreator]);
 
   // Redirect if not a creator
   if (!user || !isCreator) {
@@ -664,6 +688,181 @@ export default function CreatorDashboardPage() {
     { id: 'verification', label: 'Verification', icon: Shield },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
+
+  // Onboarding steps
+  const onboardingSteps = [
+    {
+      title: 'Welcome to Hush!',
+      description: 'Congratulations on creating your creator account! Let\'s complete your profile so clients can find and book you.',
+      icon: Crown,
+      action: null,
+    },
+    {
+      title: 'Add Your Photos',
+      description: 'Upload at least 3 photos. Mark some as "Preview" (visible to all) and others as "Locked" (unlocked by paying clients).',
+      icon: Camera,
+      action: () => { setActiveTab('photos'); setShowOnboarding(false); },
+      actionText: 'Add Photos',
+      isComplete: (user?.photos?.length || 0) >= 3,
+    },
+    {
+      title: 'Set Your Pricing',
+      description: 'Set your rates for meetups, photo unlocks, and contact unlocks. You can change these anytime.',
+      icon: DollarSign,
+      action: () => { handleOpenPricing(); },
+      actionText: 'Set Pricing',
+      isComplete: hasPricingSet,
+    },
+    {
+      title: 'Set Your Schedule',
+      description: 'Let clients know when you\'re available for bookings.',
+      icon: Calendar,
+      action: () => { setActiveTab('availability'); setShowOnboarding(false); },
+      actionText: 'Set Schedule',
+      isComplete: user?.schedule?.monday?.active !== undefined,
+    },
+    {
+      title: 'Complete Verification',
+      description: 'Get verified to appear in search results and build trust with clients.',
+      icon: Shield,
+      action: () => { setActiveTab('verification'); setShowOnboarding(false); },
+      actionText: 'Start Verification',
+      isComplete: user?.isVerified || user?.isVideoVerified,
+    },
+  ];
+
+  const currentOnboardingStep = onboardingSteps[onboardingStep];
+  const completedSteps = onboardingSteps.filter(s => s.isComplete).length;
+  const totalActionSteps = onboardingSteps.filter(s => s.action).length;
+
+  // Show onboarding overlay for new registrations
+  if (showOnboarding) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-pink-950 via-rose-950 to-fuchsia-950">
+        {/* Background effects */}
+        <div className="fixed inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl" />
+          <div className="absolute bottom-0 left-0 w-96 h-96 bg-pink-500/10 rounded-full blur-3xl" />
+        </div>
+
+        <div className="relative max-w-md mx-auto px-4 py-8 min-h-screen flex flex-col">
+          {/* Progress indicator */}
+          <div className="flex items-center justify-center gap-2 mb-8">
+            {onboardingSteps.map((_, i) => (
+              <div
+                key={i}
+                className={`h-1.5 rounded-full transition-all ${
+                  i < onboardingStep
+                    ? 'w-8 bg-purple-500'
+                    : i === onboardingStep
+                    ? 'w-8 bg-purple-500/50'
+                    : 'w-4 bg-white/20'
+                }`}
+              />
+            ))}
+          </div>
+
+          {/* Content */}
+          <div className="flex-1 flex flex-col items-center justify-center text-center">
+            <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-purple-500/20 flex items-center justify-center">
+              {currentOnboardingStep.icon && (
+                <currentOnboardingStep.icon size={40} className="text-purple-400" />
+              )}
+            </div>
+
+            <h2 className="text-2xl font-bold text-white mb-3">
+              {currentOnboardingStep.title}
+            </h2>
+
+            <p className="text-white/60 mb-8 max-w-sm">
+              {currentOnboardingStep.description}
+            </p>
+
+            {/* Progress summary on welcome screen */}
+            {onboardingStep === 0 && (
+              <div className="w-full max-w-sm mb-8 p-4 bg-white/5 border border-white/10 rounded-xl">
+                <p className="text-white/70 text-sm mb-3">Profile setup progress</p>
+                <div className="space-y-2">
+                  {onboardingSteps.slice(1).map((step, i) => (
+                    <div key={i} className="flex items-center gap-2 text-sm">
+                      {step.isComplete ? (
+                        <CheckCircle size={16} className="text-green-400" />
+                      ) : (
+                        <div className="w-4 h-4 rounded-full border border-white/30" />
+                      )}
+                      <span className={step.isComplete ? 'text-green-400' : 'text-white/50'}>
+                        {step.title}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Completion badge */}
+            {currentOnboardingStep.isComplete && onboardingStep > 0 && (
+              <div className="mb-4 px-4 py-2 bg-green-500/20 border border-green-500/50 rounded-full flex items-center gap-2">
+                <CheckCircle size={16} className="text-green-400" />
+                <span className="text-green-400 text-sm font-medium">Completed!</span>
+              </div>
+            )}
+
+            {/* Action button */}
+            {currentOnboardingStep.action && !currentOnboardingStep.isComplete && (
+              <button
+                onClick={currentOnboardingStep.action}
+                className="w-full max-w-sm py-4 bg-gradient-to-r from-purple-500 to-fuchsia-500 hover:from-purple-600 hover:to-fuchsia-600 rounded-xl text-white font-semibold transition-all mb-4"
+              >
+                {currentOnboardingStep.actionText}
+              </button>
+            )}
+          </div>
+
+          {/* Navigation buttons */}
+          <div className="flex gap-3 mt-auto">
+            {onboardingStep > 0 && (
+              <button
+                onClick={() => setOnboardingStep(onboardingStep - 1)}
+                className="flex-1 py-3 bg-white/10 hover:bg-white/15 rounded-xl text-white font-medium transition-colors"
+              >
+                Back
+              </button>
+            )}
+
+            {onboardingStep < onboardingSteps.length - 1 ? (
+              <button
+                onClick={() => setOnboardingStep(onboardingStep + 1)}
+                className={`flex-1 py-3 rounded-xl text-white font-medium transition-colors ${
+                  onboardingStep === 0
+                    ? 'bg-gradient-to-r from-purple-500 to-fuchsia-500 hover:from-purple-600 hover:to-fuchsia-600'
+                    : 'bg-white/10 hover:bg-white/15'
+                }`}
+              >
+                {onboardingStep === 0 ? "Let's Go!" : 'Next'}
+              </button>
+            ) : (
+              <button
+                onClick={() => setShowOnboarding(false)}
+                className="flex-1 py-3 bg-gradient-to-r from-purple-500 to-fuchsia-500 hover:from-purple-600 hover:to-fuchsia-600 rounded-xl text-white font-medium transition-colors"
+              >
+                Go to Dashboard
+              </button>
+            )}
+          </div>
+
+          {/* Skip option */}
+          {onboardingStep > 0 && (
+            <button
+              onClick={() => setShowOnboarding(false)}
+              className="mt-4 text-white/40 text-sm hover:text-white/60 transition-colors"
+            >
+              Skip setup, go to dashboard
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-950 via-rose-950 to-fuchsia-950">

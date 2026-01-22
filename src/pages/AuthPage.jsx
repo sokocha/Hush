@@ -1687,7 +1687,9 @@ export default function AuthPage() {
     setIsLoading(false);
 
     if (result.success) {
-      navigate('/creator-dashboard');
+      // Navigate to creator dashboard with state indicating this is a new registration
+      // The dashboard will show the profile completion flow
+      navigate('/creator-dashboard', { state: { newRegistration: true } });
     } else {
       setAuthError(result.error || 'Failed to create account');
     }

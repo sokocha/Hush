@@ -842,11 +842,22 @@ const MeetupModal = ({ isOpen, onClose, clientState, onNeedsTrustDeposit, modelC
               )}
             </div>
           ) : (
-            <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3">
-              <p className="text-amber-200 text-sm flex items-center gap-2">
-                <Shield size={16} />
-                Verification required to initiate meetups. Choose your tier.
-              </p>
+            <div className="bg-gradient-to-r from-amber-500/10 to-pink-500/10 border border-amber-500/30 rounded-xl p-4">
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-full bg-amber-500/20">
+                  <Shield size={20} className="text-amber-400" />
+                </div>
+                <div>
+                  <p className="text-white font-medium mb-1">You're so close to booking!</p>
+                  <p className="text-white/60 text-sm mb-3">Just one quick step - verify your account to unlock meetup bookings and build trust with models.</p>
+                  <button
+                    onClick={() => { onNeedsTrustDeposit(); onClose(); }}
+                    className="px-4 py-2 bg-gradient-to-r from-amber-500 to-pink-500 hover:from-amber-600 hover:to-pink-600 rounded-lg text-white text-sm font-medium transition-all"
+                  >
+                    Choose Verification Tier →
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 

@@ -100,7 +100,7 @@ export const MODELS = {
       meetupSuccessRate: 89,
       repeatClients: 12,
       lastSeen: "2h ago",
-      favoriteCount: 156,
+      favoriteCount: 0, // Now tracked in database
     },
     reviewHighlights: ["Professional", "On time", "As pictured"],
     creatorPayments: [
@@ -177,7 +177,7 @@ export const MODELS = {
       meetupSuccessRate: 95,
       repeatClients: 28,
       lastSeen: "Online",
-      favoriteCount: 342,
+      favoriteCount: 0, // Now tracked in database
     },
     reviewHighlights: ["Classy", "Worth it", "Stunning"],
     creatorPayments: [
@@ -201,7 +201,7 @@ export const MODELS = {
     boundaries: ["No bareback", "No rough play", "Outcall only to hotels"],
     photos: {
       total: 8,
-      previewCount: 2,
+      previewCount: 1,
       source: "studio",
       studioName: "Luxe Studios Lagos",
       captureDate: "Dec 20, 2024",
@@ -253,7 +253,7 @@ export const MODELS = {
       meetupSuccessRate: 87,
       repeatClients: 15,
       lastSeen: "5h ago",
-      favoriteCount: 89,
+      favoriteCount: 0, // Now tracked in database
     },
     reviewHighlights: ["Sweet", "Genuine", "Fun"],
     creatorPayments: [
@@ -326,7 +326,7 @@ export const MODELS = {
       meetupSuccessRate: 82,
       repeatClients: 8,
       lastSeen: "1d ago",
-      favoriteCount: 67,
+      favoriteCount: 0, // Now tracked in database
     },
     reviewHighlights: ["Affordable", "Clean", "Friendly"],
     creatorPayments: [
@@ -390,7 +390,7 @@ export const MODELS = {
       meetupSuccessRate: 98,
       repeatClients: 45,
       lastSeen: "Online",
-      favoriteCount: 512,
+      favoriteCount: 0, // Now tracked in database
     },
     reviewHighlights: ["Premium", "Incredible", "Worth it"],
     creatorPayments: [
@@ -416,7 +416,7 @@ export const MODELS = {
     boundaries: ["No bareback", "Screening required for new clients"],
     photos: {
       total: 10,
-      previewCount: 2,
+      previewCount: 1,
       source: "studio",
       studioName: "Luxe Studios Lagos",
       captureDate: "Jan 5, 2025",
@@ -459,7 +459,7 @@ export const MODELS = {
       meetupSuccessRate: 91,
       repeatClients: 22,
       lastSeen: "3d ago",
-      favoriteCount: 178,
+      favoriteCount: 0, // Now tracked in database
     },
     reviewHighlights: ["Elegant", "Classy", "Sophisticated"],
     creatorPayments: [
@@ -524,7 +524,7 @@ export const MODELS = {
       meetupSuccessRate: 93,
       repeatClients: 25,
       lastSeen: "30m ago",
-      favoriteCount: 234,
+      favoriteCount: 0, // Now tracked in database
     },
     reviewHighlights: ["Best in Abuja", "Beautiful", "Fun"],
     creatorPayments: [
@@ -547,7 +547,7 @@ export const MODELS = {
     boundaries: ["No bareback", "No rough play"],
     photos: {
       total: 7,
-      previewCount: 2,
+      previewCount: 1,
       source: "studio",
       studioName: "Premium Studios Abuja",
       captureDate: "Jan 8, 2025",
@@ -589,7 +589,7 @@ export const MODELS = {
       meetupSuccessRate: 85,
       repeatClients: 12,
       lastSeen: "2h ago",
-      favoriteCount: 98,
+      favoriteCount: 0, // Now tracked in database
     },
     reviewHighlights: ["Real", "Genuine", "Recommended"],
     creatorPayments: [

@@ -9,58 +9,45 @@ import { getModelsList, getLocations, getAllExtras, PLATFORM_CONFIG } from '../d
 import useFavorites from '../hooks/useFavorites';
 import { useAuth } from '../context/AuthContext';
 import { getTopMatches, addMatchPercentages } from '../utils/matchingAlgorithm';
+import { supabase } from '../lib/supabase';
 
 // Get models from shared data store
 const HARDCODED_MODELS = getModelsList();
 
-// Helper to get registered creators from localStorage
-const getRegisteredCreators = () => {
-  try {
-    // Get all localStorage keys and find creator accounts
-    const creators = [];
-    const authData = localStorage.getItem('hush_auth');
-    if (authData) {
-      const user = JSON.parse(authData);
-      // Only include verified creators (not pending verification)
-      if (user.userType === 'creator' && !user.pendingVerification) {
-        // Transform creator data to match model format
-        const photos = user.photos || [];
-        const previewPhotos = photos.filter(p => p.isPreview);
-        const profilePhoto = photos.find(p => p.isProfilePhoto) || previewPhotos[0] || photos[0];
+// Transform database creator to model format
+const transformCreatorToModel = (creator, user) => {
+  const photos = creator.creator_photos || [];
+  const previewPhotos = photos.filter(p => p.is_preview);
+  const profilePhoto = previewPhotos[0] || photos[0];
+  const areas = (creator.creator_areas || []).map(a => a.area);
 
-        creators.push({
-          id: `creator-${user.username}`,
-          username: user.username,
-          name: user.name || user.username,
-          tagline: user.tagline || 'New on the platform',
-          location: user.location || 'Lagos',
-          areas: user.areas || [],
-          isOnline: true, // Assume online if recently active
-          isAvailable: true,
-          isVideoVerified: user.isVideoVerified || false,
-          isStudioVerified: user.isStudioVerified || false,
-          rating: user.stats?.rating || 0,
-          verifiedMeetups: user.stats?.verifiedMeetups || 0,
-          meetupSuccessRate: user.stats?.meetupSuccessRate || 0,
-          startingPrice: user.pricing?.meetupIncall?.[1] || 0,
-          hasOutcall: !!user.pricing?.meetupOutcall,
-          extras: user.extras || [],
-          profilePhotoUrl: profilePhoto?.url || null,
-          isRegisteredCreator: true,
-          // Attributes for matching
-          bodyType: user.bodyType || null,
-          skinTone: user.skinTone || null,
-          age: user.age || null,
-          height: user.height || null,
-          services: user.services || [],
-        });
-      }
-    }
-    return creators;
-  } catch (e) {
-    console.error('Error getting registered creators:', e);
-    return [];
-  }
+  return {
+    id: `creator-${creator.id}`,
+    username: user?.username || creator.id,
+    name: user?.name || creator.display_name || 'New Model',
+    tagline: creator.tagline || 'New on the platform',
+    location: creator.location || 'Lagos',
+    areas: areas,
+    isOnline: user?.last_seen_at ? (Date.now() - new Date(user.last_seen_at).getTime() < 15 * 60 * 1000) : false,
+    isAvailable: creator.is_available !== false,
+    isVideoVerified: creator.is_video_verified || false,
+    isStudioVerified: creator.is_studio_verified || false,
+    rating: creator.rating || 0,
+    verifiedMeetups: creator.verified_meetups || 0,
+    meetupSuccessRate: creator.meetup_success_rate || 0,
+    startingPrice: creator.pricing?.meetupIncall?.[1] || 0,
+    hasOutcall: !!creator.pricing?.meetupOutcall,
+    extras: (creator.creator_extras || []).map(e => ({ name: e.name, price: e.price })),
+    profilePhotoUrl: profilePhoto?.storage_path || null,
+    isRegisteredCreator: true,
+    // Attributes for matching
+    bodyType: creator.body_type || null,
+    skinTone: creator.skin_tone || null,
+    age: creator.age || null,
+    height: creator.height || null,
+    services: creator.services || [],
+    favoriteCount: creator.favorite_count || 0,
+  };
 };
 
 const ALL_EXTRAS = getAllExtras();
@@ -239,11 +226,50 @@ export default function ExplorePage() {
   const { favorites, toggleFavorite, isFavorite } = useFavorites();
   const { isAuthenticated, isCreator, isClient, user } = useAuth();
 
-  // Combine hardcoded models with registered creators (dynamic)
+  // State for database creators
+  const [dbCreators, setDbCreators] = useState([]);
+  const [creatorsLoading, setCreatorsLoading] = useState(true);
+
+  // Fetch creators from database
+  useEffect(() => {
+    const fetchCreators = async () => {
+      try {
+        setCreatorsLoading(true);
+        const { data, error } = await supabase
+          .from('creators')
+          .select(`
+            *,
+            users:id(id, name, username, last_seen_at),
+            creator_areas(area),
+            creator_photos(id, storage_path, is_preview, display_order),
+            creator_extras(id, name, price)
+          `);
+
+        if (error) {
+          console.error('Error fetching creators:', error);
+          return;
+        }
+
+        if (data) {
+          const transformedCreators = data.map(creator =>
+            transformCreatorToModel(creator, creator.users)
+          );
+          setDbCreators(transformedCreators);
+        }
+      } catch (err) {
+        console.error('Error fetching creators:', err);
+      } finally {
+        setCreatorsLoading(false);
+      }
+    };
+
+    fetchCreators();
+  }, []);
+
+  // Combine hardcoded models with database creators
   const allModels = useMemo(() => {
-    const registeredCreators = getRegisteredCreators();
-    return [...HARDCODED_MODELS, ...registeredCreators];
-  }, [user]); // Re-compute when user changes
+    return [...HARDCODED_MODELS, ...dbCreators];
+  }, [dbCreators]);
 
   // Get dynamic location counts
   const LOCATIONS = useMemo(() => getLocationsWithCounts(allModels), [allModels]);
@@ -478,11 +504,15 @@ export default function ExplorePage() {
             {PLATFORM_CONFIG.name}
           </Link>
           <div className="flex-1">
-            <p className="text-white/50 text-sm">{filteredModels.length} verified models</p>
+            {isAuthenticated && user?.name ? (
+              <p className="text-white/50 text-sm">Hi, {user.name}</p>
+            ) : (
+              <p className="text-white/50 text-sm">{filteredModels.length} verified models</p>
+            )}
           </div>
           {isAuthenticated ? (
             <Link to={dashboardLink} className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors">
-              <Users size={20} className="text-white" />
+              <User size={20} className="text-white" />
             </Link>
           ) : (
             <Link to="/auth" className="px-4 py-2 rounded-full bg-pink-500 hover:bg-pink-600 text-white text-sm font-medium transition-colors">
