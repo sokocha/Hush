@@ -1143,7 +1143,10 @@ export default function ClientDashboardPage() {
             </div>
 
             <button
-              onClick={closeDepositModal}
+              onClick={() => {
+                closeDepositModal();
+                navigate('/explore/all');
+              }}
               className="w-full py-4 bg-pink-500 hover:bg-pink-600 rounded-xl text-white font-semibold transition-all"
             >
               Start Exploring
