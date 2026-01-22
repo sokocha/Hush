@@ -3,6 +3,7 @@ import { authService } from '../services/authService';
 import { userService } from '../services/userService';
 import { creatorService } from '../services/creatorService';
 import { bookingService } from '../services/bookingService';
+import { storageService } from '../services/storageService';
 
 // Helper to check if preferences object has meaningful values
 function hasNonEmptyPreferences(prefs) {
@@ -159,7 +160,7 @@ function transformUserData(dbUser) {
       areas: creator.creator_areas?.map((a) => a.area) || [],
       photos: creator.creator_photos?.map((p) => ({
         id: p.id,
-        url: p.storage_path, // Will be transformed to full URL by storage service
+        url: storageService.getPhotoUrl(p.storage_path),
         storagePath: p.storage_path,
         isPreview: p.is_preview,
         capturedAt: p.captured_at,
