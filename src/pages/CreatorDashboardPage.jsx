@@ -474,11 +474,14 @@ const StatCard = ({ icon: Icon, label, value, subValue, color = "purple" }) => {
 };
 
 // Verification step component
-const VerificationStep = ({ icon: Icon, title, description, status, action, onAction }) => {
+const VerificationStep = ({ icon: Icon, title, description, status, action, onAction, scheduledInfo, statusMessage }) => {
   const statusColors = {
     pending: { bg: "bg-amber-500/20", border: "border-amber-500/30", icon: "text-amber-400" },
+    scheduled: { bg: "bg-blue-500/20", border: "border-blue-500/30", icon: "text-blue-400" },
     in_progress: { bg: "bg-blue-500/20", border: "border-blue-500/30", icon: "text-blue-400" },
+    under_review: { bg: "bg-purple-500/20", border: "border-purple-500/30", icon: "text-purple-400" },
     completed: { bg: "bg-green-500/20", border: "border-green-500/30", icon: "text-green-400" },
+    denied: { bg: "bg-red-500/20", border: "border-red-500/30", icon: "text-red-400" },
   };
   const colors = statusColors[status] || statusColors.pending;
 
@@ -494,18 +497,48 @@ const VerificationStep = ({ icon: Icon, title, description, status, action, onAc
             {status === 'completed' && (
               <CheckCircle size={16} className="text-green-400" />
             )}
-            {status === 'in_progress' && (
+            {status === 'scheduled' && (
               <Clock size={16} className="text-blue-400" />
             )}
+            {status === 'under_review' && (
+              <Clock size={16} className="text-purple-400" />
+            )}
+            {status === 'denied' && (
+              <XCircle size={16} className="text-red-400" />
+            )}
           </div>
-          <p className="text-white/50 text-sm mb-2">{description}</p>
-          {status !== 'completed' && action && (
+          <p className="text-white/50 text-sm">{description}</p>
+
+          {/* Status message for scheduled/review states */}
+          {statusMessage && (
+            <p className={`text-sm mt-1 ${
+              status === 'scheduled' ? 'text-blue-300' :
+              status === 'under_review' ? 'text-purple-300' :
+              status === 'denied' ? 'text-red-300' : 'text-white/50'
+            }`}>
+              {statusMessage}
+            </p>
+          )}
+
+          {/* Scheduled info display */}
+          {scheduledInfo && status === 'scheduled' && (
+            <div className="mt-2 p-2 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+              <p className="text-blue-300 text-sm">
+                📅 Scheduled for {scheduledInfo.date} at {scheduledInfo.time}
+              </p>
+            </div>
+          )}
+
+          {/* Action button - show based on status */}
+          {action && (status === 'pending' || status === 'denied' || (status === 'scheduled' && onAction)) && (
             <button
               onClick={onAction}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+              className={`mt-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
                 status === 'pending'
                   ? 'bg-purple-500 hover:bg-purple-600 text-white'
-                  : 'bg-white/10 text-white/70'
+                  : status === 'denied'
+                  ? 'bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30'
+                  : 'bg-white/10 hover:bg-white/15 text-white/70'
               }`}
             >
               {action}
@@ -1457,26 +1490,109 @@ export default function CreatorDashboardPage() {
           </div>
         </div>
 
-        {/* Pending Verification Banner */}
-        {user.pendingVerification && (
-          <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 mb-6">
-            <div className="flex items-start gap-3">
-              <AlertTriangle size={20} className="text-amber-400 flex-shrink-0 mt-0.5" />
-              <div>
-                <h3 className="text-amber-300 font-medium mb-1">Verification Pending</h3>
-                <p className="text-amber-300/70 text-sm">
-                  Complete video verification and upload studio photos to go live on the platform.
-                </p>
-                <button
-                  onClick={() => setActiveTab('verification')}
-                  className="mt-2 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 rounded-lg text-white text-sm font-medium transition-colors"
-                >
-                  Complete Verification
-                </button>
+        {/* Verification Banner - shows different states */}
+        {(() => {
+          const hasPhotos = creatorPhotos.length >= 3;
+          const hasScheduledCall = verificationCallScheduled || user.verificationCallScheduled;
+          const isVerified = user.isVideoVerified || user.isVerified;
+          const isDenied = user.verificationDenied;
+          const isUnderReview = user.verificationUnderReview;
+          const allUserStepsComplete = hasPhotos && hasScheduledCall;
+
+          // Don't show banner if fully verified
+          if (isVerified) return null;
+
+          // Waiting for call - all user steps done
+          if (allUserStepsComplete && !isDenied && !isUnderReview) {
+            return (
+              <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4 mb-6">
+                <div className="flex items-start gap-3">
+                  <Clock size={20} className="text-blue-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <h3 className="text-blue-300 font-medium mb-1">Waiting for Verification Call</h3>
+                    <p className="text-blue-300/70 text-sm">
+                      You've completed all steps! We'll call you at your scheduled time to complete verification.
+                    </p>
+                    {user.verificationCallScheduled && (
+                      <p className="text-blue-300 text-sm mt-1">
+                        📅 Scheduled: {user.verificationCallScheduled.date} at {user.verificationCallScheduled.time}
+                      </p>
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-        )}
+            );
+          }
+
+          // Under review
+          if (isUnderReview) {
+            return (
+              <div className="bg-purple-500/10 border border-purple-500/30 rounded-xl p-4 mb-6">
+                <div className="flex items-start gap-3">
+                  <Clock size={20} className="text-purple-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <h3 className="text-purple-300 font-medium mb-1">Verification Under Review</h3>
+                    <p className="text-purple-300/70 text-sm">
+                      Your verification is being reviewed. We'll notify you once it's complete.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            );
+          }
+
+          // Denied - needs to reschedule
+          if (isDenied) {
+            return (
+              <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 mb-6">
+                <div className="flex items-start gap-3">
+                  <XCircle size={20} className="text-red-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <h3 className="text-red-300 font-medium mb-1">Verification Not Approved</h3>
+                    <p className="text-red-300/70 text-sm">
+                      {user.verificationDeniedReason || 'Please schedule another verification call to try again.'}
+                    </p>
+                    <button
+                      onClick={() => setShowVideoCallSchedule(true)}
+                      className="mt-2 px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 rounded-lg text-red-300 text-sm font-medium transition-colors"
+                    >
+                      Reschedule Call
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          }
+
+          // Still has steps to complete
+          if (user.pendingVerification) {
+            const missingSteps = [];
+            if (!hasPhotos) missingSteps.push('upload at least 3 photos');
+            if (!hasScheduledCall) missingSteps.push('schedule your verification call');
+
+            return (
+              <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 mb-6">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle size={20} className="text-amber-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <h3 className="text-amber-300 font-medium mb-1">Verification Pending</h3>
+                    <p className="text-amber-300/70 text-sm">
+                      To go live on the platform, please {missingSteps.join(' and ')}.
+                    </p>
+                    <button
+                      onClick={() => setActiveTab('verification')}
+                      className="mt-2 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 rounded-lg text-white text-sm font-medium transition-colors"
+                    >
+                      Complete Verification
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          }
+
+          return null;
+        })()}
 
         {/* Tab Navigation */}
         <div className="flex gap-2 overflow-x-auto hide-scrollbar mb-6 pb-1">
@@ -2044,9 +2160,27 @@ export default function CreatorDashboardPage() {
               icon={Video}
               title="Video Verification"
               description="Complete a live video call with our team to verify your identity"
-              status={user.isVideoVerified ? 'completed' : 'pending'}
-              action="Schedule Call"
-              onAction={() => alert('Video verification scheduling would open here')}
+              status={
+                user.isVideoVerified ? 'completed' :
+                user.verificationDenied ? 'denied' :
+                user.verificationUnderReview ? 'under_review' :
+                (verificationCallScheduled || user.verificationCallScheduled) ? 'scheduled' :
+                'pending'
+              }
+              action={
+                user.isVideoVerified ? null :
+                user.verificationDenied ? 'Reschedule Call' :
+                (verificationCallScheduled || user.verificationCallScheduled) ? 'Reschedule' :
+                'Schedule Call'
+              }
+              onAction={() => setShowVideoCallSchedule(true)}
+              scheduledInfo={user.verificationCallScheduled || (verificationCallScheduled ? { date: 'Today', time: 'Soon' } : null)}
+              statusMessage={
+                user.verificationDenied ? 'Your verification was not approved. Please reschedule a call.' :
+                user.verificationUnderReview ? 'Your verification is being reviewed. We\'ll notify you soon.' :
+                (verificationCallScheduled || user.verificationCallScheduled) ? 'We\'ll call you at the scheduled time.' :
+                null
+              }
             />
 
             <VerificationStep
@@ -2054,9 +2188,24 @@ export default function CreatorDashboardPage() {
               title="Profile Photos"
               description="Take photos using your camera to show on your profile"
               status={creatorPhotos.length >= 3 ? 'completed' : 'pending'}
-              action={creatorPhotos.length > 0 ? `${creatorPhotos.length} photo${creatorPhotos.length > 1 ? 's' : ''} - Add More` : 'Take Photos'}
+              action={creatorPhotos.length >= 3 ? null : (creatorPhotos.length > 0 ? `${creatorPhotos.length} photo${creatorPhotos.length > 1 ? 's' : ''} - Add More` : 'Take Photos')}
               onAction={() => setActiveTab('photos')}
             />
+
+            {/* Show success message when all steps are complete or waiting */}
+            {creatorPhotos.length >= 3 && (verificationCallScheduled || user.verificationCallScheduled) && !user.isVideoVerified && (
+              <div className="mt-4 p-4 bg-blue-500/10 border border-blue-500/30 rounded-xl">
+                <div className="flex items-start gap-3">
+                  <Clock size={20} className="text-blue-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="text-blue-300 font-medium mb-1">Almost there!</h4>
+                    <p className="text-blue-300/70 text-sm">
+                      You've completed all the steps in your control. Just wait for your verification call and you'll be all set!
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="mt-6 p-4 bg-purple-500/10 border border-purple-500/20 rounded-xl">
               <h4 className="text-purple-300 font-medium mb-2">Why verification matters</h4>
