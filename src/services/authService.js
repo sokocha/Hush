@@ -66,7 +66,7 @@ export const authService = {
   /**
    * Register a new client
    */
-  async registerClient({ phone, username, name }) {
+  async registerClient({ phone, username, name, preferences }) {
     try {
       // First create the user
       const { data: user, error: userError } = await supabase
@@ -82,12 +82,25 @@ export const authService = {
 
       if (userError) throw userError;
 
-      // Create the client profile
+      // Create the client profile with preferences
+      const clientData = {
+        id: user.id,
+      };
+
+      // Add preferences if provided
+      if (preferences) {
+        clientData.preferences = {
+          preferredLocation: preferences.preferredLocation || null,
+          bodyTypes: preferences.bodyTypes || [],
+          skinTones: preferences.skinTones || [],
+          ageRanges: preferences.ageRanges || [],
+          services: preferences.services || [],
+        };
+      }
+
       const { data: client, error: clientError } = await supabase
         .from('clients')
-        .insert({
-          id: user.id,
-        })
+        .insert(clientData)
         .select()
         .single();
 
@@ -95,7 +108,7 @@ export const authService = {
 
       return {
         success: true,
-        user: { ...user, client },
+        user: { ...user, clients: client },
       };
     } catch (error) {
       console.error('Error registering client:', error);
@@ -106,7 +119,7 @@ export const authService = {
   /**
    * Register a new creator
    */
-  async registerCreator({ phone, username, name, location, areas, tagline, bio }) {
+  async registerCreator({ phone, username, name, location, areas, tagline, bio, bodyType, skinTone, age, height, services }) {
     try {
       // First create the user
       const { data: user, error: userError } = await supabase
@@ -122,7 +135,7 @@ export const authService = {
 
       if (userError) throw userError;
 
-      // Create the creator profile
+      // Create the creator profile with physical attributes
       const { data: creator, error: creatorError } = await supabase
         .from('creators')
         .insert({
@@ -130,6 +143,11 @@ export const authService = {
           location,
           tagline,
           bio,
+          body_type: bodyType || null,
+          skin_tone: skinTone || null,
+          age: age ? parseInt(age) : null,
+          height: height || null,
+          services: services || [],
         })
         .select()
         .single();

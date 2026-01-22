@@ -1635,6 +1635,13 @@ export default function AuthPage() {
       phone: fullPhone,
       username: clientData.username,
       name: clientData.name,
+      preferences: {
+        preferredLocation: clientData.preferredLocation || null,
+        bodyTypes: clientData.bodyTypePreferences || [],
+        skinTones: clientData.skinTonePreferences || [],
+        ageRanges: clientData.agePreferences || [],
+        services: clientData.servicePreferences || [],
+      },
     });
 
     setIsLoading(false);
@@ -1670,6 +1677,11 @@ export default function AuthPage() {
       areas: creatorData.areas,
       tagline: creatorData.tagline,
       bio: creatorData.bio,
+      bodyType: creatorData.bodyType,
+      skinTone: creatorData.skinTone,
+      age: creatorData.age,
+      height: creatorData.height,
+      services: creatorData.services,
     });
 
     setIsLoading(false);

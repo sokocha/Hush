@@ -8,6 +8,7 @@ import {
 import { getModelsList, getLocations, getAllExtras, PLATFORM_CONFIG } from '../data/models';
 import useFavorites from '../hooks/useFavorites';
 import { useAuth } from '../context/AuthContext';
+import { getTopMatches, addMatchPercentages } from '../utils/matchingAlgorithm';
 
 // Get models from shared data store
 const HARDCODED_MODELS = getModelsList();
@@ -46,6 +47,12 @@ const getRegisteredCreators = () => {
           extras: user.extras || [],
           profilePhotoUrl: profilePhoto?.url || null,
           isRegisteredCreator: true,
+          // Attributes for matching
+          bodyType: user.bodyType || null,
+          skinTone: user.skinTone || null,
+          age: user.age || null,
+          height: user.height || null,
+          services: user.services || [],
         });
       }
     }
@@ -77,7 +84,7 @@ const getLocationsWithCounts = (models) => [
 
 const formatNaira = (amount) => `₦${amount.toLocaleString()}`;
 
-const ModelCard = ({ model, isFavorite, onToggleFavorite }) => (
+const ModelCard = ({ model, isFavorite, onToggleFavorite, showMatchBadge = false }) => (
   <div className="relative bg-white/5 rounded-2xl border border-white/10 overflow-hidden hover:border-pink-500/30 hover:bg-white/10 transition-all group">
     <Link to={`/model/${model.username}`} className="block">
       {/* Photo */}
@@ -96,6 +103,13 @@ const ModelCard = ({ model, isFavorite, onToggleFavorite }) => (
 
         {/* Status badges */}
         <div className="absolute top-3 left-3 flex flex-col gap-1.5">
+          {/* Match percentage badge */}
+          {showMatchBadge && model.matchPercentage > 0 && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gradient-to-r from-pink-500 to-purple-500 text-white text-xs font-medium">
+              <Sparkles size={10} />
+              {model.matchPercentage}% match
+            </span>
+          )}
           {model.isRegisteredCreator && (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-500/90 text-white text-xs font-medium">
               <Sparkles size={10} />
@@ -211,6 +225,26 @@ export default function ExplorePage() {
   // Get dynamic location counts
   const LOCATIONS = useMemo(() => getLocationsWithCounts(allModels), [allModels]);
 
+  // Get client preferences and compute matches
+  const clientPreferences = useMemo(() => {
+    if (isClient && user?.preferences) {
+      return user.preferences;
+    }
+    return null;
+  }, [isClient, user]);
+
+  // Get top matches for "For You" section
+  const forYouMatches = useMemo(() => {
+    if (!clientPreferences) return [];
+    return getTopMatches(clientPreferences, allModels, 6);
+  }, [clientPreferences, allModels]);
+
+  // Add match percentages to all models for display
+  const allModelsWithMatch = useMemo(() => {
+    if (!clientPreferences) return allModels;
+    return addMatchPercentages(clientPreferences, allModels);
+  }, [clientPreferences, allModels]);
+
   // Determine the correct dashboard link based on user type
   const dashboardLink = isCreator ? '/creator-dashboard' : '/dashboard';
 
@@ -242,8 +276,8 @@ export default function ExplorePage() {
   const normalizedLocation = location?.toLowerCase() || 'all';
   const currentLocation = LOCATIONS.find(l => l.slug === normalizedLocation) || LOCATIONS[0];
 
-  // Filter models
-  let filteredModels = allModels;
+  // Filter models (using models with match percentages)
+  let filteredModels = allModelsWithMatch;
 
   // Filter by location
   if (normalizedLocation !== 'all') {
@@ -585,6 +619,35 @@ export default function ExplorePage() {
           </div>
         </div>
 
+        {/* For You Section - Only show for clients with preferences and matching creators */}
+        {isClient && forYouMatches.length > 0 && !hasActiveFilters && normalizedLocation === 'all' && (
+          <div className="mb-8">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="p-1.5 bg-gradient-to-r from-pink-500 to-purple-500 rounded-lg">
+                <Heart size={16} className="text-white fill-white" />
+              </div>
+              <h2 className="text-white font-semibold text-lg">For You</h2>
+              <span className="text-white/40 text-sm">Based on your preferences</span>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              {forYouMatches.map(model => (
+                <ModelCard
+                  key={`foryou-${model.id}`}
+                  model={model}
+                  isFavorite={isFavorite(model.username)}
+                  onToggleFavorite={toggleFavorite}
+                  showMatchBadge={true}
+                />
+              ))}
+            </div>
+            <div className="mt-4 pt-4 border-t border-white/10">
+              <p className="text-white/40 text-xs text-center">
+                Explore all models below
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Models grid */}
         {filteredModels.length > 0 ? (
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -594,6 +657,7 @@ export default function ExplorePage() {
                 model={model}
                 isFavorite={isFavorite(model.username)}
                 onToggleFavorite={toggleFavorite}
+                showMatchBadge={isClient && clientPreferences !== null}
               />
             ))}
           </div>

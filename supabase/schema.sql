@@ -30,7 +30,15 @@ CREATE TABLE IF NOT EXISTS clients (
   successful_meetups INTEGER DEFAULT 0,
   meetup_success_rate DECIMAL(5, 2),
   months_on_platform INTEGER DEFAULT 0,
-  is_trusted_member BOOLEAN DEFAULT FALSE
+  is_trusted_member BOOLEAN DEFAULT FALSE,
+  -- Client preferences for matching
+  preferences JSONB DEFAULT '{
+    "preferredLocation": null,
+    "bodyTypes": [],
+    "skinTones": [],
+    "ageRanges": [],
+    "services": []
+  }'::jsonb
 );
 
 -- ============================================
@@ -46,6 +54,13 @@ CREATE TABLE IF NOT EXISTS creators (
   is_studio_verified BOOLEAN DEFAULT FALSE,
   pending_verification BOOLEAN DEFAULT TRUE,
   is_visible_in_explore BOOLEAN DEFAULT FALSE,
+
+  -- Physical attributes for matching
+  body_type VARCHAR(50),
+  skin_tone VARCHAR(50),
+  age INTEGER CHECK (age >= 18),
+  height VARCHAR(20),
+  services TEXT[] DEFAULT '{}',
 
   -- Pricing (stored as JSONB for flexibility)
   pricing JSONB DEFAULT '{

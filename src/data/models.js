@@ -86,6 +86,13 @@ export const MODELS = {
       isOnline: true,
       memberSince: "March 2024",
     },
+    attributes: {
+      bodyType: "slim",
+      skinTone: "caramel",
+      age: 24,
+      height: "5'6\"",
+      services: ["GFE", "Duo"],
+    },
     stats: {
       rating: 4.8,
       reviews: 23,
@@ -156,6 +163,13 @@ export const MODELS = {
       isOnline: true,
       memberSince: "November 2023",
     },
+    attributes: {
+      bodyType: "curvy",
+      skinTone: "dark",
+      age: 26,
+      height: "5'7\"",
+      services: ["GFE", "Duo", "Travel companion"],
+    },
     stats: {
       rating: 4.9,
       reviews: 45,
@@ -225,6 +239,13 @@ export const MODELS = {
       isOnline: false,
       memberSince: "June 2024",
     },
+    attributes: {
+      bodyType: "petite",
+      skinTone: "light",
+      age: 22,
+      height: "5'3\"",
+      services: ["GFE"],
+    },
     stats: {
       rating: 4.7,
       reviews: 31,
@@ -291,6 +312,13 @@ export const MODELS = {
       isOnline: true,
       memberSince: "August 2024",
     },
+    attributes: {
+      bodyType: "athletic",
+      skinTone: "caramel",
+      age: 25,
+      height: "5'5\"",
+      services: ["GFE"],
+    },
     stats: {
       rating: 4.6,
       reviews: 18,
@@ -347,6 +375,13 @@ export const MODELS = {
       isAvailable: true,
       isOnline: true,
       memberSince: "January 2024",
+    },
+    attributes: {
+      bodyType: "curvy",
+      skinTone: "caramel",
+      age: 27,
+      height: "5'8\"",
+      services: ["GFE", "Duo", "Travel companion", "Event date"],
     },
     stats: {
       rating: 5.0,
@@ -410,6 +445,13 @@ export const MODELS = {
       isOnline: false,
       memberSince: "May 2024",
     },
+    attributes: {
+      bodyType: "slim",
+      skinTone: "dark",
+      age: 28,
+      height: "5'9\"",
+      services: ["GFE", "Dinner date"],
+    },
     stats: {
       rating: 4.8,
       reviews: 39,
@@ -468,6 +510,13 @@ export const MODELS = {
       isOnline: true,
       memberSince: "February 2024",
     },
+    attributes: {
+      bodyType: "curvy",
+      skinTone: "light",
+      age: 25,
+      height: "5'6\"",
+      services: ["GFE", "Duo"],
+    },
     stats: {
       rating: 4.9,
       reviews: 52,
@@ -525,6 +574,13 @@ export const MODELS = {
       isAvailable: true,
       isOnline: true,
       memberSince: "July 2024",
+    },
+    attributes: {
+      bodyType: "thick",
+      skinTone: "dark",
+      age: 23,
+      height: "5'4\"",
+      services: ["GFE"],
     },
     stats: {
       rating: 4.7,
@@ -589,6 +645,12 @@ export const getModelsList = () => {
     tagline: model.profile.tagline,
     extras: model.extras.map(e => e.name),
     hasOutcall: model.pricing.meetupOutcall !== null,
+    // Attributes for matching
+    bodyType: model.attributes?.bodyType || null,
+    skinTone: model.attributes?.skinTone || null,
+    age: model.attributes?.age || null,
+    height: model.attributes?.height || null,
+    services: model.attributes?.services || [],
   }));
 };
 

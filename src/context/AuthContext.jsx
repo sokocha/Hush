@@ -112,6 +112,13 @@ function transformUserData(dbUser) {
       meetupSuccessRate: client.meetup_success_rate,
       monthsOnPlatform: client.months_on_platform || 0,
       isTrustedMember: client.is_trusted_member,
+      preferences: client.preferences || {
+        preferredLocation: null,
+        bodyTypes: [],
+        skinTones: [],
+        ageRanges: [],
+        services: [],
+      },
     };
   }
 
@@ -144,6 +151,12 @@ function transformUserData(dbUser) {
         price: parseFloat(e.price),
       })) || [],
       boundaries: creator.creator_boundaries?.map((b) => b.boundary) || [],
+      // Physical attributes for matching
+      bodyType: creator.body_type || null,
+      skinTone: creator.skin_tone || null,
+      age: creator.age || null,
+      height: creator.height || null,
+      services: creator.services || [],
       stats: {
         rating: parseFloat(creator.rating) || 0,
         reviews: creator.reviews_count || 0,
