@@ -24,6 +24,13 @@ const DEFAULT_CLIENT_STATE = {
   name: '',
   registeredAt: null,
   meetups: [],
+  preferences: {
+    preferredLocation: null,
+    bodyTypes: [],
+    skinTones: [],
+    ageRanges: [],
+    services: [],
+  },
 };
 
 const DEFAULT_CREATOR_STATE = {

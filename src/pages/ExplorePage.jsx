@@ -228,15 +228,19 @@ export default function ExplorePage() {
   // Get client preferences and compute matches
   const clientPreferences = useMemo(() => {
     if (isClient && user?.preferences) {
+      console.log('[Matching] Client preferences:', user.preferences);
       return user.preferences;
     }
+    console.log('[Matching] No preferences - isClient:', isClient, 'user?.preferences:', user?.preferences);
     return null;
   }, [isClient, user]);
 
   // Get top matches for "For You" section
   const forYouMatches = useMemo(() => {
     if (!clientPreferences) return [];
-    return getTopMatches(clientPreferences, allModels, 6);
+    const matches = getTopMatches(clientPreferences, allModels, 6);
+    console.log('[Matching] For You matches:', matches.length, matches.map(m => ({ name: m.name, match: m.matchPercentage })));
+    return matches;
   }, [clientPreferences, allModels]);
 
   // Add match percentages to all models for display

@@ -8,7 +8,8 @@ const AGE_RANGES = {
   '18-22': { min: 18, max: 22 },
   '23-27': { min: 23, max: 27 },
   '28-32': { min: 28, max: 32 },
-  '33+': { min: 33, max: 99 },
+  '33-40': { min: 33, max: 40 },
+  '40+': { min: 40, max: 99 },
 };
 
 /**
@@ -19,6 +20,12 @@ const AGE_RANGES = {
  */
 export function calculateMatchPercentage(preferences, creator) {
   if (!preferences || !creator) return 0;
+
+  // Helper to filter out "No preference" from arrays
+  const filterNoPreference = (arr) => {
+    if (!arr || arr.length === 0) return [];
+    return arr.filter(v => v && v !== 'No preference');
+  };
 
   const scores = [];
   const weights = {
@@ -36,24 +43,27 @@ export function calculateMatchPercentage(preferences, creator) {
   }
 
   // Body type match (20 points)
-  if (preferences.bodyTypes && preferences.bodyTypes.length > 0) {
-    const bodyMatch = creator.bodyType && preferences.bodyTypes.some(
+  const bodyTypes = filterNoPreference(preferences.bodyTypes);
+  if (bodyTypes.length > 0) {
+    const bodyMatch = creator.bodyType && bodyTypes.some(
       bt => bt.toLowerCase() === creator.bodyType.toLowerCase()
     );
     scores.push({ category: 'bodyType', score: bodyMatch ? weights.bodyType : 0, weight: weights.bodyType });
   }
 
   // Skin tone match (20 points)
-  if (preferences.skinTones && preferences.skinTones.length > 0) {
-    const skinMatch = creator.skinTone && preferences.skinTones.some(
+  const skinTones = filterNoPreference(preferences.skinTones);
+  if (skinTones.length > 0) {
+    const skinMatch = creator.skinTone && skinTones.some(
       st => st.toLowerCase() === creator.skinTone.toLowerCase()
     );
     scores.push({ category: 'skinTone', score: skinMatch ? weights.skinTone : 0, weight: weights.skinTone });
   }
 
   // Age range match (20 points)
-  if (preferences.ageRanges && preferences.ageRanges.length > 0 && creator.age) {
-    const ageMatch = preferences.ageRanges.some(range => {
+  const ageRanges = filterNoPreference(preferences.ageRanges);
+  if (ageRanges.length > 0 && creator.age) {
+    const ageMatch = ageRanges.some(range => {
       const ageRange = AGE_RANGES[range];
       return ageRange && creator.age >= ageRange.min && creator.age <= ageRange.max;
     });
@@ -61,13 +71,14 @@ export function calculateMatchPercentage(preferences, creator) {
   }
 
   // Services match (15 points) - partial scoring based on how many services match
-  if (preferences.services && preferences.services.length > 0) {
+  const services = filterNoPreference(preferences.services);
+  if (services.length > 0) {
     const creatorServices = creator.services || [];
-    const matchingServices = preferences.services.filter(service =>
+    const matchingServices = services.filter(service =>
       creatorServices.some(cs => cs.toLowerCase().includes(service.toLowerCase()) ||
                                  service.toLowerCase().includes(cs.toLowerCase()))
     );
-    const serviceScore = (matchingServices.length / preferences.services.length) * weights.services;
+    const serviceScore = (matchingServices.length / services.length) * weights.services;
     scores.push({ category: 'services', score: serviceScore, weight: weights.services });
   }
 
@@ -94,13 +105,19 @@ export function calculateMatchPercentage(preferences, creator) {
 export function getTopMatches(preferences, creators, limit = 5) {
   if (!preferences || !creators || creators.length === 0) return [];
 
+  // Helper to check if array has meaningful preferences (not just "No preference")
+  const hasMeaningfulValues = (arr) => {
+    if (!arr || arr.length === 0) return false;
+    return arr.some(v => v && v !== 'No preference');
+  };
+
   // Check if client has any meaningful preferences set
   const hasPreferences =
     preferences.preferredLocation ||
-    (preferences.bodyTypes && preferences.bodyTypes.length > 0) ||
-    (preferences.skinTones && preferences.skinTones.length > 0) ||
-    (preferences.ageRanges && preferences.ageRanges.length > 0) ||
-    (preferences.services && preferences.services.length > 0);
+    hasMeaningfulValues(preferences.bodyTypes) ||
+    hasMeaningfulValues(preferences.skinTones) ||
+    hasMeaningfulValues(preferences.ageRanges) ||
+    hasMeaningfulValues(preferences.services);
 
   if (!hasPreferences) return [];
 
