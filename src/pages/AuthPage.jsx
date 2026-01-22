@@ -9,10 +9,14 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { PLATFORM_CONFIG } from '../data/models';
 
-// Check if we're using real Supabase backend
-const USE_REAL_BACKEND = Boolean(
+// Check if we're using real Supabase backend for database operations
+const USE_REAL_DATABASE = Boolean(
   import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY
 );
+
+// Edge Functions for OTP are not deployed yet, so always use mock OTP
+// Set this to true once you deploy the send-whatsapp-otp and verify-whatsapp-otp Edge Functions
+const USE_REAL_OTP = false;
 
 const LOCATIONS = [
   { name: "Lagos", areas: ["Lekki", "VI", "Ikoyi", "Ajah", "Ikeja", "GRA", "Maryland"] },
@@ -1479,7 +1483,7 @@ export default function AuthPage() {
 
     const fullPhone = `+234${phone}`;
 
-    if (USE_REAL_BACKEND) {
+    if (USE_REAL_OTP) {
       const result = await requestOTP(fullPhone);
       setIsLoading(false);
 
@@ -1489,7 +1493,7 @@ export default function AuthPage() {
         setAuthError(result.error || 'Failed to send verification code');
       }
     } else {
-      // Mock mode for development
+      // Mock mode - Edge Functions not deployed yet
       setTimeout(() => {
         setIsLoading(false);
         setStep('login-otp');
@@ -1503,7 +1507,7 @@ export default function AuthPage() {
 
     const fullPhone = `+234${phone}`;
 
-    if (USE_REAL_BACKEND) {
+    if (USE_REAL_OTP) {
       const result = await verifyOTP(fullPhone, otp);
       setIsLoading(false);
 
@@ -1523,7 +1527,7 @@ export default function AuthPage() {
         setAuthError(result.error || 'Invalid verification code');
       }
     } else {
-      // Mock mode for development
+      // Mock mode - Edge Functions not deployed yet
       setTimeout(() => {
         const stored = localStorage.getItem('hush_auth');
         if (stored) {
@@ -1548,7 +1552,7 @@ export default function AuthPage() {
 
     const fullPhone = `+234${phone}`;
 
-    if (USE_REAL_BACKEND) {
+    if (USE_REAL_OTP) {
       const result = await requestOTP(fullPhone);
       setIsLoading(false);
 
@@ -1558,7 +1562,7 @@ export default function AuthPage() {
         setAuthError(result.error || 'Failed to send verification code');
       }
     } else {
-      // Mock mode for development
+      // Mock mode - Edge Functions not deployed yet
       setTimeout(() => {
         setIsLoading(false);
         setStep('otp');
@@ -1572,7 +1576,7 @@ export default function AuthPage() {
 
     const fullPhone = `+234${phone}`;
 
-    if (USE_REAL_BACKEND) {
+    if (USE_REAL_OTP) {
       const result = await verifyOTP(fullPhone, otp);
       setIsLoading(false);
 
@@ -1592,7 +1596,7 @@ export default function AuthPage() {
         setAuthError(result.error || 'Invalid verification code');
       }
     } else {
-      // Mock mode for development
+      // Mock mode - Edge Functions not deployed yet
       setTimeout(() => {
         setIsLoading(false);
         setStep('profile1');
@@ -1603,7 +1607,7 @@ export default function AuthPage() {
   const handleResendOTP = async () => {
     const fullPhone = `+234${phone}`;
 
-    if (USE_REAL_BACKEND) {
+    if (USE_REAL_OTP) {
       await requestOTP(fullPhone);
     }
 
