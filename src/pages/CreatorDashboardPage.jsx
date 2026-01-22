@@ -12,6 +12,7 @@ import {
 import { PLATFORM_CONFIG } from '../data/models';
 import { useAuth } from '../context/AuthContext';
 import { creatorService } from '../services/creatorService';
+import { storageService } from '../services/storageService';
 
 // Simple confetti component
 const Confetti = ({ active }) => {
@@ -749,21 +750,29 @@ export default function CreatorDashboardPage() {
       displayOrder: currentPhotos.length,
     };
 
-    // Save to database
+    // Upload to Supabase Storage and save to database
     if (user?.id) {
-      const result = await creatorService.addCreatorPhoto(user.id, {
-        url: photo.url,
-        isPreview: isFirstPhoto,
-        displayOrder: currentPhotos.length,
-        capturedAt: photo.capturedAt,
-      });
+      try {
+        // Convert base64 data URL to blob
+        const response = await fetch(photo.url);
+        const blob = await response.blob();
 
-      if (result.success) {
-        // Use the database ID
-        newPhoto.id = result.photo.id;
-        console.log('[CreatorDashboard] Photo saved to database:', result.photo.id);
-      } else {
-        console.error('[CreatorDashboard] Failed to save photo:', result.error);
+        // Upload using storageService which handles both storage and database
+        const result = await storageService.uploadCreatorPhotoBlob(user.id, blob, isFirstPhoto);
+
+        if (result.success) {
+          // Use the database ID and proper URL from storage
+          newPhoto.id = result.photo.id;
+          newPhoto.url = result.photo.url;
+          newPhoto.storagePath = result.photo.storage_path;
+          console.log('[CreatorDashboard] Photo uploaded and saved:', result.photo.id);
+        } else {
+          console.error('[CreatorDashboard] Failed to upload photo:', result.error);
+          return; // Don't add photo to state if upload failed
+        }
+      } catch (error) {
+        console.error('[CreatorDashboard] Error uploading photo:', error);
+        return; // Don't add photo to state if upload failed
       }
     }
 
