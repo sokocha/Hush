@@ -74,6 +74,24 @@ const PRICE_RANGES = [
   { label: "Over ₦100k", min: 100000, max: Infinity },
 ];
 
+// Body type options
+const BODY_TYPES = ['Slim', 'Petite', 'Athletic', 'Curvy', 'Thick'];
+
+// Skin tone options
+const SKIN_TONES = ['Light', 'Caramel', 'Dark'];
+
+// Age range options
+const AGE_RANGES = [
+  { label: '18-22', min: 18, max: 22 },
+  { label: '23-27', min: 23, max: 27 },
+  { label: '28-32', min: 28, max: 32 },
+  { label: '33-40', min: 33, max: 40 },
+  { label: '40+', min: 40, max: 99 },
+];
+
+// Services options (common ones)
+const SERVICES = ['GFE', 'Duo', 'Travel companion', 'Dinner date', 'Event date'];
+
 // Build locations dynamically from models data
 const getLocationsWithCounts = (models) => [
   { name: "All", slug: "all", count: models.length },
@@ -212,6 +230,11 @@ export default function ExplorePage() {
   const [showOutcallOnly, setShowOutcallOnly] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  // New attribute filters
+  const [selectedBodyTypes, setSelectedBodyTypes] = useState([]);
+  const [selectedSkinTones, setSelectedSkinTones] = useState([]);
+  const [selectedAgeRanges, setSelectedAgeRanges] = useState([]);
+  const [selectedServices, setSelectedServices] = useState([]);
 
   const { favorites, toggleFavorite, isFavorite } = useFavorites();
   const { isAuthenticated, isCreator, isClient, user } = useAuth();
@@ -261,6 +284,42 @@ export default function ExplorePage() {
     );
   };
 
+  // Toggle body type selection
+  const toggleBodyType = (type) => {
+    setSelectedBodyTypes(prev =>
+      prev.includes(type)
+        ? prev.filter(t => t !== type)
+        : [...prev, type]
+    );
+  };
+
+  // Toggle skin tone selection
+  const toggleSkinTone = (tone) => {
+    setSelectedSkinTones(prev =>
+      prev.includes(tone)
+        ? prev.filter(t => t !== tone)
+        : [...prev, tone]
+    );
+  };
+
+  // Toggle age range selection
+  const toggleAgeRange = (range) => {
+    setSelectedAgeRanges(prev =>
+      prev.includes(range)
+        ? prev.filter(r => r !== range)
+        : [...prev, range]
+    );
+  };
+
+  // Toggle service selection
+  const toggleService = (service) => {
+    setSelectedServices(prev =>
+      prev.includes(service)
+        ? prev.filter(s => s !== service)
+        : [...prev, service]
+    );
+  };
+
   // Clear all filters
   const clearAllFilters = () => {
     setSearchQuery('');
@@ -270,11 +329,16 @@ export default function ExplorePage() {
     setPriceRange(PRICE_RANGES[0]);
     setShowOutcallOnly(false);
     setShowFavoritesOnly(false);
+    setSelectedBodyTypes([]);
+    setSelectedSkinTones([]);
+    setSelectedAgeRanges([]);
+    setSelectedServices([]);
   };
 
   // Check if any filters are active
   const hasActiveFilters = searchQuery || showOnlineOnly || showAvailableOnly ||
-    selectedExtras.length > 0 || priceRange !== PRICE_RANGES[0] || showOutcallOnly || showFavoritesOnly;
+    selectedExtras.length > 0 || priceRange !== PRICE_RANGES[0] || showOutcallOnly || showFavoritesOnly ||
+    selectedBodyTypes.length > 0 || selectedSkinTones.length > 0 || selectedAgeRanges.length > 0 || selectedServices.length > 0;
 
   // Normalize location for filtering
   const normalizedLocation = location?.toLowerCase() || 'all';
@@ -332,6 +396,41 @@ export default function ExplorePage() {
     filteredModels = filteredModels.filter(m => favorites.includes(m.username));
   }
 
+  // Filter by body type
+  if (selectedBodyTypes.length > 0) {
+    filteredModels = filteredModels.filter(m =>
+      m.bodyType && selectedBodyTypes.some(bt => bt.toLowerCase() === m.bodyType.toLowerCase())
+    );
+  }
+
+  // Filter by skin tone
+  if (selectedSkinTones.length > 0) {
+    filteredModels = filteredModels.filter(m =>
+      m.skinTone && selectedSkinTones.some(st => st.toLowerCase() === m.skinTone.toLowerCase())
+    );
+  }
+
+  // Filter by age range
+  if (selectedAgeRanges.length > 0) {
+    filteredModels = filteredModels.filter(m => {
+      if (!m.age) return false;
+      return selectedAgeRanges.some(range => {
+        const ageRange = AGE_RANGES.find(ar => ar.label === range);
+        return ageRange && m.age >= ageRange.min && m.age <= ageRange.max;
+      });
+    });
+  }
+
+  // Filter by services
+  if (selectedServices.length > 0) {
+    filteredModels = filteredModels.filter(m => {
+      const modelServices = m.services || [];
+      return selectedServices.some(service =>
+        modelServices.some(ms => ms.toLowerCase().includes(service.toLowerCase()))
+      );
+    });
+  }
+
   // Sort models
   switch (sortBy) {
     case 'rating':
@@ -348,6 +447,14 @@ export default function ExplorePage() {
       break;
     case 'meetups':
       filteredModels = [...filteredModels].sort((a, b) => b.verifiedMeetups - a.verifiedMeetups);
+      break;
+    case 'match':
+      // Sort by match percentage (highest first), then by rating for ties
+      filteredModels = [...filteredModels].sort((a, b) => {
+        const matchDiff = (b.matchPercentage || 0) - (a.matchPercentage || 0);
+        if (matchDiff !== 0) return matchDiff;
+        return b.rating - a.rating;
+      });
       break;
     default:
       // 'recommended' - sort by combination of success rate and meetups
@@ -426,6 +533,7 @@ export default function ExplorePage() {
                 className="appearance-none bg-white/10 border border-white/10 rounded-xl px-4 py-2 pr-8 text-white text-sm focus:border-pink-500 focus:outline-none cursor-pointer"
               >
                 <option value="recommended">Recommended</option>
+                {isClient && clientPreferences && <option value="match">Best Match</option>}
                 <option value="rating">Highest Rated</option>
                 <option value="success">Success Rate</option>
                 <option value="meetups">Most Meetups</option>
@@ -492,6 +600,90 @@ export default function ExplorePage() {
           {/* Expanded filters panel */}
           {showFilters && (
             <div className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-4">
+              {/* Body Type */}
+              <div>
+                <h4 className="text-white/70 text-xs font-medium mb-2 uppercase tracking-wide">Body Type</h4>
+                <div className="flex flex-wrap gap-2">
+                  {BODY_TYPES.map((type) => (
+                    <button
+                      key={type}
+                      onClick={() => toggleBodyType(type)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
+                        selectedBodyTypes.includes(type)
+                          ? 'bg-pink-500 text-white'
+                          : 'bg-white/10 text-white/70 hover:bg-white/20'
+                      }`}
+                    >
+                      {type}
+                      {selectedBodyTypes.includes(type) && <X size={12} />}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Skin Tone */}
+              <div>
+                <h4 className="text-white/70 text-xs font-medium mb-2 uppercase tracking-wide">Skin Tone</h4>
+                <div className="flex flex-wrap gap-2">
+                  {SKIN_TONES.map((tone) => (
+                    <button
+                      key={tone}
+                      onClick={() => toggleSkinTone(tone)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
+                        selectedSkinTones.includes(tone)
+                          ? 'bg-amber-500 text-white'
+                          : 'bg-white/10 text-white/70 hover:bg-white/20'
+                      }`}
+                    >
+                      {tone}
+                      {selectedSkinTones.includes(tone) && <X size={12} />}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Age Range */}
+              <div>
+                <h4 className="text-white/70 text-xs font-medium mb-2 uppercase tracking-wide">Age Range</h4>
+                <div className="flex flex-wrap gap-2">
+                  {AGE_RANGES.map((range) => (
+                    <button
+                      key={range.label}
+                      onClick={() => toggleAgeRange(range.label)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
+                        selectedAgeRanges.includes(range.label)
+                          ? 'bg-blue-500 text-white'
+                          : 'bg-white/10 text-white/70 hover:bg-white/20'
+                      }`}
+                    >
+                      {range.label}
+                      {selectedAgeRanges.includes(range.label) && <X size={12} />}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Services */}
+              <div>
+                <h4 className="text-white/70 text-xs font-medium mb-2 uppercase tracking-wide">Services</h4>
+                <div className="flex flex-wrap gap-2">
+                  {SERVICES.map((service) => (
+                    <button
+                      key={service}
+                      onClick={() => toggleService(service)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
+                        selectedServices.includes(service)
+                          ? 'bg-purple-500 text-white'
+                          : 'bg-white/10 text-white/70 hover:bg-white/20'
+                      }`}
+                    >
+                      {service}
+                      {selectedServices.includes(service) && <X size={12} />}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Price range */}
               <div>
                 <h4 className="text-white/70 text-xs font-medium mb-2 uppercase tracking-wide">Price Range (per hour)</h4>
@@ -502,7 +694,7 @@ export default function ExplorePage() {
                       onClick={() => setPriceRange(range)}
                       className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                         priceRange === range
-                          ? 'bg-pink-500 text-white'
+                          ? 'bg-green-500 text-white'
                           : 'bg-white/10 text-white/70 hover:bg-white/20'
                       }`}
                     >
@@ -512,9 +704,9 @@ export default function ExplorePage() {
                 </div>
               </div>
 
-              {/* Extras / Services */}
+              {/* Extras */}
               <div>
-                <h4 className="text-white/70 text-xs font-medium mb-2 uppercase tracking-wide">Services & Extras</h4>
+                <h4 className="text-white/70 text-xs font-medium mb-2 uppercase tracking-wide">Extras</h4>
                 <div className="flex flex-wrap gap-2">
                   {ALL_EXTRAS.map((extra) => (
                     <button
@@ -522,7 +714,7 @@ export default function ExplorePage() {
                       onClick={() => toggleExtra(extra)}
                       className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
                         selectedExtras.includes(extra)
-                          ? 'bg-purple-500 text-white'
+                          ? 'bg-violet-500 text-white'
                           : 'bg-white/10 text-white/70 hover:bg-white/20'
                       }`}
                     >
@@ -567,8 +759,44 @@ export default function ExplorePage() {
           {!showFilters && hasActiveFilters && (
             <div className="flex flex-wrap gap-2 items-center">
               <span className="text-white/40 text-xs">Active:</span>
+              {/* Body type filters */}
+              {selectedBodyTypes.map(type => (
+                <span key={`body-${type}`} className="px-2 py-1 bg-pink-500/20 border border-pink-500/30 rounded-lg text-pink-300 text-xs flex items-center gap-1">
+                  {type}
+                  <button onClick={() => toggleBodyType(type)} className="hover:text-white">
+                    <X size={12} />
+                  </button>
+                </span>
+              ))}
+              {/* Skin tone filters */}
+              {selectedSkinTones.map(tone => (
+                <span key={`skin-${tone}`} className="px-2 py-1 bg-amber-500/20 border border-amber-500/30 rounded-lg text-amber-300 text-xs flex items-center gap-1">
+                  {tone}
+                  <button onClick={() => toggleSkinTone(tone)} className="hover:text-white">
+                    <X size={12} />
+                  </button>
+                </span>
+              ))}
+              {/* Age range filters */}
+              {selectedAgeRanges.map(range => (
+                <span key={`age-${range}`} className="px-2 py-1 bg-blue-500/20 border border-blue-500/30 rounded-lg text-blue-300 text-xs flex items-center gap-1">
+                  {range}
+                  <button onClick={() => toggleAgeRange(range)} className="hover:text-white">
+                    <X size={12} />
+                  </button>
+                </span>
+              ))}
+              {/* Services filters */}
+              {selectedServices.map(service => (
+                <span key={`service-${service}`} className="px-2 py-1 bg-purple-500/20 border border-purple-500/30 rounded-lg text-purple-300 text-xs flex items-center gap-1">
+                  {service}
+                  <button onClick={() => toggleService(service)} className="hover:text-white">
+                    <X size={12} />
+                  </button>
+                </span>
+              ))}
               {priceRange !== PRICE_RANGES[0] && (
-                <span className="px-2 py-1 bg-pink-500/20 border border-pink-500/30 rounded-lg text-pink-300 text-xs flex items-center gap-1">
+                <span className="px-2 py-1 bg-green-500/20 border border-green-500/30 rounded-lg text-green-300 text-xs flex items-center gap-1">
                   {priceRange.label}
                   <button onClick={() => setPriceRange(PRICE_RANGES[0])} className="hover:text-white">
                     <X size={12} />
@@ -576,7 +804,7 @@ export default function ExplorePage() {
                 </span>
               )}
               {selectedExtras.map(extra => (
-                <span key={extra} className="px-2 py-1 bg-purple-500/20 border border-purple-500/30 rounded-lg text-purple-300 text-xs flex items-center gap-1">
+                <span key={extra} className="px-2 py-1 bg-violet-500/20 border border-violet-500/30 rounded-lg text-violet-300 text-xs flex items-center gap-1">
                   {extra}
                   <button onClick={() => toggleExtra(extra)} className="hover:text-white">
                     <X size={12} />
