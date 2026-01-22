@@ -13,6 +13,8 @@ import {
 import { PLATFORM_CONFIG, getModelByUsername, MODELS } from './data/models';
 import useFavorites from './hooks/useFavorites';
 import { useAuth } from './context/AuthContext';
+import { creatorService } from './services/creatorService';
+import { storageService } from './services/storageService';
 
 // ═══════════════════════════════════════════════════════════
 // DEFAULT MODEL (fallback)
@@ -773,6 +775,7 @@ const MeetupModal = ({ isOpen, onClose, clientState, onNeedsTrustDeposit, modelC
     // Save the meetup booking immediately when confirmed
     if (onMeetupBooked) {
       onMeetupBooked({
+        creatorId: modelConfig.creatorId, // Important for database creators
         creatorUsername: modelConfig.profile.username,
         creatorName: modelConfig.profile.name,
         date: formData.date,
@@ -782,6 +785,7 @@ const MeetupModal = ({ isOpen, onClose, clientState, onNeedsTrustDeposit, modelC
         duration: formData.duration,
         specialRequests: formData.specialRequests,
         totalPrice: getMeetupPrice(),
+        depositAmount: Math.round(getMeetupPrice() * 0.5), // 50% deposit
         clientCode: clientCode,
       });
     }
@@ -1594,10 +1598,111 @@ export default function App() {
 
   // Load model data based on URL param or default
   const currentUsername = username || DEFAULT_USERNAME;
-  const modelData = getModelByUsername(currentUsername);
+  const mockModelData = getModelByUsername(currentUsername);
+
+  // State for database creator data
+  const [dbCreator, setDbCreator] = useState(null);
+  const [creatorLoading, setCreatorLoading] = useState(false);
+  const [creatorNotFound, setCreatorNotFound] = useState(false);
+
+  // Fetch creator from database if not in mock data
+  useEffect(() => {
+    const fetchCreator = async () => {
+      if (mockModelData || !currentUsername || currentUsername === DEFAULT_USERNAME) {
+        return; // Use mock data
+      }
+
+      setCreatorLoading(true);
+      setCreatorNotFound(false);
+
+      const result = await creatorService.getCreatorByUsername(currentUsername);
+
+      if (result.success && result.creator?.creators) {
+        setDbCreator(result.creator);
+      } else {
+        setCreatorNotFound(true);
+      }
+
+      setCreatorLoading(false);
+    };
+
+    fetchCreator();
+  }, [currentUsername, mockModelData]);
+
+  // Transform database creator to CONFIG format
+  const transformDbCreatorToConfig = (dbData) => {
+    if (!dbData || !dbData.creators) return null;
+
+    const creator = dbData.creators;
+    const photos = creator.creator_photos || [];
+    const previewPhotos = photos.filter(p => p.is_preview);
+
+    return {
+      platform: PLATFORM_CONFIG,
+      creatorId: creator.id, // Important for bookings!
+      profile: {
+        name: dbData.name,
+        username: dbData.username,
+        tagline: creator.tagline || '',
+        bio: creator.bio || '',
+        isVerified: creator.is_verified || creator.is_video_verified,
+        isStudioVerified: creator.is_studio_verified,
+        location: creator.location || 'Lagos',
+        areas: creator.creator_areas?.map(a => a.area) || [],
+      },
+      stats: {
+        rating: parseFloat(creator.rating) || 4.8,
+        reviews: creator.reviews_count || 0,
+        verifiedMeetups: creator.verified_meetups || 0,
+        meetupSuccessRate: parseFloat(creator.meetup_success_rate) || 98,
+        profileViews: creator.profile_views || 0,
+      },
+      contact: {
+        phone: dbData.phone,
+        whatsapp: dbData.phone?.replace(/^0/, '234'),
+      },
+      pricing: creator.pricing || {
+        unlockContact: 5000,
+        unlockPhotos: 3000,
+        meetupIncall: { 1: 50000, 2: 80000, overnight: 150000 },
+        meetupOutcall: null,
+      },
+      extras: creator.creator_extras?.map(e => ({
+        id: e.id,
+        name: e.name,
+        price: parseFloat(e.price),
+      })) || [],
+      boundaries: creator.creator_boundaries?.map(b => b.boundary) || [],
+      photos: {
+        total: photos.length,
+        previewCount: previewPhotos.length,
+        previewImages: previewPhotos.map(p => storageService.getPhotoUrl(p.storage_path)),
+        lockedImages: photos.filter(p => !p.is_preview).map(p => storageService.getPhotoUrl(p.storage_path)),
+      },
+      schedule: creator.schedule,
+      reviews: [],
+      blacklistedClients: [],
+      freeMessages: 3,
+    };
+  };
+
+  // Use mock data OR database data
+  const modelData = mockModelData || (dbCreator ? transformDbCreatorToConfig(dbCreator) : null);
+
+  // Show loading state while fetching from database
+  if (creatorLoading && ageVerified) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-pink-950 via-rose-950 to-fuchsia-950 flex items-center justify-center p-4">
+        <div className="text-center">
+          <div className="w-16 h-16 mx-auto mb-4 border-4 border-pink-500 border-t-transparent rounded-full animate-spin" />
+          <p className="text-white/60">Loading profile...</p>
+        </div>
+      </div>
+    );
+  }
 
   // If model not found, show 404 or redirect
-  if (!modelData && ageVerified) {
+  if ((creatorNotFound || (!modelData && !creatorLoading)) && ageVerified) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-pink-950 via-rose-950 to-fuchsia-950 flex items-center justify-center p-4">
         <div className="text-center">
@@ -1617,6 +1722,7 @@ export default function App() {
   // Build CONFIG from model data (for backwards compatibility with existing components)
   const CONFIG = modelData ? {
     platform: PLATFORM_CONFIG,
+    creatorId: modelData.creatorId || null, // Include creatorId for bookings
     profile: modelData.profile,
     stats: modelData.stats,
     creatorPayments: modelData.creatorPayments,
@@ -1628,6 +1734,7 @@ export default function App() {
     reviews: modelData.reviews,
     blacklistedClients: modelData.blacklistedClients,
     freeMessages: modelData.freeMessages,
+    schedule: modelData.schedule,
   } : null;
 
   const profile = CONFIG?.profile;

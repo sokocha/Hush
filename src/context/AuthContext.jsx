@@ -397,6 +397,22 @@ export const AuthProvider = ({ children }) => {
     async (meetupData) => {
       if (!user?.id || user.userType !== 'client') return;
 
+      // If no creatorId, this is a mock creator - store locally only
+      if (!meetupData.creatorId) {
+        const localBooking = {
+          id: `local-${Date.now()}`,
+          ...meetupData,
+          status: 'pending',
+          created_at: new Date().toISOString(),
+        };
+        setUser((prev) => ({
+          ...prev,
+          meetups: [...(prev.meetups || []), localBooking],
+        }));
+        return { success: true, booking: localBooking };
+      }
+
+      // For real database creators, save to database
       const result = await bookingService.createBooking({
         clientId: user.id,
         ...meetupData,
