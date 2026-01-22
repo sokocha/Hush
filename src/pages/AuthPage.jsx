@@ -498,7 +498,7 @@ const ClientBasicInfoStep = ({ data, setData, onSubmit, onBack, checkUsername })
     return regex.test(username);
   };
 
-  // Check username availability
+  // Check username availability - always use database if checkUsername is available
   const checkUsernameAvailability = async (username) => {
     if (!validateUsername(username)) {
       setUsernameAvailable(null);
@@ -506,12 +506,12 @@ const ClientBasicInfoStep = ({ data, setData, onSubmit, onBack, checkUsername })
     }
     setUsernameChecking(true);
 
-    if (USE_REAL_BACKEND && checkUsername) {
+    if (checkUsername) {
       const result = await checkUsername(username);
       setUsernameAvailable(result.success ? result.available : null);
       setUsernameChecking(false);
     } else {
-      // Mock mode for development
+      // Fallback mock mode
       setTimeout(() => {
         const reserved = ['admin', 'hush', 'support', 'help', 'system'];
         setUsernameAvailable(!reserved.includes(username.toLowerCase()));
@@ -1625,39 +1625,19 @@ export default function AuthPage() {
 
     const fullPhone = `+234${phone}`;
 
-    if (USE_REAL_BACKEND) {
-      const result = await registerClient({
-        phone: fullPhone,
-        username: clientData.username,
-        name: clientData.name,
-      });
+    // Always use real database registration (even with mock OTP)
+    const result = await registerClient({
+      phone: fullPhone,
+      username: clientData.username,
+      name: clientData.name,
+    });
 
-      setIsLoading(false);
+    setIsLoading(false);
 
-      if (result.success) {
-        navigate('/explore/all');
-      } else {
-        setAuthError(result.error || 'Failed to create account');
-      }
+    if (result.success) {
+      navigate('/explore/all');
     } else {
-      // Mock mode for development
-      setTimeout(() => {
-        registerClient({
-          phone: fullPhone,
-          username: clientData.username,
-          name: clientData.name,
-          preferences: {
-            location: clientData.preferredLocation,
-            bodyTypes: clientData.bodyTypePreferences,
-            skinTones: clientData.skinTonePreferences,
-            ages: clientData.agePreferences,
-            services: clientData.servicePreferences,
-          },
-          bio: clientData.bio,
-        });
-        setIsLoading(false);
-        navigate('/explore/all');
-      }, 500);
+      setAuthError(result.error || 'Failed to create account');
     }
   };
 
@@ -1676,47 +1656,23 @@ export default function AuthPage() {
 
     const fullPhone = `+234${phone}`;
 
-    if (USE_REAL_BACKEND) {
-      const result = await registerCreator({
-        phone: fullPhone,
-        name: creatorData.name,
-        username: creatorData.username,
-        location: creatorData.location,
-        areas: creatorData.areas,
-        tagline: creatorData.tagline,
-        bio: creatorData.bio,
-      });
+    // Always use real database registration (even with mock OTP)
+    const result = await registerCreator({
+      phone: fullPhone,
+      name: creatorData.name,
+      username: creatorData.username,
+      location: creatorData.location,
+      areas: creatorData.areas,
+      tagline: creatorData.tagline,
+      bio: creatorData.bio,
+    });
 
-      setIsLoading(false);
+    setIsLoading(false);
 
-      if (result.success) {
-        navigate('/creator-dashboard');
-      } else {
-        setAuthError(result.error || 'Failed to create account');
-      }
+    if (result.success) {
+      navigate('/creator-dashboard');
     } else {
-      // Mock mode for development
-      setTimeout(() => {
-        registerCreator({
-          phone: fullPhone,
-          name: creatorData.name,
-          username: creatorData.username,
-          tagline: creatorData.tagline,
-          location: creatorData.location,
-          areas: creatorData.areas,
-          physicalAttributes: {
-            bodyType: creatorData.bodyType,
-            skinTone: creatorData.skinTone,
-            height: creatorData.height,
-            age: creatorData.age,
-          },
-          services: creatorData.services,
-          boundaries: creatorData.boundaries,
-          bio: creatorData.bio,
-        });
-        setIsLoading(false);
-        navigate('/creator-dashboard');
-      }, 500);
+      setAuthError(result.error || 'Failed to create account');
     }
   };
 
