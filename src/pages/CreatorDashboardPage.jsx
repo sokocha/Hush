@@ -189,9 +189,12 @@ const Modal = ({ isOpen, onClose, title, children, size = "md" }) => {
 };
 
 // Pricing Input Component
-const PricingInput = ({ label, value, onChange, placeholder, hint }) => (
+const PricingInput = ({ label, value, onChange, placeholder, hint, required = false, showError = false }) => (
   <div className="space-y-1">
-    <label className="text-white/70 text-sm">{label}</label>
+    <label className="text-white/70 text-sm flex items-center gap-1">
+      {label}
+      {required && <span className="text-red-400">*</span>}
+    </label>
     <div className="relative">
       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40">₦</span>
       <input
@@ -200,7 +203,11 @@ const PricingInput = ({ label, value, onChange, placeholder, hint }) => (
         value={value ? value.toLocaleString() : ''}
         onChange={(e) => onChange(parseNairaInput(e.target.value))}
         placeholder={placeholder}
-        className="w-full bg-white/5 border border-white/10 rounded-xl pl-8 pr-4 py-3 text-white placeholder-white/40 focus:border-purple-500 focus:outline-none"
+        className={`w-full bg-white/5 border rounded-xl pl-8 pr-4 py-3 text-white placeholder-white/40 focus:border-purple-500 focus:outline-none transition-colors ${
+          showError && required && (!value || value <= 0)
+            ? 'border-red-500/50 bg-red-500/5'
+            : 'border-white/10'
+        }`}
       />
     </div>
     {hint && <p className="text-white/40 text-xs">{hint}</p>}
@@ -562,11 +569,31 @@ export default function CreatorDashboardPage() {
     depositPercent: 50,
     enableOutcall: true,
   });
+  const [showPricingErrors, setShowPricingErrors] = useState(false);
 
   // Check if profile is complete (has photos and pricing set)
   const hasPhotos = user?.photos?.length > 0;
   const hasPricing = user?.pricing?.meetupIncall?.[1] > 0;
   const isProfileComplete = hasPhotos && hasPricing;
+
+  // Check if all required pricing fields are filled in the pricing form
+  const isPricingFormValid =
+    pricingData.unlockContact > 0 &&
+    pricingData.unlockPhotos > 0 &&
+    pricingData.meetupIncall1 > 0 &&
+    pricingData.meetupIncall2 > 0 &&
+    pricingData.meetupIncallOvernight > 0;
+
+  // Get list of missing required pricing fields
+  const getMissingPricingFields = () => {
+    const missing = [];
+    if (!pricingData.unlockContact || pricingData.unlockContact <= 0) missing.push('Contact Unlock');
+    if (!pricingData.unlockPhotos || pricingData.unlockPhotos <= 0) missing.push('Photos Unlock');
+    if (!pricingData.meetupIncall1 || pricingData.meetupIncall1 <= 0) missing.push('Incall 1hr');
+    if (!pricingData.meetupIncall2 || pricingData.meetupIncall2 <= 0) missing.push('Incall 2hr');
+    if (!pricingData.meetupIncallOvernight || pricingData.meetupIncallOvernight <= 0) missing.push('Incall Overnight');
+    return missing;
+  };
 
   // Show onboarding for new registrations or incomplete profiles
   useEffect(() => {
@@ -872,8 +899,13 @@ export default function CreatorDashboardPage() {
   const completedSteps = verificationSteps.filter(s => s.completed).length;
   const verificationProgress = (completedSteps / verificationSteps.length) * 100;
 
-  // Check if pricing is configured
-  const hasPricingSet = user.pricing?.meetupIncall?.[1] > 0;
+  // Check if all required pricing is configured
+  const hasPricingSet =
+    user.pricing?.unlockContact > 0 &&
+    user.pricing?.unlockPhotos > 0 &&
+    user.pricing?.meetupIncall?.[1] > 0 &&
+    user.pricing?.meetupIncall?.[2] > 0 &&
+    user.pricing?.meetupIncall?.overnight > 0;
 
   const memberSince = user.registeredAt
     ? new Date(user.registeredAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
@@ -2068,11 +2100,16 @@ export default function CreatorDashboardPage() {
       {/* Pricing Configuration Modal */}
       <Modal
         isOpen={showPricingModal}
-        onClose={() => setShowPricingModal(false)}
+        onClose={() => { setShowPricingModal(false); setShowPricingErrors(false); }}
         title="Set Your Pricing"
         size="lg"
       >
         <div className="space-y-6">
+          {/* Required fields note */}
+          <p className="text-white/50 text-sm">
+            Fields marked with <span className="text-red-400">*</span> are required
+          </p>
+
           {/* Unlock Fees */}
           <div className="space-y-4">
             <h4 className="text-white font-medium flex items-center gap-2">
@@ -2086,6 +2123,8 @@ export default function CreatorDashboardPage() {
                 onChange={(v) => setPricingData(prev => ({ ...prev, unlockContact: v }))}
                 placeholder="1,000"
                 hint="To view your WhatsApp"
+                required
+                showError={showPricingErrors}
               />
               <PricingInput
                 label="All Photos"
@@ -2093,6 +2132,8 @@ export default function CreatorDashboardPage() {
                 onChange={(v) => setPricingData(prev => ({ ...prev, unlockPhotos: v }))}
                 placeholder="5,000"
                 hint="To unlock locked photos"
+                required
+                showError={showPricingErrors}
               />
             </div>
           </div>
@@ -2110,18 +2151,24 @@ export default function CreatorDashboardPage() {
                 value={pricingData.meetupIncall1}
                 onChange={(v) => setPricingData(prev => ({ ...prev, meetupIncall1: v }))}
                 placeholder="50,000"
+                required
+                showError={showPricingErrors}
               />
               <PricingInput
                 label="2 Hours"
                 value={pricingData.meetupIncall2}
                 onChange={(v) => setPricingData(prev => ({ ...prev, meetupIncall2: v }))}
                 placeholder="80,000"
+                required
+                showError={showPricingErrors}
               />
               <PricingInput
                 label="Overnight"
                 value={pricingData.meetupIncallOvernight}
                 onChange={(v) => setPricingData(prev => ({ ...prev, meetupIncallOvernight: v }))}
                 placeholder="150,000"
+                required
+                showError={showPricingErrors}
               />
             </div>
           </div>
@@ -2192,11 +2239,30 @@ export default function CreatorDashboardPage() {
             </div>
           </div>
 
+          {/* Validation error message */}
+          {showPricingErrors && !isPricingFormValid && (
+            <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl">
+              <p className="text-red-400 text-sm font-medium mb-1">Please fill in all required fields:</p>
+              <p className="text-red-300/70 text-xs">{getMissingPricingFields().join(', ')}</p>
+            </div>
+          )}
+
           <button
-            onClick={handleSavePricing}
-            className="w-full py-4 bg-purple-500 hover:bg-purple-600 rounded-xl text-white font-semibold transition-all"
+            onClick={() => {
+              if (isPricingFormValid) {
+                handleSavePricing();
+                setShowPricingErrors(false);
+              } else {
+                setShowPricingErrors(true);
+              }
+            }}
+            className={`w-full py-4 rounded-xl text-white font-semibold transition-all ${
+              isPricingFormValid
+                ? 'bg-purple-500 hover:bg-purple-600'
+                : 'bg-purple-500/50 hover:bg-purple-500/70'
+            }`}
           >
-            Save Pricing
+            {isPricingFormValid ? 'Save Pricing' : 'Complete Required Fields'}
           </button>
         </div>
       </Modal>
