@@ -211,6 +211,43 @@ export const authService = {
   },
 
   /**
+   * Get user by phone number (for login)
+   */
+  async getUserByPhone(phone) {
+    try {
+      const { data: user, error } = await supabase
+        .from('users')
+        .select(
+          `
+          *,
+          clients(*),
+          creators(
+            *,
+            creator_areas(area),
+            creator_photos(id, storage_path, is_preview, display_order),
+            creator_extras(id, name, price),
+            creator_boundaries(id, boundary)
+          )
+        `
+        )
+        .eq('phone', phone)
+        .single();
+
+      if (error && error.code === 'PGRST116') {
+        // No rows found = user doesn't exist
+        return { success: true, exists: false, user: null };
+      }
+
+      if (error) throw error;
+
+      return { success: true, exists: true, user };
+    } catch (error) {
+      console.error('Error getting user by phone:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  /**
    * Check if username is available
    */
   async checkUsernameAvailable(username) {

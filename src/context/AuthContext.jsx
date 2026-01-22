@@ -237,6 +237,17 @@ export const AuthProvider = ({ children }) => {
     return authService.checkUsernameAvailable(username);
   }, []);
 
+  // Get user by phone (for login)
+  const getUserByPhone = useCallback(async (phone) => {
+    const result = await authService.getUserByPhone(phone);
+    if (result.success && result.exists && result.user) {
+      const transformedUser = transformUserData(result.user);
+      setUser(transformedUser);
+      return { success: true, exists: true, user: transformedUser };
+    }
+    return result;
+  }, []);
+
   // Register as client
   const registerClient = useCallback(async (data) => {
     const result = await authService.registerClient(data);
@@ -541,6 +552,7 @@ export const AuthProvider = ({ children }) => {
     requestOTP,
     verifyOTP,
     checkUsername,
+    getUserByPhone,
     registerClient,
     registerCreator,
     logout,

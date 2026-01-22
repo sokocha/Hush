@@ -1409,6 +1409,7 @@ export default function AuthPage() {
     requestOTP,
     verifyOTP,
     checkUsername,
+    getUserByPhone,
   } = useAuth();
 
   // Step: age, select, login-phone, login-otp, phone, otp, profile1, profile2, profile3
@@ -1528,21 +1529,21 @@ export default function AuthPage() {
       }
     } else {
       // Mock mode - Edge Functions not deployed yet
-      setTimeout(() => {
-        const stored = localStorage.getItem('hush_auth');
-        if (stored) {
-          const userData = JSON.parse(stored);
-          setIsLoading(false);
-          if (userData.userType === 'creator') {
-            navigate('/creator-dashboard');
-          } else {
-            navigate('/explore/all');
-          }
+      // Check database for existing user
+      const result = await getUserByPhone(fullPhone);
+      setIsLoading(false);
+
+      if (result.success && result.exists && result.user) {
+        // Existing user - redirect to appropriate page
+        if (result.user.userType === 'creator') {
+          navigate('/creator-dashboard');
         } else {
-          setIsLoading(false);
-          setStep('select');
+          navigate('/explore/all');
         }
-      }, 1000);
+      } else {
+        // New user - go to registration
+        setStep('select');
+      }
     }
   };
 
