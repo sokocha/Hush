@@ -9,6 +9,11 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { PLATFORM_CONFIG } from '../data/models';
 
+// Check if we're using real Supabase backend
+const USE_REAL_BACKEND = Boolean(
+  import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY
+);
+
 const LOCATIONS = [
   { name: "Lagos", areas: ["Lekki", "VI", "Ikoyi", "Ajah", "Ikeja", "GRA", "Maryland"] },
   { name: "Abuja", areas: ["Maitama", "Wuse", "Asokoro", "Garki", "Jabi"] },
@@ -481,7 +486,7 @@ const OTPStep = ({ phone, otp, setOtp, onSubmit, onResend, onBack, isLoading, us
 // ═══════════════════════════════════════════════════════════
 
 // Client Step 1: Basic info
-const ClientBasicInfoStep = ({ data, setData, onSubmit, onBack }) => {
+const ClientBasicInfoStep = ({ data, setData, onSubmit, onBack, checkUsername }) => {
   const [errors, setErrors] = useState({});
   const [usernameChecking, setUsernameChecking] = useState(false);
   const [usernameAvailable, setUsernameAvailable] = useState(null);
@@ -493,21 +498,26 @@ const ClientBasicInfoStep = ({ data, setData, onSubmit, onBack }) => {
     return regex.test(username);
   };
 
-  // Simulate username availability check (in real app, this would be an API call)
-  const checkUsernameAvailability = (username) => {
+  // Check username availability
+  const checkUsernameAvailability = async (username) => {
     if (!validateUsername(username)) {
       setUsernameAvailable(null);
       return;
     }
     setUsernameChecking(true);
-    // Simulate API delay
-    setTimeout(() => {
-      // In production, check against database
-      // For now, just check it's not a reserved word
-      const reserved = ['admin', 'hush', 'support', 'help', 'system'];
-      setUsernameAvailable(!reserved.includes(username.toLowerCase()));
+
+    if (USE_REAL_BACKEND && checkUsername) {
+      const result = await checkUsername(username);
+      setUsernameAvailable(result.success ? result.available : null);
       setUsernameChecking(false);
-    }, 300);
+    } else {
+      // Mock mode for development
+      setTimeout(() => {
+        const reserved = ['admin', 'hush', 'support', 'help', 'system'];
+        setUsernameAvailable(!reserved.includes(username.toLowerCase()));
+        setUsernameChecking(false);
+      }, 300);
+    }
   };
 
   const handleUsernameChange = (value) => {
@@ -1388,7 +1398,14 @@ const CreatorServicesStep = ({ data, setData, onSubmit, onBack, isLoading }) => 
 
 export default function AuthPage() {
   const navigate = useNavigate();
-  const { registerClient, registerCreator, isAuthenticated } = useAuth();
+  const {
+    registerClient,
+    registerCreator,
+    isAuthenticated,
+    requestOTP,
+    verifyOTP,
+    checkUsername,
+  } = useAuth();
 
   // Step: age, select, login-phone, login-otp, phone, otp, profile1, profile2, profile3
   const [step, setStep] = useState('age');
@@ -1397,6 +1414,7 @@ export default function AuthPage() {
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [authError, setAuthError] = useState('');
 
   // Client data
   const [clientData, setClientData] = useState({
@@ -1455,55 +1473,141 @@ export default function AuthPage() {
     setStep('login-phone');
   };
 
-  const handleLoginPhoneSubmit = () => {
+  const handleLoginPhoneSubmit = async () => {
     setIsLoading(true);
-    setTimeout(() => {
+    setAuthError('');
+
+    const fullPhone = `+234${phone}`;
+
+    if (USE_REAL_BACKEND) {
+      const result = await requestOTP(fullPhone);
       setIsLoading(false);
-      setStep('login-otp');
-    }, 1000);
+
+      if (result.success) {
+        setStep('login-otp');
+      } else {
+        setAuthError(result.error || 'Failed to send verification code');
+      }
+    } else {
+      // Mock mode for development
+      setTimeout(() => {
+        setIsLoading(false);
+        setStep('login-otp');
+      }, 1000);
+    }
   };
 
-  const handleLoginOTPSubmit = () => {
+  const handleLoginOTPSubmit = async () => {
     setIsLoading(true);
-    // In a real app, this would verify OTP and load user data from backend
-    // For now, we'll simulate a successful login by checking localStorage
-    setTimeout(() => {
-      const stored = localStorage.getItem('hush_auth');
-      if (stored) {
-        const userData = JSON.parse(stored);
-        // User data already in localStorage, just redirect
-        setIsLoading(false);
-        if (userData.userType === 'creator') {
-          navigate('/creator-dashboard');
+    setAuthError('');
+
+    const fullPhone = `+234${phone}`;
+
+    if (USE_REAL_BACKEND) {
+      const result = await verifyOTP(fullPhone, otp);
+      setIsLoading(false);
+
+      if (result.success) {
+        if (result.isNewUser) {
+          // New user - go to registration
+          setStep('select');
         } else {
-          navigate('/explore/all');
+          // Existing user - redirect to appropriate page
+          if (result.user?.user_type === 'creator') {
+            navigate('/creator-dashboard');
+          } else {
+            navigate('/explore/all');
+          }
         }
       } else {
-        // No account found - redirect to registration
-        setIsLoading(false);
-        setStep('select');
+        setAuthError(result.error || 'Invalid verification code');
       }
-    }, 1000);
+    } else {
+      // Mock mode for development
+      setTimeout(() => {
+        const stored = localStorage.getItem('hush_auth');
+        if (stored) {
+          const userData = JSON.parse(stored);
+          setIsLoading(false);
+          if (userData.userType === 'creator') {
+            navigate('/creator-dashboard');
+          } else {
+            navigate('/explore/all');
+          }
+        } else {
+          setIsLoading(false);
+          setStep('select');
+        }
+      }, 1000);
+    }
   };
 
-  const handlePhoneSubmit = () => {
+  const handlePhoneSubmit = async () => {
     setIsLoading(true);
-    setTimeout(() => {
+    setAuthError('');
+
+    const fullPhone = `+234${phone}`;
+
+    if (USE_REAL_BACKEND) {
+      const result = await requestOTP(fullPhone);
       setIsLoading(false);
-      setStep('otp');
-    }, 1000);
+
+      if (result.success) {
+        setStep('otp');
+      } else {
+        setAuthError(result.error || 'Failed to send verification code');
+      }
+    } else {
+      // Mock mode for development
+      setTimeout(() => {
+        setIsLoading(false);
+        setStep('otp');
+      }, 1000);
+    }
   };
 
-  const handleOTPSubmit = () => {
+  const handleOTPSubmit = async () => {
     setIsLoading(true);
-    setTimeout(() => {
+    setAuthError('');
+
+    const fullPhone = `+234${phone}`;
+
+    if (USE_REAL_BACKEND) {
+      const result = await verifyOTP(fullPhone, otp);
       setIsLoading(false);
-      setStep('profile1');
-    }, 1000);
+
+      if (result.success) {
+        if (result.isNewUser) {
+          // Continue to profile creation
+          setStep('profile1');
+        } else {
+          // User already exists - redirect
+          if (result.user?.user_type === 'creator') {
+            navigate('/creator-dashboard');
+          } else {
+            navigate('/explore/all');
+          }
+        }
+      } else {
+        setAuthError(result.error || 'Invalid verification code');
+      }
+    } else {
+      // Mock mode for development
+      setTimeout(() => {
+        setIsLoading(false);
+        setStep('profile1');
+      }, 1000);
+    }
   };
 
-  const handleResendOTP = () => {
-    console.log('Resending OTP to', phone);
+  const handleResendOTP = async () => {
+    const fullPhone = `+234${phone}`;
+
+    if (USE_REAL_BACKEND) {
+      await requestOTP(fullPhone);
+    }
+
+    console.log('Resending OTP to', fullPhone);
   };
 
   // Client flow handlers
@@ -1515,25 +1619,46 @@ export default function AuthPage() {
     setStep('profile3');
   };
 
-  const handleClientProfileComplete = () => {
+  const handleClientProfileComplete = async () => {
     setIsLoading(true);
-    setTimeout(() => {
-      registerClient({
-        phone,
+    setAuthError('');
+
+    const fullPhone = `+234${phone}`;
+
+    if (USE_REAL_BACKEND) {
+      const result = await registerClient({
+        phone: fullPhone,
         username: clientData.username,
         name: clientData.name,
-        preferences: {
-          location: clientData.preferredLocation,
-          bodyTypes: clientData.bodyTypePreferences,
-          skinTones: clientData.skinTonePreferences,
-          ages: clientData.agePreferences,
-          services: clientData.servicePreferences,
-        },
-        bio: clientData.bio,
       });
+
       setIsLoading(false);
-      navigate('/explore/all');
-    }, 500);
+
+      if (result.success) {
+        navigate('/explore/all');
+      } else {
+        setAuthError(result.error || 'Failed to create account');
+      }
+    } else {
+      // Mock mode for development
+      setTimeout(() => {
+        registerClient({
+          phone: fullPhone,
+          username: clientData.username,
+          name: clientData.name,
+          preferences: {
+            location: clientData.preferredLocation,
+            bodyTypes: clientData.bodyTypePreferences,
+            skinTones: clientData.skinTonePreferences,
+            ages: clientData.agePreferences,
+            services: clientData.servicePreferences,
+          },
+          bio: clientData.bio,
+        });
+        setIsLoading(false);
+        navigate('/explore/all');
+      }, 500);
+    }
   };
 
   // Creator flow handlers
@@ -1545,29 +1670,54 @@ export default function AuthPage() {
     setStep('profile3');
   };
 
-  const handleCreatorProfileComplete = () => {
+  const handleCreatorProfileComplete = async () => {
     setIsLoading(true);
-    setTimeout(() => {
-      registerCreator({
-        phone,
+    setAuthError('');
+
+    const fullPhone = `+234${phone}`;
+
+    if (USE_REAL_BACKEND) {
+      const result = await registerCreator({
+        phone: fullPhone,
         name: creatorData.name,
         username: creatorData.username,
-        tagline: creatorData.tagline,
         location: creatorData.location,
         areas: creatorData.areas,
-        physicalAttributes: {
-          bodyType: creatorData.bodyType,
-          skinTone: creatorData.skinTone,
-          height: creatorData.height,
-          age: creatorData.age,
-        },
-        services: creatorData.services,
-        boundaries: creatorData.boundaries,
+        tagline: creatorData.tagline,
         bio: creatorData.bio,
       });
+
       setIsLoading(false);
-      navigate('/creator-dashboard');
-    }, 500);
+
+      if (result.success) {
+        navigate('/creator-dashboard');
+      } else {
+        setAuthError(result.error || 'Failed to create account');
+      }
+    } else {
+      // Mock mode for development
+      setTimeout(() => {
+        registerCreator({
+          phone: fullPhone,
+          name: creatorData.name,
+          username: creatorData.username,
+          tagline: creatorData.tagline,
+          location: creatorData.location,
+          areas: creatorData.areas,
+          physicalAttributes: {
+            bodyType: creatorData.bodyType,
+            skinTone: creatorData.skinTone,
+            height: creatorData.height,
+            age: creatorData.age,
+          },
+          services: creatorData.services,
+          boundaries: creatorData.boundaries,
+          bio: creatorData.bio,
+        });
+        setIsLoading(false);
+        navigate('/creator-dashboard');
+      }, 500);
+    }
   };
 
   // Calculate steps
@@ -1670,6 +1820,13 @@ export default function AuthPage() {
               />
             )}
 
+            {/* Auth error display */}
+            {authError && (
+              <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-xl text-red-300 text-sm">
+                {authError}
+              </div>
+            )}
+
             {/* Client profile steps */}
             {step === 'profile1' && userType === 'client' && (
               <ClientBasicInfoStep
@@ -1677,6 +1834,7 @@ export default function AuthPage() {
                 setData={setClientData}
                 onSubmit={handleClientProfile1Submit}
                 onBack={() => setStep('otp')}
+                checkUsername={checkUsername}
               />
             )}
 
