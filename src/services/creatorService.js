@@ -291,6 +291,91 @@ export const creatorService = {
   },
 
   /**
+   * Add creator photo
+   */
+  async addCreatorPhoto(creatorId, photoData) {
+    try {
+      const { data, error } = await supabase
+        .from('creator_photos')
+        .insert({
+          creator_id: creatorId,
+          storage_path: photoData.url, // Base64 or URL
+          is_preview: photoData.isPreview || false,
+          display_order: photoData.displayOrder || 0,
+          captured_at: photoData.capturedAt || new Date().toISOString(),
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return { success: true, photo: data };
+    } catch (error) {
+      console.error('Error adding creator photo:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  /**
+   * Update creator photo (preview status, display order)
+   */
+  async updateCreatorPhoto(photoId, updates) {
+    try {
+      const { data, error } = await supabase
+        .from('creator_photos')
+        .update({
+          is_preview: updates.isPreview,
+          display_order: updates.displayOrder,
+        })
+        .eq('id', photoId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return { success: true, photo: data };
+    } catch (error) {
+      console.error('Error updating creator photo:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  /**
+   * Delete creator photo
+   */
+  async deleteCreatorPhoto(photoId) {
+    try {
+      const { error } = await supabase
+        .from('creator_photos')
+        .delete()
+        .eq('id', photoId);
+
+      if (error) throw error;
+      return { success: true };
+    } catch (error) {
+      console.error('Error deleting creator photo:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  /**
+   * Get creator photos
+   */
+  async getCreatorPhotos(creatorId) {
+    try {
+      const { data, error } = await supabase
+        .from('creator_photos')
+        .select('*')
+        .eq('creator_id', creatorId)
+        .order('display_order', { ascending: true });
+
+      if (error) throw error;
+      return { success: true, photos: data };
+    } catch (error) {
+      console.error('Error getting creator photos:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  /**
    * Get creator earnings
    */
   async getCreatorEarnings(creatorId, period = 'all') {

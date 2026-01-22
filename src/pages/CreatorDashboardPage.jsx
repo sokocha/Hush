@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { PLATFORM_CONFIG } from '../data/models';
 import { useAuth } from '../context/AuthContext';
+import { creatorService } from '../services/creatorService';
 
 // Simple confetti component
 const Confetti = ({ active }) => {
@@ -704,7 +705,7 @@ export default function CreatorDashboardPage() {
   };
 
   // Photo handlers
-  const handlePhotoCapture = (photo) => {
+  const handlePhotoCapture = async (photo) => {
     const currentPhotos = user.photos || [];
     // First photo is automatically a preview and profile photo
     const isFirstPhoto = currentPhotos.length === 0;
@@ -712,9 +713,29 @@ export default function CreatorDashboardPage() {
       ...photo,
       isPreview: isFirstPhoto,
       isProfilePhoto: isFirstPhoto, // First photo becomes profile photo
+      displayOrder: currentPhotos.length,
     };
+
+    // Save to database
+    if (user?.id) {
+      const result = await creatorService.addCreatorPhoto(user.id, {
+        url: photo.url,
+        isPreview: isFirstPhoto,
+        displayOrder: currentPhotos.length,
+        capturedAt: photo.capturedAt,
+      });
+
+      if (result.success) {
+        // Use the database ID
+        newPhoto.id = result.photo.id;
+        console.log('[CreatorDashboard] Photo saved to database:', result.photo.id);
+      } else {
+        console.error('[CreatorDashboard] Failed to save photo:', result.error);
+      }
+    }
+
     const newPhotos = [...currentPhotos, newPhoto];
-    updateUser({ photos: newPhotos });
+    updateUser({ photos: newPhotos }, false); // Don't sync to server, we already saved the photo
     setShowCameraCapture(false);
 
     // Show milestone celebration when reaching 3 photos
@@ -931,11 +952,12 @@ export default function CreatorDashboardPage() {
     },
     {
       title: 'Add Your Photos',
-      description: 'Upload at least 3 photos. Mark some as "Preview" (visible to all) and others as "Locked" (unlocked by paying clients).',
+      description: `You need at least 3 photos to complete your profile. You have ${user?.photos?.length || 0} of 3 photos.`,
       icon: Camera,
-      action: () => { setActiveTab('photos'); setShowOnboarding(false); },
-      actionText: 'Add Photos',
+      action: () => { setShowCameraCapture(true); },
+      actionText: (user?.photos?.length || 0) >= 3 ? 'Add More Photos' : `Take Photo (${user?.photos?.length || 0}/3)`,
       isComplete: (user?.photos?.length || 0) >= 3,
+      showPhotoProgress: true,
     },
     {
       title: 'Set Your Pricing',
@@ -1029,16 +1051,62 @@ export default function CreatorDashboardPage() {
               </div>
             )}
 
+            {/* Photo progress indicator - only show on photos step */}
+            {currentOnboardingStep.showPhotoProgress && (
+              <div className="w-full max-w-sm mb-6">
+                {/* Progress bar */}
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-white/70 text-sm">Photo Progress</span>
+                  <span className="text-white font-medium">{Math.min(user?.photos?.length || 0, 3)}/3</span>
+                </div>
+                <div className="h-3 bg-white/10 rounded-full overflow-hidden mb-4">
+                  <div
+                    className="h-full bg-gradient-to-r from-purple-500 to-fuchsia-500 rounded-full transition-all duration-500"
+                    style={{ width: `${Math.min((user?.photos?.length || 0) / 3 * 100, 100)}%` }}
+                  />
+                </div>
+
+                {/* Photo thumbnails */}
+                <div className="flex justify-center gap-3 mb-4">
+                  {[0, 1, 2].map((index) => {
+                    const photo = user?.photos?.[index];
+                    return (
+                      <div
+                        key={index}
+                        className={`w-20 h-20 rounded-xl border-2 flex items-center justify-center overflow-hidden ${
+                          photo
+                            ? 'border-green-500/50 bg-green-500/10'
+                            : 'border-dashed border-white/30 bg-white/5'
+                        }`}
+                      >
+                        {photo ? (
+                          <img src={photo.url} alt={`Photo ${index + 1}`} className="w-full h-full object-cover" />
+                        ) : (
+                          <Camera size={24} className="text-white/30" />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {(user?.photos?.length || 0) >= 3 && (
+                  <p className="text-green-400 text-sm text-center mb-2">
+                    Great! You have enough photos. You can add more or continue to the next step.
+                  </p>
+                )}
+              </div>
+            )}
+
             {/* Completion badge */}
-            {currentOnboardingStep.isComplete && onboardingStep > 0 && (
+            {currentOnboardingStep.isComplete && onboardingStep > 0 && !currentOnboardingStep.showPhotoProgress && (
               <div className="mb-4 px-4 py-2 bg-green-500/20 border border-green-500/50 rounded-full flex items-center gap-2">
                 <CheckCircle size={16} className="text-green-400" />
                 <span className="text-green-400 text-sm font-medium">Completed!</span>
               </div>
             )}
 
-            {/* Action button */}
-            {currentOnboardingStep.action && !currentOnboardingStep.isComplete && (
+            {/* Action button - always show for photos step, otherwise only when not complete */}
+            {currentOnboardingStep.action && (!currentOnboardingStep.isComplete || currentOnboardingStep.showPhotoProgress) && (
               <button
                 onClick={currentOnboardingStep.action}
                 className="w-full max-w-sm py-4 bg-gradient-to-r from-purple-500 to-fuchsia-500 hover:from-purple-600 hover:to-fuchsia-600 rounded-xl text-white font-semibold transition-all mb-4"
@@ -1270,6 +1338,21 @@ export default function CreatorDashboardPage() {
           isOpen={showVideoCallSchedule}
           onClose={() => setShowVideoCallSchedule(false)}
           onSchedule={handleVideoCallScheduled}
+        />
+
+        {/* Camera Capture - for onboarding photo upload */}
+        {showCameraCapture && (
+          <CameraCapture
+            onCapture={handlePhotoCapture}
+            onClose={() => setShowCameraCapture(false)}
+          />
+        )}
+
+        {/* Photo Milestone Celebration Modal */}
+        <PhotoMilestoneModal
+          isOpen={showPhotoMilestone}
+          onClose={() => setShowPhotoMilestone(false)}
+          onContinue={handlePhotoMilestoneContinue}
         />
 
         {/* Confetti */}
