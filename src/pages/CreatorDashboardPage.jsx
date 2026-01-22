@@ -7,10 +7,161 @@ import {
   MapPin, Target, TrendingUp, Eye, Phone, MessageCircle,
   Ban, Sparkles, Award, X, Plus, Image, Trash2, Lock, Unlock,
   GripVertical, RotateCcw, CalendarDays, Wallet, ClipboardList,
-  CheckCheck, XCircle, User, MessageSquare, RefreshCw
+  CheckCheck, XCircle, User, MessageSquare, RefreshCw, PartyPopper
 } from 'lucide-react';
 import { PLATFORM_CONFIG } from '../data/models';
 import { useAuth } from '../context/AuthContext';
+
+// Simple confetti component
+const Confetti = ({ active }) => {
+  if (!active) return null;
+
+  const confettiPieces = Array.from({ length: 50 }, (_, i) => {
+    const left = Math.random() * 100;
+    const delay = Math.random() * 0.5;
+    const duration = 2 + Math.random() * 2;
+    const size = 8 + Math.random() * 8;
+    const color = ['#ec4899', '#a855f7', '#3b82f6', '#22c55e', '#eab308', '#f97316'][Math.floor(Math.random() * 6)];
+
+    return (
+      <div
+        key={i}
+        className="fixed pointer-events-none animate-confetti"
+        style={{
+          left: `${left}%`,
+          top: '-20px',
+          width: `${size}px`,
+          height: `${size}px`,
+          backgroundColor: color,
+          borderRadius: Math.random() > 0.5 ? '50%' : '0',
+          animationDelay: `${delay}s`,
+          animationDuration: `${duration}s`,
+        }}
+      />
+    );
+  });
+
+  return <div className="fixed inset-0 overflow-hidden pointer-events-none z-50">{confettiPieces}</div>;
+};
+
+// Photo milestone celebration modal
+const PhotoMilestoneModal = ({ isOpen, onClose, onContinue }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/90 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-gradient-to-br from-purple-900 to-pink-900 border border-purple-500/30 rounded-2xl p-6 max-w-sm w-full text-center animate-bounce-in">
+        <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center">
+          <PartyPopper size={40} className="text-white" />
+        </div>
+        <h2 className="text-2xl font-bold text-white mb-2">Amazing! 🎉</h2>
+        <p className="text-white/70 mb-6">
+          You've added 3 photos! Your profile is looking great. Ready to move on to the next step?
+        </p>
+        <div className="flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 py-3 bg-white/10 hover:bg-white/20 rounded-xl text-white font-medium transition-colors"
+          >
+            Add More
+          </button>
+          <button
+            onClick={onContinue}
+            className="flex-1 py-3 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 rounded-xl text-white font-semibold transition-colors"
+          >
+            Continue →
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Video call scheduling modal
+const VideoCallScheduleModal = ({ isOpen, onClose, onSchedule }) => {
+  const now = new Date();
+  const fiveMinutesFromNow = new Date(now.getTime() + 5 * 60 * 1000);
+
+  const formatDateForInput = (date) => date.toISOString().split('T')[0];
+  const formatTimeForInput = (date) => {
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    return `${hours}:${minutes}`;
+  };
+
+  const [selectedDate, setSelectedDate] = useState(formatDateForInput(now));
+  const [selectedTime, setSelectedTime] = useState(formatTimeForInput(fiveMinutesFromNow));
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  if (!isOpen) return null;
+
+  const handleSchedule = async () => {
+    setIsSubmitting(true);
+    // Simulate API call
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    onSchedule({ date: selectedDate, time: selectedTime });
+    setIsSubmitting(false);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/90 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center" onClick={onClose}>
+      <div
+        className="bg-gray-900 border border-white/10 rounded-t-2xl sm:rounded-2xl w-full max-w-md p-6 animate-slideUp"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-lg font-semibold text-white">Schedule Verification Call</h3>
+          <button onClick={onClose} className="p-1 text-white/60 hover:text-white rounded-lg hover:bg-white/10">
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl">
+            <div className="flex items-start gap-3">
+              <Video size={20} className="text-blue-400 mt-0.5" />
+              <div>
+                <p className="text-white font-medium mb-1">Quick Video Verification</p>
+                <p className="text-white/60 text-sm">
+                  A Hush team member will video call you to verify your identity. It only takes 2-3 minutes!
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-white/70 text-sm mb-2">Select Date</label>
+            <input
+              type="date"
+              value={selectedDate}
+              min={formatDateForInput(now)}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-purple-500 focus:outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="block text-white/70 text-sm mb-2">Select Time</label>
+            <input
+              type="time"
+              value={selectedTime}
+              onChange={(e) => setSelectedTime(e.target.value)}
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-purple-500 focus:outline-none"
+            />
+          </div>
+
+          <button
+            onClick={handleSchedule}
+            disabled={isSubmitting}
+            className="w-full py-4 bg-gradient-to-r from-purple-500 to-fuchsia-500 hover:from-purple-600 hover:to-fuchsia-600 disabled:opacity-50 rounded-xl text-white font-semibold transition-all"
+          >
+            {isSubmitting ? 'Scheduling...' : 'Schedule Call'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const formatNaira = (amount) => `₦${(amount || 0).toLocaleString()}`;
 
@@ -369,6 +520,10 @@ export default function CreatorDashboardPage() {
   // Onboarding state - show setup flow for new registrations or incomplete profiles
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState(0);
+  const [showPhotoMilestone, setShowPhotoMilestone] = useState(false);
+  const [showVideoCallSchedule, setShowVideoCallSchedule] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [verificationCallScheduled, setVerificationCallScheduled] = useState(false);
 
   const [activeTab, setActiveTab] = useState('overview');
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
@@ -531,8 +686,53 @@ export default function CreatorDashboardPage() {
       isPreview: isFirstPhoto,
       isProfilePhoto: isFirstPhoto, // First photo becomes profile photo
     };
-    updateUser({ photos: [...currentPhotos, newPhoto] });
+    const newPhotos = [...currentPhotos, newPhoto];
+    updateUser({ photos: newPhotos });
     setShowCameraCapture(false);
+
+    // Show milestone celebration when reaching 3 photos
+    if (newPhotos.length === 3) {
+      setTimeout(() => {
+        setShowPhotoMilestone(true);
+      }, 300);
+    }
+  };
+
+  // Handle photo milestone continue
+  const handlePhotoMilestoneContinue = () => {
+    setShowPhotoMilestone(false);
+    setShowOnboarding(true);
+    setOnboardingStep(2); // Move to pricing step
+  };
+
+  // Handle video call scheduled
+  const handleVideoCallScheduled = ({ date, time }) => {
+    setShowVideoCallSchedule(false);
+    setVerificationCallScheduled(true);
+    updateUser({
+      verificationCallScheduled: { date, time },
+      pendingVerification: true,
+    });
+    // Move to next step or complete onboarding
+    if (showOnboarding) {
+      checkOnboardingComplete();
+    }
+  };
+
+  // Check if all onboarding steps are complete and show confetti
+  const checkOnboardingComplete = () => {
+    const hasPhotos = (user?.photos?.length || 0) >= 3;
+    const hasPricing = user?.pricing?.meetupIncall?.[1] > 0;
+    const hasSchedule = user?.schedule?.monday?.active !== undefined;
+    const hasVerification = user?.isVerified || user?.isVideoVerified || verificationCallScheduled || user?.verificationCallScheduled;
+
+    if (hasPhotos && hasPricing && hasSchedule && hasVerification) {
+      setShowConfetti(true);
+      setTimeout(() => {
+        setShowConfetti(false);
+        setShowOnboarding(false);
+      }, 4000);
+    }
   };
 
   const handleTogglePreview = (photoId) => {
@@ -722,12 +922,12 @@ export default function CreatorDashboardPage() {
       isComplete: user?.schedule?.monday?.active !== undefined,
     },
     {
-      title: 'Complete Verification',
-      description: 'Get verified to appear in search results and build trust with clients.',
-      icon: Shield,
-      action: () => { setActiveTab('verification'); setShowOnboarding(false); },
-      actionText: 'Start Verification',
-      isComplete: user?.isVerified || user?.isVideoVerified,
+      title: 'Schedule Verification Call',
+      description: 'Schedule a quick video call with our team to verify your identity and appear in search results.',
+      icon: Video,
+      action: () => { setShowVideoCallSchedule(true); },
+      actionText: 'Schedule Call',
+      isComplete: user?.isVerified || user?.isVideoVerified || verificationCallScheduled || user?.verificationCallScheduled,
     },
   ];
 
@@ -2344,6 +2544,23 @@ export default function CreatorDashboardPage() {
           </button>
         </div>
       </Modal>
+
+      {/* Photo Milestone Celebration Modal */}
+      <PhotoMilestoneModal
+        isOpen={showPhotoMilestone}
+        onClose={() => setShowPhotoMilestone(false)}
+        onContinue={handlePhotoMilestoneContinue}
+      />
+
+      {/* Video Call Scheduling Modal */}
+      <VideoCallScheduleModal
+        isOpen={showVideoCallSchedule}
+        onClose={() => setShowVideoCallSchedule(false)}
+        onSchedule={handleVideoCallScheduled}
+      />
+
+      {/* Confetti Celebration */}
+      <Confetti active={showConfetti} />
     </div>
   );
 }

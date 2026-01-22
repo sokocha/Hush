@@ -235,29 +235,58 @@ export default function ExplorePage() {
     const fetchCreators = async () => {
       try {
         setCreatorsLoading(true);
-        const { data, error } = await supabase
+        console.log('[ExplorePage] Fetching creators from database...');
+
+        // First get all creators
+        const { data: creatorsData, error: creatorsError } = await supabase
           .from('creators')
           .select(`
             *,
-            users:id(id, name, username, last_seen_at),
             creator_areas(area),
             creator_photos(id, storage_path, is_preview, display_order),
             creator_extras(id, name, price)
           `);
 
-        if (error) {
-          console.error('Error fetching creators:', error);
+        if (creatorsError) {
+          console.error('[ExplorePage] Error fetching creators:', creatorsError);
           return;
         }
 
-        if (data) {
-          const transformedCreators = data.map(creator =>
-            transformCreatorToModel(creator, creator.users)
-          );
+        console.log('[ExplorePage] Raw creators data:', creatorsData);
+
+        if (creatorsData && creatorsData.length > 0) {
+          // Get user data for each creator
+          const creatorIds = creatorsData.map(c => c.id);
+          const { data: usersData, error: usersError } = await supabase
+            .from('users')
+            .select('id, name, username, last_seen_at')
+            .in('id', creatorIds);
+
+          if (usersError) {
+            console.error('[ExplorePage] Error fetching users:', usersError);
+          }
+
+          console.log('[ExplorePage] Users data:', usersData);
+
+          // Create a map of user data by ID
+          const usersMap = {};
+          if (usersData) {
+            usersData.forEach(u => { usersMap[u.id] = u; });
+          }
+
+          // Transform creators with user data
+          const transformedCreators = creatorsData.map(creator => {
+            const userData = usersMap[creator.id];
+            return transformCreatorToModel(creator, userData);
+          });
+
+          console.log('[ExplorePage] Transformed creators:', transformedCreators);
           setDbCreators(transformedCreators);
+        } else {
+          console.log('[ExplorePage] No creators found in database');
         }
       } catch (err) {
-        console.error('Error fetching creators:', err);
+        console.error('[ExplorePage] Error fetching creators:', err);
       } finally {
         setCreatorsLoading(false);
       }

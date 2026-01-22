@@ -1,13 +1,25 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 
 const STORAGE_KEY = 'hush_favorites';
+const COUNTS_KEY = 'hush_favorite_counts';
+
+// Global event emitter for favorite count changes
+const favoriteCountListeners = new Set();
+
+export const subscribeFavoriteCountChange = (callback) => {
+  favoriteCountListeners.add(callback);
+  return () => favoriteCountListeners.delete(callback);
+};
+
+const notifyFavoriteCountChange = (username, delta) => {
+  favoriteCountListeners.forEach(callback => callback(username, delta));
+};
 
 export const useFavorites = () => {
   const { user, isClient } = useAuth();
   const [favorites, setFavorites] = useState(() => {
-    // Initialize from localStorage for quick access
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       return stored ? JSON.parse(stored) : [];
@@ -16,6 +28,7 @@ export const useFavorites = () => {
     }
   });
   const [loading, setLoading] = useState(false);
+  const pendingOperations = useRef(new Set());
 
   // Sync favorites from database when user logs in
   useEffect(() => {
@@ -24,15 +37,10 @@ export const useFavorites = () => {
 
       try {
         setLoading(true);
+        // Get favorites with creator usernames
         const { data, error } = await supabase
           .from('favorites')
-          .select(`
-            creator_id,
-            creators:creator_id(
-              id,
-              users:id(username)
-            )
-          `)
+          .select('creator_id')
           .eq('client_id', user.id);
 
         if (error) {
@@ -40,12 +48,20 @@ export const useFavorites = () => {
           return;
         }
 
-        if (data) {
-          // Extract usernames from the favorites
-          const usernames = data
-            .filter(f => f.creators?.users?.username)
-            .map(f => f.creators.users.username);
+        if (data && data.length > 0) {
+          // Get usernames for these creator IDs
+          const creatorIds = data.map(f => f.creator_id);
+          const { data: usersData, error: usersError } = await supabase
+            .from('users')
+            .select('username')
+            .in('id', creatorIds);
 
+          if (usersError) {
+            console.error('Error fetching usernames:', usersError);
+            return;
+          }
+
+          const usernames = usersData?.map(u => u.username) || [];
           setFavorites(usernames);
           localStorage.setItem(STORAGE_KEY, JSON.stringify(usernames));
         }
@@ -68,12 +84,20 @@ export const useFavorites = () => {
     }
   }, [favorites]);
 
-  const addFavorite = useCallback(async (username) => {
-    // Update local state immediately for responsiveness
+  const addFavorite = useCallback(async (username, onCountChange) => {
+    // Prevent duplicate operations
+    if (pendingOperations.current.has(`add-${username}`)) return;
+    pendingOperations.current.add(`add-${username}`);
+
+    // Update local state immediately (optimistic)
     setFavorites(prev => {
       if (prev.includes(username)) return prev;
       return [...prev, username];
     });
+
+    // Notify listeners of count change (+1)
+    notifyFavoriteCountChange(username, 1);
+    if (onCountChange) onCountChange(1);
 
     // If logged in as client, sync to database
     if (user?.id && isClient) {
@@ -88,6 +112,10 @@ export const useFavorites = () => {
 
         if (userError || !userData) {
           console.error('Creator not found:', username);
+          // Rollback on error
+          setFavorites(prev => prev.filter(u => u !== username));
+          notifyFavoriteCountChange(username, -1);
+          if (onCountChange) onCountChange(-1);
           return;
         }
 
@@ -99,18 +127,37 @@ export const useFavorites = () => {
             creator_id: userData.id,
           });
 
-        if (error && error.code !== '23505') { // Ignore duplicate key error
+        if (error && error.code !== '23505') {
           console.error('Error adding favorite:', error);
+          // Rollback on error
+          setFavorites(prev => prev.filter(u => u !== username));
+          notifyFavoriteCountChange(username, -1);
+          if (onCountChange) onCountChange(-1);
         }
       } catch (err) {
         console.error('Error adding favorite:', err);
+        // Rollback on error
+        setFavorites(prev => prev.filter(u => u !== username));
+        notifyFavoriteCountChange(username, -1);
+        if (onCountChange) onCountChange(-1);
       }
     }
+
+    pendingOperations.current.delete(`add-${username}`);
   }, [user?.id, isClient]);
 
-  const removeFavorite = useCallback(async (username) => {
-    // Update local state immediately
+  const removeFavorite = useCallback(async (username, onCountChange) => {
+    // Prevent duplicate operations
+    if (pendingOperations.current.has(`remove-${username}`)) return;
+    pendingOperations.current.add(`remove-${username}`);
+
+    // Update local state immediately (optimistic)
+    const previousFavorites = favorites;
     setFavorites(prev => prev.filter(u => u !== username));
+
+    // Notify listeners of count change (-1)
+    notifyFavoriteCountChange(username, -1);
+    if (onCountChange) onCountChange(-1);
 
     // If logged in as client, sync to database
     if (user?.id && isClient) {
@@ -125,6 +172,10 @@ export const useFavorites = () => {
 
         if (userError || !userData) {
           console.error('Creator not found:', username);
+          // Rollback on error
+          setFavorites(previousFavorites);
+          notifyFavoriteCountChange(username, 1);
+          if (onCountChange) onCountChange(1);
           return;
         }
 
@@ -137,18 +188,28 @@ export const useFavorites = () => {
 
         if (error) {
           console.error('Error removing favorite:', error);
+          // Rollback on error
+          setFavorites(previousFavorites);
+          notifyFavoriteCountChange(username, 1);
+          if (onCountChange) onCountChange(1);
         }
       } catch (err) {
         console.error('Error removing favorite:', err);
+        // Rollback on error
+        setFavorites(previousFavorites);
+        notifyFavoriteCountChange(username, 1);
+        if (onCountChange) onCountChange(1);
       }
     }
-  }, [user?.id, isClient]);
 
-  const toggleFavorite = useCallback(async (username) => {
+    pendingOperations.current.delete(`remove-${username}`);
+  }, [user?.id, isClient, favorites]);
+
+  const toggleFavorite = useCallback(async (username, onCountChange) => {
     if (favorites.includes(username)) {
-      await removeFavorite(username);
+      await removeFavorite(username, onCountChange);
     } else {
-      await addFavorite(username);
+      await addFavorite(username, onCountChange);
     }
   }, [favorites, addFavorite, removeFavorite]);
 
@@ -164,6 +225,26 @@ export const useFavorites = () => {
     isFavorite,
     loading,
   };
+};
+
+// Hook for subscribing to favorite count changes for a specific username
+export const useFavoriteCount = (username, initialCount = 0) => {
+  const [count, setCount] = useState(initialCount);
+
+  useEffect(() => {
+    setCount(initialCount);
+  }, [initialCount]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeFavoriteCountChange((changedUsername, delta) => {
+      if (changedUsername === username) {
+        setCount(prev => Math.max(0, prev + delta));
+      }
+    });
+    return unsubscribe;
+  }, [username]);
+
+  return count;
 };
 
 export default useFavorites;
