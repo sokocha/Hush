@@ -1381,11 +1381,22 @@ export default function CreatorDashboardPage() {
               <p className="text-white/50 text-sm">@{user.username || 'username'}</p>
             </div>
           </div>
+          {/* Profile photo or default avatar */}
           <button
-            onClick={() => setShowLogoutConfirm(true)}
-            className="p-3 bg-white/10 rounded-full hover:bg-red-500/20 hover:text-red-400 transition-colors text-white/60"
+            onClick={() => setActiveTab('settings')}
+            className="w-11 h-11 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 p-0.5 hover:scale-105 transition-transform"
           >
-            <LogOut size={20} />
+            {(() => {
+              const photos = user.photos || [];
+              const profilePhoto = photos.find(p => p.isProfilePhoto) || photos[0];
+              return profilePhoto ? (
+                <img src={profilePhoto.url} alt="Profile" className="w-full h-full rounded-full object-cover" />
+              ) : (
+                <div className="w-full h-full rounded-full bg-gray-900 flex items-center justify-center">
+                  <User size={20} className="text-white/60" />
+                </div>
+              );
+            })()}
           </button>
         </div>
 
