@@ -4,6 +4,18 @@ import { userService } from '../services/userService';
 import { creatorService } from '../services/creatorService';
 import { bookingService } from '../services/bookingService';
 
+// Helper to check if preferences object has meaningful values
+function hasNonEmptyPreferences(prefs) {
+  if (!prefs) return false;
+  return (
+    prefs.preferredLocation ||
+    (prefs.bodyTypes?.length > 0 && prefs.bodyTypes.some(v => v && v !== 'No preference')) ||
+    (prefs.skinTones?.length > 0 && prefs.skinTones.some(v => v && v !== 'No preference')) ||
+    (prefs.ageRanges?.length > 0 && prefs.ageRanges.some(v => v && v !== 'No preference')) ||
+    (prefs.services?.length > 0 && prefs.services.some(v => v && v !== 'No preference'))
+  );
+}
+
 const AUTH_STORAGE_KEY = 'hush_auth';
 const TOKEN_STORAGE_KEY = 'hush_token';
 
@@ -199,9 +211,26 @@ export const AuthProvider = ({ children }) => {
 
           // Refresh user data from server in background
           if (parsed.id) {
-            authService.getCurrentUser(parsed.id).then((result) => {
+            authService.getCurrentUser(parsed.id).then(async (result) => {
               if (result.success && result.user) {
                 const transformedUser = transformUserData(result.user);
+
+                // Preserve localStorage preferences if server doesn't have them
+                // This handles users who registered before preferences feature was added
+                if (parsed.userType === 'client' && parsed.preferences) {
+                  const serverHasPrefs = hasNonEmptyPreferences(transformedUser.preferences);
+                  const localHasPrefs = hasNonEmptyPreferences(parsed.preferences);
+
+                  // If local has preferences but server doesn't, preserve local AND sync to server
+                  if (localHasPrefs && !serverHasPrefs) {
+                    console.log('[Auth] Preserving localStorage preferences and syncing to server');
+                    transformedUser.preferences = parsed.preferences;
+
+                    // Sync to server in background
+                    userService.updateClientPreferences(parsed.id, parsed.preferences);
+                  }
+                }
+
                 setUser(transformedUser);
                 localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(transformedUser));
               }
@@ -543,10 +572,22 @@ export const AuthProvider = ({ children }) => {
     const result = await authService.getCurrentUser(user.id);
     if (result.success && result.user) {
       const transformedUser = transformUserData(result.user);
+
+      // Preserve current preferences if server doesn't have them
+      if (user.userType === 'client' && user.preferences) {
+        const serverHasPrefs = hasNonEmptyPreferences(transformedUser.preferences);
+        const currentHasPrefs = hasNonEmptyPreferences(user.preferences);
+
+        if (currentHasPrefs && !serverHasPrefs) {
+          console.log('[Auth] Preserving current preferences over empty server data');
+          transformedUser.preferences = user.preferences;
+        }
+      }
+
       setUser(transformedUser);
     }
     return result;
-  }, [user?.id]);
+  }, [user?.id, user?.userType, user?.preferences]);
 
   // Logout
   const logout = useCallback(async () => {

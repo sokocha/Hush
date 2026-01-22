@@ -70,6 +70,27 @@ export const userService = {
   },
 
   /**
+   * Update client preferences
+   */
+  async updateClientPreferences(clientId, preferences) {
+    try {
+      const { data, error } = await supabase
+        .from('clients')
+        .update({ preferences })
+        .eq('id', clientId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      console.log('[userService] Preferences synced to server:', preferences);
+      return { success: true, client: data };
+    } catch (error) {
+      console.error('Error updating client preferences:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  /**
    * Update client tier after deposit
    */
   async updateClientTier(clientId, tier, depositAmount) {
