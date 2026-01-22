@@ -169,8 +169,11 @@ export const AuthProvider = ({ children }) => {
         const storedToken = localStorage.getItem(TOKEN_STORAGE_KEY);
         const storedUser = localStorage.getItem(AUTH_STORAGE_KEY);
 
-        if (storedToken && storedUser) {
-          setAuthToken(storedToken);
+        // Allow login without token (for mock OTP mode)
+        if (storedUser) {
+          if (storedToken) {
+            setAuthToken(storedToken);
+          }
           const parsed = JSON.parse(storedUser);
           setUser(parsed);
 
