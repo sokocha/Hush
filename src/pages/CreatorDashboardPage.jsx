@@ -269,10 +269,20 @@ const CameraCapture = ({ onCapture, onClose }) => {
   };
 
   const capturePhoto = () => {
-    if (!videoRef.current || !canvasRef.current) return;
+    if (!videoRef.current || !canvasRef.current) {
+      console.error('[CameraCapture] Video or canvas ref not available');
+      return;
+    }
+
+    const video = videoRef.current;
+
+    // Check if video is ready
+    if (video.videoWidth === 0 || video.videoHeight === 0) {
+      console.error('[CameraCapture] Video not ready yet, dimensions are 0');
+      return;
+    }
 
     setIsCapturing(true);
-    const video = videoRef.current;
     const canvas = canvasRef.current;
 
     canvas.width = video.videoWidth;
@@ -283,9 +293,10 @@ const CameraCapture = ({ onCapture, onClose }) => {
 
     // Convert to base64 for persistence in localStorage
     const base64Data = canvas.toDataURL('image/jpeg', 0.8);
+    console.log('[CameraCapture] Photo captured, calling onCapture');
     onCapture({
       id: Date.now().toString(),
-      url: base64Data, // base64 string persists in localStorage
+      url: base64Data,
       capturedAt: new Date().toISOString(),
       isPreview: false,
     });
@@ -739,7 +750,15 @@ export default function CreatorDashboardPage() {
   };
 
   // Photo handlers
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+
   const handlePhotoCapture = async (photo) => {
+    console.log('[CreatorDashboard] handlePhotoCapture called with photo:', photo.id);
+
+    // Close camera immediately and show uploading state
+    setShowCameraCapture(false);
+    setIsUploadingPhoto(true);
+
     const currentPhotos = user.photos || [];
     // First photo is automatically a preview and profile photo
     const isFirstPhoto = currentPhotos.length === 0;
@@ -753,11 +772,14 @@ export default function CreatorDashboardPage() {
     // Upload to Supabase Storage and save to database
     if (user?.id) {
       try {
+        console.log('[CreatorDashboard] Converting base64 to blob...');
         // Convert base64 data URL to blob
         const response = await fetch(photo.url);
         const blob = await response.blob();
+        console.log('[CreatorDashboard] Blob created, size:', blob.size);
 
         // Upload using storageService which handles both storage and database
+        console.log('[CreatorDashboard] Uploading to storage for user:', user.id);
         const result = await storageService.uploadCreatorPhotoBlob(user.id, blob, isFirstPhoto);
 
         if (result.success) {
@@ -768,17 +790,19 @@ export default function CreatorDashboardPage() {
           console.log('[CreatorDashboard] Photo uploaded and saved:', result.photo.id);
         } else {
           console.error('[CreatorDashboard] Failed to upload photo:', result.error);
+          setIsUploadingPhoto(false);
           return; // Don't add photo to state if upload failed
         }
       } catch (error) {
         console.error('[CreatorDashboard] Error uploading photo:', error);
+        setIsUploadingPhoto(false);
         return; // Don't add photo to state if upload failed
       }
     }
 
     const newPhotos = [...currentPhotos, newPhoto];
     updateUser({ photos: newPhotos }, false); // Don't sync to server, we already saved the photo
-    setShowCameraCapture(false);
+    setIsUploadingPhoto(false);
 
     // Show milestone celebration when reaching 3 photos
     if (newPhotos.length === 3) {
@@ -2243,13 +2267,15 @@ export default function CreatorDashboardPage() {
                     : `${previewCount} preview, ${lockedCount} locked`}
                 </p>
               </div>
-              <button
-                onClick={() => setShowCameraCapture(true)}
-                className="flex items-center gap-2 px-4 py-2.5 bg-purple-500 hover:bg-purple-600 rounded-xl text-white font-medium transition-colors"
-              >
-                <Camera size={18} />
-                Take Photo
-              </button>
+              {creatorPhotos.length > 0 && (
+                <button
+                  onClick={() => setShowCameraCapture(true)}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-purple-500 hover:bg-purple-600 rounded-xl text-white font-medium transition-colors"
+                >
+                  <Camera size={18} />
+                  Add Photo
+                </button>
+              )}
             </div>
 
             {/* Current Profile Photo */}
@@ -2293,6 +2319,14 @@ export default function CreatorDashboardPage() {
               </ul>
             </div>
 
+            {/* Uploading indicator */}
+            {isUploadingPhoto && (
+              <div className="p-4 bg-purple-500/20 border border-purple-500/30 rounded-xl flex items-center gap-3">
+                <div className="w-6 h-6 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+                <span className="text-purple-300">Uploading photo...</span>
+              </div>
+            )}
+
             {/* Photo Grid */}
             {creatorPhotos.length > 0 ? (
               <div className="grid grid-cols-2 gap-3">
@@ -2319,9 +2353,10 @@ export default function CreatorDashboardPage() {
                 </p>
                 <button
                   onClick={() => setShowCameraCapture(true)}
-                  className="px-6 py-3 bg-purple-500 hover:bg-purple-600 rounded-xl text-white font-medium transition-colors"
+                  disabled={isUploadingPhoto}
+                  className="px-6 py-3 bg-purple-500 hover:bg-purple-600 disabled:opacity-50 rounded-xl text-white font-medium transition-colors"
                 >
-                  Open Camera
+                  Take Photo
                 </button>
               </div>
             )}
