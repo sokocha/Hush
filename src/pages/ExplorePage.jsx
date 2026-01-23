@@ -540,8 +540,28 @@ export default function ExplorePage() {
             )}
           </div>
           {isAuthenticated ? (
-            <Link to={dashboardLink} className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors">
-              <User size={20} className="text-white" />
+            <Link to={dashboardLink} className="block">
+              {(() => {
+                // For creators, show their profile photo
+                if (isCreator && user?.photos?.length > 0) {
+                  const profilePhoto = user.photos.find(p => p.isProfilePhoto) || user.photos[0];
+                  return (
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 p-0.5 hover:scale-105 transition-transform">
+                      <img
+                        src={profilePhoto.url}
+                        alt="Profile"
+                        className="w-full h-full rounded-full object-cover"
+                      />
+                    </div>
+                  );
+                }
+                // For clients or creators without photos, show default icon
+                return (
+                  <div className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors">
+                    <User size={20} className="text-white" />
+                  </div>
+                );
+              })()}
             </Link>
           ) : (
             <Link to="/auth" className="px-4 py-2 rounded-full bg-pink-500 hover:bg-pink-600 text-white text-sm font-medium transition-colors">
