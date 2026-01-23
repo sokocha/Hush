@@ -224,9 +224,12 @@ const CameraCapture = ({ onCapture, onClose }) => {
   const [error, setError] = useState(null);
   const [facingMode, setFacingMode] = useState('environment'); // 'user' for front, 'environment' for back
   const [isCapturing, setIsCapturing] = useState(false);
+  const [isVideoReady, setIsVideoReady] = useState(false);
 
   const startCamera = useCallback(async (facing) => {
     try {
+      setIsVideoReady(false);
+
       // Stop existing stream
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
@@ -261,6 +264,12 @@ const CameraCapture = ({ onCapture, onClose }) => {
       }
     };
   }, []);
+
+  // Handle video loaded
+  const handleVideoLoaded = () => {
+    console.log('[CameraCapture] Video metadata loaded, dimensions:', videoRef.current?.videoWidth, 'x', videoRef.current?.videoHeight);
+    setIsVideoReady(true);
+  };
 
   const switchCamera = () => {
     const newFacing = facingMode === 'user' ? 'environment' : 'user';
@@ -350,6 +359,7 @@ const CameraCapture = ({ onCapture, onClose }) => {
             autoPlay
             playsInline
             muted
+            onLoadedMetadata={handleVideoLoaded}
             className="w-full h-full object-cover"
           />
         )}
@@ -361,15 +371,23 @@ const CameraCapture = ({ onCapture, onClose }) => {
         <div className="flex justify-center">
           <button
             onClick={capturePhoto}
-            disabled={!!error || isCapturing}
-            className={`w-20 h-20 rounded-full border-4 border-white flex items-center justify-center transition-all ${
+            disabled={!!error || isCapturing || !isVideoReady}
+            className={`w-20 h-20 rounded-full border-4 flex items-center justify-center transition-all ${
+              !isVideoReady ? 'border-white/30' : 'border-white'
+            } ${
               isCapturing ? 'scale-90 bg-white/20' : 'bg-white/10 active:scale-95'
             }`}
           >
-            <div className={`w-16 h-16 rounded-full ${isCapturing ? 'bg-white/60' : 'bg-white'}`} />
+            {!isVideoReady ? (
+              <div className="w-8 h-8 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <div className={`w-16 h-16 rounded-full ${isCapturing ? 'bg-white/60' : 'bg-white'}`} />
+            )}
           </button>
         </div>
-        <p className="text-white/60 text-center text-sm mt-4">Tap to capture</p>
+        <p className="text-white/60 text-center text-sm mt-4">
+          {!isVideoReady ? 'Loading camera...' : 'Tap to capture'}
+        </p>
       </div>
     </div>
   );
