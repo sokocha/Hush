@@ -99,10 +99,9 @@ export const useFavorites = () => {
     notifyFavoriteCountChange(username, 1);
     if (onCountChange) onCountChange(1);
 
-    // If logged in as client, sync to database
+    // If logged in as client, try to sync to database (don't rollback local state on failure)
     if (user?.id && isClient) {
       try {
-        // First get the creator ID from username
         const { data: userData, error: userError } = await supabase
           .from('users')
           .select('id')
@@ -110,36 +109,22 @@ export const useFavorites = () => {
           .eq('user_type', 'creator')
           .single();
 
-        if (userError || !userData) {
-          console.error('Creator not found:', username);
-          // Rollback on error
-          setFavorites(prev => prev.filter(u => u !== username));
-          notifyFavoriteCountChange(username, -1);
-          if (onCountChange) onCountChange(-1);
-          return;
-        }
+        if (!userError && userData) {
+          const { error } = await supabase
+            .from('favorites')
+            .insert({
+              client_id: user.id,
+              creator_id: userData.id,
+            });
 
-        // Insert favorite
-        const { error } = await supabase
-          .from('favorites')
-          .insert({
-            client_id: user.id,
-            creator_id: userData.id,
-          });
-
-        if (error && error.code !== '23505') {
-          console.error('Error adding favorite:', error);
-          // Rollback on error
-          setFavorites(prev => prev.filter(u => u !== username));
-          notifyFavoriteCountChange(username, -1);
-          if (onCountChange) onCountChange(-1);
+          if (error && error.code !== '23505') {
+            console.warn('Could not sync favorite to database:', error.message);
+          }
+        } else {
+          console.warn('Creator not found in DB for sync:', username);
         }
       } catch (err) {
-        console.error('Error adding favorite:', err);
-        // Rollback on error
-        setFavorites(prev => prev.filter(u => u !== username));
-        notifyFavoriteCountChange(username, -1);
-        if (onCountChange) onCountChange(-1);
+        console.warn('Could not sync favorite to database:', err.message);
       }
     }
 
@@ -159,10 +144,9 @@ export const useFavorites = () => {
     notifyFavoriteCountChange(username, -1);
     if (onCountChange) onCountChange(-1);
 
-    // If logged in as client, sync to database
+    // If logged in as client, try to sync to database (don't rollback local state on failure)
     if (user?.id && isClient) {
       try {
-        // First get the creator ID from username
         const { data: userData, error: userError } = await supabase
           .from('users')
           .select('id')
@@ -170,35 +154,21 @@ export const useFavorites = () => {
           .eq('user_type', 'creator')
           .single();
 
-        if (userError || !userData) {
-          console.error('Creator not found:', username);
-          // Rollback on error
-          setFavorites(previousFavorites);
-          notifyFavoriteCountChange(username, 1);
-          if (onCountChange) onCountChange(1);
-          return;
-        }
+        if (!userError && userData) {
+          const { error } = await supabase
+            .from('favorites')
+            .delete()
+            .eq('client_id', user.id)
+            .eq('creator_id', userData.id);
 
-        // Delete favorite
-        const { error } = await supabase
-          .from('favorites')
-          .delete()
-          .eq('client_id', user.id)
-          .eq('creator_id', userData.id);
-
-        if (error) {
-          console.error('Error removing favorite:', error);
-          // Rollback on error
-          setFavorites(previousFavorites);
-          notifyFavoriteCountChange(username, 1);
-          if (onCountChange) onCountChange(1);
+          if (error) {
+            console.warn('Could not sync unfavorite to database:', error.message);
+          }
+        } else {
+          console.warn('Creator not found in DB for sync:', username);
         }
       } catch (err) {
-        console.error('Error removing favorite:', err);
-        // Rollback on error
-        setFavorites(previousFavorites);
-        notifyFavoriteCountChange(username, 1);
-        if (onCountChange) onCountChange(1);
+        console.warn('Could not sync unfavorite to database:', err.message);
       }
     }
 
