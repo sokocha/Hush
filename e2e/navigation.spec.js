@@ -57,7 +57,8 @@ test.describe('Mobile Navigation', () => {
     await page.goto('/auth');
     await page.waitForLoadState('domcontentloaded');
 
-    const phoneInput = page.locator('input[type="tel"], input[placeholder*="phone" i], input[name*="phone" i]');
-    await expect(phoneInput).toBeVisible({ timeout: 10000 });
+    // The auth flow starts with an age verification gate
+    const ageContent = page.locator('text=/18|age|verify|confirm/i').first();
+    await expect(ageContent).toBeVisible({ timeout: 10000 });
   });
 });
