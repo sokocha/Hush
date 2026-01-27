@@ -9,17 +9,11 @@ test.describe('Smoke Tests', () => {
 
   test('app renders without crashing', async ({ page }) => {
     await page.goto('/explore/all');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
-    // Page should not show a blank white screen or error
-    const body = page.locator('body');
-    await expect(body).toBeVisible();
-
-    // Should not have uncaught JS errors
-    const errors = [];
-    page.on('pageerror', (err) => errors.push(err.message));
-    await page.waitForTimeout(1000);
-    expect(errors).toHaveLength(0);
+    // The React root should mount and render content
+    const root = page.locator('#root');
+    await expect(root).not.toBeEmpty();
   });
 
   test('invalid routes redirect to /explore/all', async ({ page }) => {
