@@ -1656,6 +1656,7 @@ export default function App() {
         verifiedMeetups: creator.verified_meetups || 0,
         meetupSuccessRate: parseFloat(creator.meetup_success_rate) || 98,
         profileViews: creator.profile_views || 0,
+        favoriteCount: creator.favorite_count || 0,
       },
       contact: {
         phone: dbData.phone,

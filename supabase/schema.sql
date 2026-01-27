@@ -289,6 +289,17 @@ ALTER TABLE booking_extras ENABLE ROW LEVEL SECURITY;
 ALTER TABLE creator_earnings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE otp_codes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE unlocks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE favorites ENABLE ROW LEVEL SECURITY;
+
+-- Favorites policies
+CREATE POLICY "Clients can view their own favorites" ON favorites
+  FOR SELECT USING (auth.uid() = client_id);
+
+CREATE POLICY "Clients can add favorites" ON favorites
+  FOR INSERT WITH CHECK (auth.uid() = client_id);
+
+CREATE POLICY "Clients can remove their own favorites" ON favorites
+  FOR DELETE USING (auth.uid() = client_id);
 
 -- Users policies
 CREATE POLICY "Users can view their own data" ON users
