@@ -179,6 +179,11 @@ const ModelCard = ({ model, isFavorite, onToggleFavorite, showMatchBadge = false
           </span>
           <span>•</span>
           <span>{model.verifiedMeetups} meetups</span>
+          <span>•</span>
+          <span className="flex items-center gap-1">
+            <Heart size={10} className="text-pink-400 fill-pink-400" />
+            {model.favoriteCount}
+          </span>
         </div>
 
         <div className="flex items-center justify-between pt-3 border-t border-white/10">

@@ -651,6 +651,7 @@ export const getModelsList = () => {
     age: model.attributes?.age || null,
     height: model.attributes?.height || null,
     services: model.attributes?.services || [],
+    favoriteCount: model.stats.favoriteCount || 0,
   }));
 };
 
