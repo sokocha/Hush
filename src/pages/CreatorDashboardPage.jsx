@@ -7,7 +7,7 @@ import {
   MapPin, Target, TrendingUp, Eye, Phone, MessageCircle,
   Ban, Sparkles, Award, X, Plus, Image, Trash2, Lock, Unlock,
   GripVertical, RotateCcw, CalendarDays, Wallet, ClipboardList,
-  CheckCheck, XCircle, User, MessageSquare, RefreshCw, PartyPopper, Upload
+  CheckCheck, XCircle, User, MessageSquare, RefreshCw, PartyPopper
 } from 'lucide-react';
 import { PLATFORM_CONFIG } from '../data/models';
 import { useAuth } from '../context/AuthContext';
@@ -216,11 +216,10 @@ const PricingInput = ({ label, value, onChange, placeholder, hint, required = fa
   </div>
 );
 
-// Camera Capture Component
+// Camera Capture Component - Live camera only (no file upload to prevent catfishing)
 const CameraCapture = ({ onCapture, onClose }) => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
-  const fileInputRef = useRef(null);
   const [stream, setStream] = useState(null);
   const [error, setError] = useState(null);
   const [facingMode, setFacingMode] = useState('environment'); // 'user' for front, 'environment' for back
@@ -320,39 +319,6 @@ const CameraCapture = ({ onCapture, onClose }) => {
     onClose();
   };
 
-  // Handle file upload as alternative to camera
-  const handleFileUpload = (event) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      setError('Please select an image file');
-      return;
-    }
-
-    // Validate file size (max 10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      setError('Image must be less than 10MB');
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const base64Data = e.target?.result;
-      if (base64Data) {
-        console.log('[CameraCapture] Photo uploaded from file');
-        onCapture({
-          id: Date.now().toString(),
-          url: base64Data,
-          capturedAt: new Date().toISOString(),
-          isPreview: false,
-        });
-      }
-    };
-    reader.readAsDataURL(file);
-  };
-
   return (
     <div className="fixed inset-0 bg-black z-50 flex flex-col">
       {/* Header */}
@@ -402,23 +368,7 @@ const CameraCapture = ({ onCapture, onClose }) => {
 
       {/* Capture Button */}
       <div className="absolute bottom-0 left-0 right-0 pb-8 pt-4 bg-gradient-to-t from-black/80 to-transparent">
-        <div className="flex justify-center items-center gap-6">
-          {/* Upload from gallery button */}
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="p-4 rounded-full bg-white/10 backdrop-blur-sm border border-white/20"
-          >
-            <Upload size={24} className="text-white" />
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handleFileUpload}
-            className="hidden"
-          />
-
-          {/* Camera capture button */}
+        <div className="flex justify-center">
           <button
             onClick={capturePhoto}
             disabled={!!error || isCapturing || !isVideoReady}
@@ -434,12 +384,9 @@ const CameraCapture = ({ onCapture, onClose }) => {
               <div className={`w-16 h-16 rounded-full ${isCapturing ? 'bg-white/60' : 'bg-white'}`} />
             )}
           </button>
-
-          {/* Placeholder for symmetry */}
-          <div className="w-14 h-14" />
         </div>
         <p className="text-white/60 text-center text-sm mt-4">
-          {!isVideoReady ? 'Loading camera... or upload from gallery' : 'Tap to capture or upload from gallery'}
+          {!isVideoReady ? 'Loading camera...' : 'Tap to capture'}
         </p>
       </div>
     </div>
