@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { PLATFORM_CONFIG } from '../data/models';
+import { normalizePhoneNumber } from '../utils/phoneUtils';
 
 // Check if we're using real Supabase backend for database operations
 const USE_REAL_DATABASE = Boolean(
@@ -70,24 +71,6 @@ const COMMON_BOUNDARIES = [
 ];
 
 const formatNaira = (amount) => `₦${amount.toLocaleString()}`;
-
-// Normalize phone number to remove any existing country code prefix
-const normalizePhoneNumber = (phone) => {
-  // Remove all non-digits
-  let normalized = phone.replace(/\D/g, '');
-
-  // Remove leading 234 country code if present (for numbers like 2348187494741)
-  if (normalized.startsWith('234') && normalized.length > 10) {
-    normalized = normalized.slice(3);
-  }
-
-  // Remove leading 0 if present (common Nigerian local format like 08187494741)
-  if (normalized.startsWith('0') && normalized.length > 10) {
-    normalized = normalized.slice(1);
-  }
-
-  return normalized;
-};
 
 // OTP Input component
 const OTPInput = ({ value, onChange, length = 6 }) => {
