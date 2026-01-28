@@ -3,7 +3,6 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 
 const STORAGE_KEY = 'hush_favorites';
-const COUNTS_KEY = 'hush_favorite_counts';
 
 // Global event emitter for favorite count changes
 const favoriteCountListeners = new Set();
@@ -204,52 +203,22 @@ export const useFavorites = () => {
   };
 };
 
-// Storage key for favorite count deltas (for mock creators without database persistence)
-const COUNT_DELTAS_KEY = 'hush_favorite_count_deltas';
-
-// Get stored count deltas
-const getCountDeltas = () => {
-  try {
-    const stored = localStorage.getItem(COUNT_DELTAS_KEY);
-    return stored ? JSON.parse(stored) : {};
-  } catch {
-    return {};
-  }
-};
-
-// Save count delta for a username
-const saveCountDelta = (username, delta) => {
-  try {
-    const deltas = getCountDeltas();
-    deltas[username] = (deltas[username] || 0) + delta;
-    localStorage.setItem(COUNT_DELTAS_KEY, JSON.stringify(deltas));
-  } catch {
-    // localStorage not available
-  }
-};
-
 // Hook for subscribing to favorite count changes for a specific username
+// The initialCount comes from the database's favorite_count column (updated by trigger)
+// This hook provides reactive updates within the current session
 export const useFavoriteCount = (username, initialCount = 0) => {
-  // Load any persisted delta from localStorage
-  const [count, setCount] = useState(() => {
-    const deltas = getCountDeltas();
-    const delta = deltas[username] || 0;
-    return Math.max(0, initialCount + delta);
-  });
+  const [count, setCount] = useState(initialCount);
 
-  // Update count when initialCount changes (e.g., data loads)
+  // Update count when initialCount changes (e.g., data loads from DB)
   useEffect(() => {
-    const deltas = getCountDeltas();
-    const delta = deltas[username] || 0;
-    setCount(Math.max(0, initialCount + delta));
-  }, [initialCount, username]);
+    setCount(initialCount);
+  }, [initialCount]);
 
+  // Subscribe to real-time changes within this session
   useEffect(() => {
     const unsubscribe = subscribeFavoriteCountChange((changedUsername, delta) => {
       if (changedUsername === username) {
         setCount(prev => Math.max(0, prev + delta));
-        // Persist the delta to localStorage for cross-page persistence
-        saveCountDelta(username, delta);
       }
     });
     return unsubscribe;
