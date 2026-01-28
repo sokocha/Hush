@@ -1599,6 +1599,13 @@ export default function App() {
   // Favorites
   const { isFavorite, toggleFavorite } = useFavorites();
 
+  // Pull to refresh - must be called before any early returns
+  const handleRefresh = useCallback(async () => {
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    showToast('Profile refreshed', 'info');
+  }, []);
+  const { isRefreshing, pullDistance, handleTouchStart: pullTouchStart, handleTouchMove: pullTouchMove, handleTouchEnd: pullTouchEnd } = usePullToRefresh(handleRefresh);
+
   // Load model data based on URL param or default
   const currentUsername = username || DEFAULT_USERNAME;
   const mockModelData = getModelByUsername(currentUsername);
@@ -1748,13 +1755,6 @@ export default function App() {
   const contact = CONFIG?.contact;
   const hasOutcall = pricing?.meetupOutcall !== null;
 
-  // Pull to refresh
-  const handleRefresh = async () => {
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    showToast('Profile refreshed', 'info');
-  };
-  const { isRefreshing, pullDistance, handleTouchStart, handleTouchMove, handleTouchEnd } = usePullToRefresh(handleRefresh);
-
   const protectedAction = (action) => {
     // Not authenticated (visitor) → redirect to signup
     if (!isAuthenticated) {
@@ -1834,9 +1834,9 @@ export default function App() {
   return (
     <div
       className="min-h-screen bg-gradient-to-br from-pink-950 via-rose-950 to-fuchsia-950"
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
+      onTouchStart={pullTouchStart}
+      onTouchMove={pullTouchMove}
+      onTouchEnd={pullTouchEnd}
     >
       {/* Toast notification */}
       <Toast message={toast.message} type={toast.type} isVisible={toast.visible} onHide={hideToast} />
