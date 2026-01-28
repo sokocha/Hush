@@ -11,6 +11,7 @@ import {
 import { PLATFORM_CONFIG, getModelByUsername } from '../data/models';
 import { useAuth } from '../context/AuthContext';
 import { useFavorites } from '../hooks/useFavorites';
+import { supabase } from '../lib/supabase';
 
 // ═══════════════════════════════════════════════════════════
 // HELPER FUNCTIONS
@@ -135,10 +136,68 @@ const StatCard = ({ icon: Icon, label, value, subValue, color = "pink" }) => {
 };
 
 const FavoriteModelCard = ({ username }) => {
-  const modelData = getModelByUsername(username);
-  if (!modelData) return null;
+  const [creatorData, setCreatorData] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  const { profile, stats } = modelData;
+  useEffect(() => {
+    const fetchCreator = async () => {
+      // First try mock data
+      const mockData = getModelByUsername(username);
+      if (mockData) {
+        setCreatorData({
+          name: mockData.profile.name,
+          location: mockData.profile.location,
+          rating: mockData.stats.rating,
+          isOnline: mockData.profile.isOnline,
+          isVideoVerified: mockData.profile.isVideoVerified,
+        });
+        setLoading(false);
+        return;
+      }
+
+      // If not in mock data, fetch from database
+      try {
+        const { data, error } = await supabase
+          .from('users')
+          .select(`
+            name,
+            creators(location, rating, is_video_verified)
+          `)
+          .eq('username', username)
+          .eq('user_type', 'creator')
+          .single();
+
+        if (!error && data) {
+          setCreatorData({
+            name: data.name,
+            location: data.creators?.location || 'Lagos',
+            rating: data.creators?.rating || 4.8,
+            isOnline: false,
+            isVideoVerified: data.creators?.is_video_verified || false,
+          });
+        }
+      } catch (err) {
+        console.error('Error fetching creator:', err);
+      }
+      setLoading(false);
+    };
+
+    fetchCreator();
+  }, [username]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center gap-3 p-3 bg-white/5 border border-white/10 rounded-xl animate-pulse">
+        <div className="w-14 h-14 rounded-full bg-white/10" />
+        <div className="flex-1">
+          <div className="h-4 bg-white/10 rounded w-24 mb-2" />
+          <div className="h-3 bg-white/10 rounded w-32" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!creatorData) return null;
 
   return (
     <Link
@@ -146,19 +205,19 @@ const FavoriteModelCard = ({ username }) => {
       className="flex items-center gap-3 p-3 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 hover:border-pink-500/30 transition-all"
     >
       <div className="w-14 h-14 rounded-full bg-gradient-to-br from-pink-500/30 to-purple-500/30 flex items-center justify-center flex-shrink-0 relative">
-        <span className="text-lg font-bold text-white/50">{profile.name.slice(0, 2).toUpperCase()}</span>
-        {profile.isOnline && (
+        <span className="text-lg font-bold text-white/50">{creatorData.name.slice(0, 2).toUpperCase()}</span>
+        {creatorData.isOnline && (
           <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-gray-900" />
         )}
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <h4 className="text-white font-semibold truncate">{profile.name}</h4>
-          {profile.isVideoVerified && (
+          <h4 className="text-white font-semibold truncate">{creatorData.name}</h4>
+          {creatorData.isVideoVerified && (
             <ShieldCheck size={14} className="text-blue-400 flex-shrink-0" />
           )}
         </div>
-        <p className="text-white/50 text-sm truncate">{profile.location} • {stats.rating} ⭐</p>
+        <p className="text-white/50 text-sm truncate">{creatorData.location} • {creatorData.rating} ⭐</p>
       </div>
       <ChevronRight size={20} className="text-white/30 flex-shrink-0" />
     </Link>

@@ -11,7 +11,7 @@ import {
   Smartphone, Target, RefreshCw, Wallet, Sparkles, TrendingUp, Users, Clock, Calendar
 } from 'lucide-react';
 import { PLATFORM_CONFIG, getModelByUsername, MODELS } from './data/models';
-import useFavorites from './hooks/useFavorites';
+import useFavorites, { useFavoriteCount } from './hooks/useFavorites';
 import { useAuth } from './context/AuthContext';
 import { creatorService } from './services/creatorService';
 import { storageService } from './services/storageService';
@@ -1700,6 +1700,9 @@ export default function App() {
   // Use mock data OR database data
   const modelData = mockModelData || (dbCreator ? transformDbCreatorToConfig(dbCreator) : null);
 
+  // Reactive favorite count - must be called before early returns
+  const favoriteCount = useFavoriteCount(currentUsername, modelData?.stats?.favoriteCount || 0);
+
   // Show loading state while fetching from database
   if (creatorLoading && (ageVerified || isAuthenticated)) {
     return (
@@ -1950,7 +1953,7 @@ export default function App() {
             </div>
             <div className="text-center border-l border-white/10"><p className="text-white font-bold">{stats.verifiedMeetups}</p><p className="text-white/40 text-xs">Meetups</p></div>
             <div className="text-center border-l border-white/10">
-              <div className="flex items-center justify-center gap-1"><Heart size={12} className="text-pink-400 fill-pink-400" /><span className="text-pink-400 font-bold">{stats.favoriteCount}</span></div>
+              <div className="flex items-center justify-center gap-1"><Heart size={12} className="text-pink-400 fill-pink-400" /><span className="text-pink-400 font-bold">{favoriteCount}</span></div>
               <p className="text-white/40 text-xs">Favorites</p>
             </div>
             <div className="text-center border-l border-white/10"><p className={`font-bold ${stats.lastSeen === 'Online' ? 'text-green-400' : 'text-white'}`}>{stats.lastSeen}</p><p className="text-white/40 text-xs">Last Seen</p></div>
