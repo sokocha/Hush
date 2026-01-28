@@ -3,7 +3,6 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 
 const STORAGE_KEY = 'hush_favorites';
-const COUNTS_KEY = 'hush_favorite_counts';
 
 // Global event emitter for favorite count changes
 const favoriteCountListeners = new Set();
@@ -61,9 +60,16 @@ export const useFavorites = () => {
             return;
           }
 
-          const usernames = usersData?.map(u => u.username) || [];
-          setFavorites(usernames);
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(usernames));
+          const dbUsernames = usersData?.map(u => u.username) || [];
+
+          // MERGE database favorites with existing localStorage favorites
+          // This preserves favorites for mock/dummy creators that aren't in DB
+          setFavorites(prev => {
+            const merged = new Set([...prev, ...dbUsernames]);
+            const mergedArray = Array.from(merged);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(mergedArray));
+            return mergedArray;
+          });
         }
       } catch (err) {
         console.error('Error fetching favorites:', err);
@@ -198,13 +204,17 @@ export const useFavorites = () => {
 };
 
 // Hook for subscribing to favorite count changes for a specific username
+// The initialCount comes from the database's favorite_count column (updated by trigger)
+// This hook provides reactive updates within the current session
 export const useFavoriteCount = (username, initialCount = 0) => {
   const [count, setCount] = useState(initialCount);
 
+  // Update count when initialCount changes (e.g., data loads from DB)
   useEffect(() => {
     setCount(initialCount);
   }, [initialCount]);
 
+  // Subscribe to real-time changes within this session
   useEffect(() => {
     const unsubscribe = subscribeFavoriteCountChange((changedUsername, delta) => {
       if (changedUsername === username) {

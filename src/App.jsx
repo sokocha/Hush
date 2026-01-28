@@ -11,7 +11,7 @@ import {
   Smartphone, Target, RefreshCw, Wallet, Sparkles, TrendingUp, Users, Clock, Calendar
 } from 'lucide-react';
 import { PLATFORM_CONFIG, getModelByUsername, MODELS } from './data/models';
-import useFavorites from './hooks/useFavorites';
+import useFavorites, { useFavoriteCount } from './hooks/useFavorites';
 import { useAuth } from './context/AuthContext';
 import { creatorService } from './services/creatorService';
 import { storageService } from './services/storageService';
@@ -133,18 +133,32 @@ const PhotoGalleryModal = ({ isOpen, onClose, photos, initialIndex = 0, photosUn
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [touchStart, setTouchStart] = useState(null);
 
+  const totalPhotos = photos?.total || 0;
+  const previewCount = photos?.previewCount || 0;
+
+  const goNext = useCallback(() => setCurrentIndex(prev => Math.min(prev + 1, totalPhotos - 1)), [totalPhotos]);
+  const goPrev = useCallback(() => setCurrentIndex(prev => Math.max(prev - 1, 0)), []);
+
   useEffect(() => {
     if (isOpen) setCurrentIndex(initialIndex);
   }, [isOpen, initialIndex]);
 
+  const handleKeyDown = useCallback((e) => {
+    if (!isOpen) return;
+    if (e.key === 'ArrowRight') goNext();
+    if (e.key === 'ArrowLeft') goPrev();
+    if (e.key === 'Escape') onClose();
+  }, [isOpen, goNext, goPrev, onClose]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, handleKeyDown]);
+
   if (!isOpen) return null;
 
-  const totalPhotos = photos.total;
-  const previewCount = photos.previewCount;
   const isLocked = !photosUnlocked && currentIndex >= previewCount;
-
-  const goNext = () => setCurrentIndex(prev => Math.min(prev + 1, totalPhotos - 1));
-  const goPrev = () => setCurrentIndex(prev => Math.max(prev - 1, 0));
 
   const handleTouchStart = (e) => setTouchStart(e.touches[0].clientX);
   const handleTouchEnd = (e) => {
@@ -156,17 +170,6 @@ const PhotoGalleryModal = ({ isOpen, onClose, photos, initialIndex = 0, photosUn
     }
     setTouchStart(null);
   };
-
-  const handleKeyDown = useCallback((e) => {
-    if (e.key === 'ArrowRight') goNext();
-    if (e.key === 'ArrowLeft') goPrev();
-    if (e.key === 'Escape') onClose();
-  }, []);
-
-  useEffect(() => {
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleKeyDown]);
 
   return (
     <div
@@ -1596,6 +1599,13 @@ export default function App() {
   // Favorites
   const { isFavorite, toggleFavorite } = useFavorites();
 
+  // Pull to refresh - must be called before any early returns
+  const handleRefresh = useCallback(async () => {
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    showToast('Profile refreshed', 'info');
+  }, []);
+  const { isRefreshing, pullDistance, handleTouchStart: pullTouchStart, handleTouchMove: pullTouchMove, handleTouchEnd: pullTouchEnd } = usePullToRefresh(handleRefresh);
+
   // Load model data based on URL param or default
   const currentUsername = username || DEFAULT_USERNAME;
   const mockModelData = getModelByUsername(currentUsername);
@@ -1690,8 +1700,11 @@ export default function App() {
   // Use mock data OR database data
   const modelData = mockModelData || (dbCreator ? transformDbCreatorToConfig(dbCreator) : null);
 
+  // Reactive favorite count - must be called before early returns
+  const favoriteCount = useFavoriteCount(currentUsername, modelData?.stats?.favoriteCount || 0);
+
   // Show loading state while fetching from database
-  if (creatorLoading && ageVerified) {
+  if (creatorLoading && (ageVerified || isAuthenticated)) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-pink-950 via-rose-950 to-fuchsia-950 flex items-center justify-center p-4">
         <div className="text-center">
@@ -1703,7 +1716,7 @@ export default function App() {
   }
 
   // If model not found, show 404 or redirect
-  if ((creatorNotFound || (!modelData && !creatorLoading)) && ageVerified) {
+  if ((creatorNotFound || (!modelData && !creatorLoading)) && (ageVerified || isAuthenticated)) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-pink-950 via-rose-950 to-fuchsia-950 flex items-center justify-center p-4">
         <div className="text-center">
@@ -1744,13 +1757,6 @@ export default function App() {
   const photos = CONFIG?.photos;
   const contact = CONFIG?.contact;
   const hasOutcall = pricing?.meetupOutcall !== null;
-
-  // Pull to refresh
-  const handleRefresh = async () => {
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    showToast('Profile refreshed', 'info');
-  };
-  const { isRefreshing, pullDistance, handleTouchStart, handleTouchMove, handleTouchEnd } = usePullToRefresh(handleRefresh);
 
   const protectedAction = (action) => {
     // Not authenticated (visitor) → redirect to signup
@@ -1831,9 +1837,9 @@ export default function App() {
   return (
     <div
       className="min-h-screen bg-gradient-to-br from-pink-950 via-rose-950 to-fuchsia-950"
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
+      onTouchStart={pullTouchStart}
+      onTouchMove={pullTouchMove}
+      onTouchEnd={pullTouchEnd}
     >
       {/* Toast notification */}
       <Toast message={toast.message} type={toast.type} isVisible={toast.visible} onHide={hideToast} />
@@ -1947,7 +1953,7 @@ export default function App() {
             </div>
             <div className="text-center border-l border-white/10"><p className="text-white font-bold">{stats.verifiedMeetups}</p><p className="text-white/40 text-xs">Meetups</p></div>
             <div className="text-center border-l border-white/10">
-              <div className="flex items-center justify-center gap-1"><Heart size={12} className="text-pink-400 fill-pink-400" /><span className="text-pink-400 font-bold">{stats.favoriteCount}</span></div>
+              <div className="flex items-center justify-center gap-1"><Heart size={12} className="text-pink-400 fill-pink-400" /><span className="text-pink-400 font-bold">{favoriteCount}</span></div>
               <p className="text-white/40 text-xs">Favorites</p>
             </div>
             <div className="text-center border-l border-white/10"><p className={`font-bold ${stats.lastSeen === 'Online' ? 'text-green-400' : 'text-white'}`}>{stats.lastSeen}</p><p className="text-white/40 text-xs">Last Seen</p></div>
