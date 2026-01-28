@@ -61,9 +61,16 @@ export const useFavorites = () => {
             return;
           }
 
-          const usernames = usersData?.map(u => u.username) || [];
-          setFavorites(usernames);
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(usernames));
+          const dbUsernames = usersData?.map(u => u.username) || [];
+
+          // MERGE database favorites with existing localStorage favorites
+          // This preserves favorites for mock/dummy creators that aren't in DB
+          setFavorites(prev => {
+            const merged = new Set([...prev, ...dbUsernames]);
+            const mergedArray = Array.from(merged);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(mergedArray));
+            return mergedArray;
+          });
         }
       } catch (err) {
         console.error('Error fetching favorites:', err);
