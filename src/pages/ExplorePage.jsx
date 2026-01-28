@@ -6,7 +6,7 @@ import {
   TrendingUp, Heart, Clock, Users, Sparkles, X, ChevronDown, ChevronUp, User
 } from 'lucide-react';
 import { getModelsList, getLocations, getAllExtras, PLATFORM_CONFIG } from '../data/models';
-import useFavorites from '../hooks/useFavorites';
+import useFavorites, { useFavoriteCount } from '../hooks/useFavorites';
 import { useAuth } from '../context/AuthContext';
 import { getTopMatches, addMatchPercentages } from '../utils/matchingAlgorithm';
 import { supabase } from '../lib/supabase';
@@ -89,7 +89,10 @@ const getLocationsWithCounts = (models) => [
 
 const formatNaira = (amount) => `₦${amount.toLocaleString()}`;
 
-const ModelCard = ({ model, isFavorite, onToggleFavorite, showMatchBadge = false }) => (
+const ModelCard = ({ model, isFavorite, onToggleFavorite, showMatchBadge = false }) => {
+  const favoriteCount = useFavoriteCount(model.username, model.favoriteCount);
+
+  return (
   <div className="relative bg-white/5 rounded-2xl border border-white/10 overflow-hidden hover:border-pink-500/30 hover:bg-white/10 transition-all group">
     <Link to={`/model/${model.username}`} className="block">
       {/* Photo */}
@@ -182,7 +185,7 @@ const ModelCard = ({ model, isFavorite, onToggleFavorite, showMatchBadge = false
           <span>•</span>
           <span className="flex items-center gap-1">
             <Heart size={10} className="text-pink-400 fill-pink-400" />
-            {model.favoriteCount}
+            {favoriteCount}
           </span>
         </div>
 
@@ -209,7 +212,8 @@ const ModelCard = ({ model, isFavorite, onToggleFavorite, showMatchBadge = false
       <Heart size={16} className={isFavorite ? 'fill-white' : ''} />
     </button>
   </div>
-);
+  );
+};
 
 export default function ExplorePage() {
   const { location } = useParams();
