@@ -1694,7 +1694,7 @@ export default function App() {
   const modelData = mockModelData || (dbCreator ? transformDbCreatorToConfig(dbCreator) : null);
 
   // Show loading state while fetching from database
-  if (creatorLoading && ageVerified) {
+  if (creatorLoading && (ageVerified || isAuthenticated)) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-pink-950 via-rose-950 to-fuchsia-950 flex items-center justify-center p-4">
         <div className="text-center">
@@ -1706,7 +1706,7 @@ export default function App() {
   }
 
   // If model not found, show 404 or redirect
-  if ((creatorNotFound || (!modelData && !creatorLoading)) && ageVerified) {
+  if ((creatorNotFound || (!modelData && !creatorLoading)) && (ageVerified || isAuthenticated)) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-pink-950 via-rose-950 to-fuchsia-950 flex items-center justify-center p-4">
         <div className="text-center">
