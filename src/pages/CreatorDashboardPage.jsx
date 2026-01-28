@@ -952,23 +952,34 @@ export default function CreatorDashboardPage() {
     }
   };
 
+  // Default schedule structure for new users
+  const getDefaultSchedule = () => {
+    const defaultSchedule = {};
+    ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].forEach(day => {
+      defaultSchedule[day] = { active: false, start: '10:00', end: '22:00' };
+    });
+    return defaultSchedule;
+  };
+
   const handleToggleDay = (day) => {
-    const schedule = editingSchedule || user.schedule;
+    const schedule = editingSchedule || user.schedule || getDefaultSchedule();
+    const daySchedule = schedule[day] || { active: false, start: '10:00', end: '22:00' };
     setEditingSchedule({
       ...schedule,
       [day]: {
-        ...schedule[day],
-        active: !schedule[day].active,
+        ...daySchedule,
+        active: !daySchedule.active,
       },
     });
   };
 
   const handleUpdateTime = (day, field, value) => {
-    const schedule = editingSchedule || user.schedule;
+    const schedule = editingSchedule || user.schedule || getDefaultSchedule();
+    const daySchedule = schedule[day] || { active: false, start: '10:00', end: '22:00' };
     setEditingSchedule({
       ...schedule,
       [day]: {
-        ...schedule[day],
+        ...daySchedule,
         [field]: value,
       },
     });
