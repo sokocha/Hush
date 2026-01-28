@@ -133,18 +133,32 @@ const PhotoGalleryModal = ({ isOpen, onClose, photos, initialIndex = 0, photosUn
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [touchStart, setTouchStart] = useState(null);
 
+  const totalPhotos = photos?.total || 0;
+  const previewCount = photos?.previewCount || 0;
+
+  const goNext = useCallback(() => setCurrentIndex(prev => Math.min(prev + 1, totalPhotos - 1)), [totalPhotos]);
+  const goPrev = useCallback(() => setCurrentIndex(prev => Math.max(prev - 1, 0)), []);
+
   useEffect(() => {
     if (isOpen) setCurrentIndex(initialIndex);
   }, [isOpen, initialIndex]);
 
+  const handleKeyDown = useCallback((e) => {
+    if (!isOpen) return;
+    if (e.key === 'ArrowRight') goNext();
+    if (e.key === 'ArrowLeft') goPrev();
+    if (e.key === 'Escape') onClose();
+  }, [isOpen, goNext, goPrev, onClose]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, handleKeyDown]);
+
   if (!isOpen) return null;
 
-  const totalPhotos = photos.total;
-  const previewCount = photos.previewCount;
   const isLocked = !photosUnlocked && currentIndex >= previewCount;
-
-  const goNext = () => setCurrentIndex(prev => Math.min(prev + 1, totalPhotos - 1));
-  const goPrev = () => setCurrentIndex(prev => Math.max(prev - 1, 0));
 
   const handleTouchStart = (e) => setTouchStart(e.touches[0].clientX);
   const handleTouchEnd = (e) => {
@@ -156,17 +170,6 @@ const PhotoGalleryModal = ({ isOpen, onClose, photos, initialIndex = 0, photosUn
     }
     setTouchStart(null);
   };
-
-  const handleKeyDown = useCallback((e) => {
-    if (e.key === 'ArrowRight') goNext();
-    if (e.key === 'ArrowLeft') goPrev();
-    if (e.key === 'Escape') onClose();
-  }, []);
-
-  useEffect(() => {
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleKeyDown]);
 
   return (
     <div
