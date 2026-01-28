@@ -832,29 +832,6 @@ export default function ClientDashboardPage() {
               </div>
             )}
 
-            {/* Favorites Preview */}
-            {favorites.length > 0 && (
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <h2 className="text-white font-semibold flex items-center gap-2">
-                    <Heart size={18} className="text-pink-400" />
-                    Saved Models
-                  </h2>
-                  <button
-                    onClick={() => setActiveTab('favorites')}
-                    className="text-pink-400 text-sm flex items-center gap-1 hover:text-pink-300"
-                  >
-                    See all <ChevronRight size={14} />
-                  </button>
-                </div>
-                <div className="space-y-2">
-                  {favorites.slice(0, 2).map(username => (
-                    <FavoriteModelCard key={username} username={username} />
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* How It Works */}
             <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
               <h4 className="text-blue-300 font-medium mb-3 flex items-center gap-2">
