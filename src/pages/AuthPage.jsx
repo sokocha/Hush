@@ -71,6 +71,24 @@ const COMMON_BOUNDARIES = [
 
 const formatNaira = (amount) => `₦${amount.toLocaleString()}`;
 
+// Normalize phone number to remove any existing country code prefix
+const normalizePhoneNumber = (phone) => {
+  // Remove all non-digits
+  let normalized = phone.replace(/\D/g, '');
+
+  // Remove leading 234 country code if present (for numbers like 2348187494741)
+  if (normalized.startsWith('234') && normalized.length > 10) {
+    normalized = normalized.slice(3);
+  }
+
+  // Remove leading 0 if present (common Nigerian local format like 08187494741)
+  if (normalized.startsWith('0') && normalized.length > 10) {
+    normalized = normalized.slice(1);
+  }
+
+  return normalized;
+};
+
 // OTP Input component
 const OTPInput = ({ value, onChange, length = 6 }) => {
   const handleChange = (index, digit) => {
@@ -1482,7 +1500,7 @@ export default function AuthPage() {
     setIsLoading(true);
     setAuthError('');
 
-    const fullPhone = `+234${phone}`;
+    const fullPhone = `+234${normalizePhoneNumber(phone)}`;
 
     if (USE_REAL_OTP) {
       const result = await requestOTP(fullPhone);
@@ -1506,7 +1524,7 @@ export default function AuthPage() {
     setIsLoading(true);
     setAuthError('');
 
-    const fullPhone = `+234${phone}`;
+    const fullPhone = `+234${normalizePhoneNumber(phone)}`;
 
     if (USE_REAL_OTP) {
       const result = await verifyOTP(fullPhone, otp);
@@ -1551,7 +1569,7 @@ export default function AuthPage() {
     setIsLoading(true);
     setAuthError('');
 
-    const fullPhone = `+234${phone}`;
+    const fullPhone = `+234${normalizePhoneNumber(phone)}`;
 
     if (USE_REAL_OTP) {
       const result = await requestOTP(fullPhone);
@@ -1575,7 +1593,7 @@ export default function AuthPage() {
     setIsLoading(true);
     setAuthError('');
 
-    const fullPhone = `+234${phone}`;
+    const fullPhone = `+234${normalizePhoneNumber(phone)}`;
 
     if (USE_REAL_OTP) {
       const result = await verifyOTP(fullPhone, otp);
@@ -1606,7 +1624,7 @@ export default function AuthPage() {
   };
 
   const handleResendOTP = async () => {
-    const fullPhone = `+234${phone}`;
+    const fullPhone = `+234${normalizePhoneNumber(phone)}`;
 
     if (USE_REAL_OTP) {
       await requestOTP(fullPhone);
@@ -1628,7 +1646,7 @@ export default function AuthPage() {
     setIsLoading(true);
     setAuthError('');
 
-    const fullPhone = `+234${phone}`;
+    const fullPhone = `+234${normalizePhoneNumber(phone)}`;
 
     // Always use real database registration (even with mock OTP)
     const result = await registerClient({
@@ -1666,7 +1684,7 @@ export default function AuthPage() {
     setIsLoading(true);
     setAuthError('');
 
-    const fullPhone = `+234${phone}`;
+    const fullPhone = `+234${normalizePhoneNumber(phone)}`;
 
     // Always use real database registration (even with mock OTP)
     const result = await registerCreator({
