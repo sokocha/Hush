@@ -589,7 +589,8 @@ export default function CreatorDashboardPage() {
   const isNewRegistration = location.state?.newRegistration;
 
   // Onboarding state - show setup flow for new registrations or incomplete profiles
-  const [showOnboarding, setShowOnboarding] = useState(false);
+  // Initialize to true if coming from new registration to avoid flash of dashboard
+  const [showOnboarding, setShowOnboarding] = useState(isNewRegistration || false);
   const [onboardingStep, setOnboardingStep] = useState(0);
   const [showPhotoMilestone, setShowPhotoMilestone] = useState(false);
   const [showVideoCallSchedule, setShowVideoCallSchedule] = useState(false);
