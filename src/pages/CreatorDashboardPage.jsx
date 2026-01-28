@@ -7,7 +7,7 @@ import {
   MapPin, Target, TrendingUp, Eye, Phone, MessageCircle,
   Ban, Sparkles, Award, X, Plus, Image, Trash2, Lock, Unlock,
   GripVertical, RotateCcw, CalendarDays, Wallet, ClipboardList,
-  CheckCheck, XCircle, User, MessageSquare, RefreshCw, PartyPopper
+  CheckCheck, XCircle, User, MessageSquare, RefreshCw, PartyPopper, Upload
 } from 'lucide-react';
 import { PLATFORM_CONFIG } from '../data/models';
 import { useAuth } from '../context/AuthContext';
@@ -220,6 +220,7 @@ const PricingInput = ({ label, value, onChange, placeholder, hint, required = fa
 const CameraCapture = ({ onCapture, onClose }) => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
+  const fileInputRef = useRef(null);
   const [stream, setStream] = useState(null);
   const [error, setError] = useState(null);
   const [facingMode, setFacingMode] = useState('environment'); // 'user' for front, 'environment' for back
@@ -319,6 +320,39 @@ const CameraCapture = ({ onCapture, onClose }) => {
     onClose();
   };
 
+  // Handle file upload as alternative to camera
+  const handleFileUpload = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      setError('Please select an image file');
+      return;
+    }
+
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      setError('Image must be less than 10MB');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const base64Data = e.target?.result;
+      if (base64Data) {
+        console.log('[CameraCapture] Photo uploaded from file');
+        onCapture({
+          id: Date.now().toString(),
+          url: base64Data,
+          capturedAt: new Date().toISOString(),
+          isPreview: false,
+        });
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   return (
     <div className="fixed inset-0 bg-black z-50 flex flex-col">
       {/* Header */}
@@ -368,7 +402,23 @@ const CameraCapture = ({ onCapture, onClose }) => {
 
       {/* Capture Button */}
       <div className="absolute bottom-0 left-0 right-0 pb-8 pt-4 bg-gradient-to-t from-black/80 to-transparent">
-        <div className="flex justify-center">
+        <div className="flex justify-center items-center gap-6">
+          {/* Upload from gallery button */}
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="p-4 rounded-full bg-white/10 backdrop-blur-sm border border-white/20"
+          >
+            <Upload size={24} className="text-white" />
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleFileUpload}
+            className="hidden"
+          />
+
+          {/* Camera capture button */}
           <button
             onClick={capturePhoto}
             disabled={!!error || isCapturing || !isVideoReady}
@@ -384,9 +434,12 @@ const CameraCapture = ({ onCapture, onClose }) => {
               <div className={`w-16 h-16 rounded-full ${isCapturing ? 'bg-white/60' : 'bg-white'}`} />
             )}
           </button>
+
+          {/* Placeholder for symmetry */}
+          <div className="w-14 h-14" />
         </div>
         <p className="text-white/60 text-center text-sm mt-4">
-          {!isVideoReady ? 'Loading camera...' : 'Tap to capture'}
+          {!isVideoReady ? 'Loading camera... or upload from gallery' : 'Tap to capture or upload from gallery'}
         </p>
       </div>
     </div>
@@ -788,7 +841,8 @@ export default function CreatorDashboardPage() {
       displayOrder: currentPhotos.length,
     };
 
-    // Upload to Supabase Storage and save to database
+    // Try to upload to Supabase Storage if user has an ID
+    let uploadSucceeded = false;
     if (user?.id) {
       try {
         console.log('[CreatorDashboard] Converting base64 to blob...');
@@ -807,20 +861,22 @@ export default function CreatorDashboardPage() {
           newPhoto.url = result.photo.url;
           newPhoto.storagePath = result.photo.storage_path;
           console.log('[CreatorDashboard] Photo uploaded and saved:', result.photo.id);
+          uploadSucceeded = true;
         } else {
           console.error('[CreatorDashboard] Failed to upload photo:', result.error);
-          setIsUploadingPhoto(false);
-          return; // Don't add photo to state if upload failed
+          // Continue with local storage as fallback
         }
       } catch (error) {
         console.error('[CreatorDashboard] Error uploading photo:', error);
-        setIsUploadingPhoto(false);
-        return; // Don't add photo to state if upload failed
+        // Continue with local storage as fallback
       }
     }
 
+    // Always save photo locally (even if Supabase upload failed)
+    // This allows onboarding to continue and photos can be synced later
     const newPhotos = [...currentPhotos, newPhoto];
-    updateUser({ photos: newPhotos }, false); // Don't sync to server, we already saved the photo
+    console.log('[CreatorDashboard] Saving photo locally, total photos:', newPhotos.length);
+    updateUser({ photos: newPhotos }, !uploadSucceeded); // Only sync if upload didn't succeed
     setIsUploadingPhoto(false);
 
     // Show milestone celebration when reaching 3 photos
@@ -1050,7 +1106,10 @@ export default function CreatorDashboardPage() {
       title: 'Add Your Photos',
       description: `You need at least 3 photos to complete your profile. You have ${user?.photos?.length || 0} of 3 photos.`,
       icon: Camera,
-      action: () => { setShowCameraCapture(true); },
+      action: () => {
+        console.log('[Onboarding] Take Photo button clicked, setting showCameraCapture to true');
+        setShowCameraCapture(true);
+      },
       actionText: (user?.photos?.length || 0) >= 3 ? 'Add More Photos' : `Take Photo (${user?.photos?.length || 0}/3)`,
       isComplete: (user?.photos?.length || 0) >= 3,
       showPhotoProgress: true,
@@ -1438,10 +1497,13 @@ export default function CreatorDashboardPage() {
 
         {/* Camera Capture - for onboarding photo upload */}
         {showCameraCapture && (
-          <CameraCapture
-            onCapture={handlePhotoCapture}
-            onClose={() => setShowCameraCapture(false)}
-          />
+          <>
+            {console.log('[Onboarding] Rendering CameraCapture component')}
+            <CameraCapture
+              onCapture={handlePhotoCapture}
+              onClose={() => setShowCameraCapture(false)}
+            />
+          </>
         )}
 
         {/* Photo Milestone Celebration Modal */}
