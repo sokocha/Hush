@@ -140,5 +140,5 @@ jobs:
         if: steps.check.outputs.has_token == 'true'
         id: deploy
         run: |
-          url=$(vercel deploy --yes --prod --token=${{ secrets.VERCEL_TOKEN }})
+          url=$(vercel deploy --yes --name hush --prod --token=${{ secrets.VERCEL_TOKEN }})
           echo "url=$url" >> "$GITHUB_OUTPUT"
