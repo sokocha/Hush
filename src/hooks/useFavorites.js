@@ -204,18 +204,52 @@ export const useFavorites = () => {
   };
 };
 
+// Storage key for favorite count deltas (for mock creators without database persistence)
+const COUNT_DELTAS_KEY = 'hush_favorite_count_deltas';
+
+// Get stored count deltas
+const getCountDeltas = () => {
+  try {
+    const stored = localStorage.getItem(COUNT_DELTAS_KEY);
+    return stored ? JSON.parse(stored) : {};
+  } catch {
+    return {};
+  }
+};
+
+// Save count delta for a username
+const saveCountDelta = (username, delta) => {
+  try {
+    const deltas = getCountDeltas();
+    deltas[username] = (deltas[username] || 0) + delta;
+    localStorage.setItem(COUNT_DELTAS_KEY, JSON.stringify(deltas));
+  } catch {
+    // localStorage not available
+  }
+};
+
 // Hook for subscribing to favorite count changes for a specific username
 export const useFavoriteCount = (username, initialCount = 0) => {
-  const [count, setCount] = useState(initialCount);
+  // Load any persisted delta from localStorage
+  const [count, setCount] = useState(() => {
+    const deltas = getCountDeltas();
+    const delta = deltas[username] || 0;
+    return Math.max(0, initialCount + delta);
+  });
 
+  // Update count when initialCount changes (e.g., data loads)
   useEffect(() => {
-    setCount(initialCount);
-  }, [initialCount]);
+    const deltas = getCountDeltas();
+    const delta = deltas[username] || 0;
+    setCount(Math.max(0, initialCount + delta));
+  }, [initialCount, username]);
 
   useEffect(() => {
     const unsubscribe = subscribeFavoriteCountChange((changedUsername, delta) => {
       if (changedUsername === username) {
         setCount(prev => Math.max(0, prev + delta));
+        // Persist the delta to localStorage for cross-page persistence
+        saveCountDelta(username, delta);
       }
     });
     return unsubscribe;
