@@ -1493,9 +1493,15 @@ export default function AuthPage() {
     try { return !!localStorage.getItem(CREATOR_DRAFT_KEY); } catch { return false; }
   });
 
-  // Redirect if already authenticated
+  // Ref to prevent the isAuthenticated redirect from firing during registration.
+  // Without this, registerCreator/registerClient sets isAuthenticated=true, which
+  // triggers the useEffect below BEFORE our post-registration navigate() executes,
+  // sending users to /explore/all instead of their intended destination.
+  const isCompletingRegistration = React.useRef(false);
+
+  // Redirect if already authenticated (but not mid-registration)
   React.useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && !isCompletingRegistration.current) {
       navigate('/explore/all');
     }
   }, [isAuthenticated, navigate]);
@@ -1680,6 +1686,7 @@ export default function AuthPage() {
   const handleClientProfileComplete = async () => {
     setIsLoading(true);
     setAuthError('');
+    isCompletingRegistration.current = true;
 
     const fullPhone = `+234${normalizePhoneNumber(phone)}`;
 
@@ -1727,6 +1734,7 @@ export default function AuthPage() {
   const handleCreatorProfileComplete = async () => {
     setIsLoading(true);
     setAuthError('');
+    isCompletingRegistration.current = true;
 
     const fullPhone = `+234${normalizePhoneNumber(phone)}`;
 
