@@ -18,7 +18,6 @@ export const PLATFORM_CONFIG = {
       deposit: 15000,
       tagline: "i'm real",
       color: "gray",
-      refund: null, // No refund
       benefits: ["View 1 preview photo", "In-app chat (limited)"],
     },
     verified: {
@@ -27,7 +26,6 @@ export const PLATFORM_CONFIG = {
       deposit: 30000,
       tagline: "i'm serious",
       color: "blue",
-      refund: { meetups: 3, months: 6 }, // 3 meetups OR 6 months (whichever first)
       benefits: ["View contact info", "View all photos", "Initiate meetups", "Priority response"],
     },
     baller: {
@@ -36,7 +34,6 @@ export const PLATFORM_CONFIG = {
       deposit: 100000,
       tagline: "i'm a baller",
       color: "purple",
-      refund: { meetups: 10, months: 12 }, // 10 meetups OR 12 months
       benefits: ["All Verified benefits", "VIP badge on profile", "Priority booking", "Exclusive escorts"],
     },
     bossman: {
@@ -45,16 +42,12 @@ export const PLATFORM_CONFIG = {
       deposit: 1000000,
       tagline: "i'm a fucking boss",
       color: "gold",
-      refund: null, // Never refunded, but transferable to credit
-      refundNote: "Transferable to credit",
       benefits: ["All Baller benefits", "Bossman badge", "Concierge service", "First access to new models"],
     },
   },
   // Legacy support - default to verified tier
   trustDeposit: {
     amount: 30000,
-    meetupsToRefund: 3,      // X successful meetups
-    monthsToRefund: 6,       // OR Y months good standing
   },
   // Anti-catfish features
   features: {

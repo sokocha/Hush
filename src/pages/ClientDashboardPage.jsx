@@ -274,11 +274,6 @@ const TierSelectionCard = ({ tier, isSelected, onSelect, isCurrentTier, isLowerT
           <span key={i} className="text-xs bg-white/10 px-2 py-0.5 rounded-full text-white/60">{benefit}</span>
         ))}
       </div>
-      {tierData.refund && (
-        <p className="text-white/40 text-xs mt-2">
-          Refundable after {tierData.refund.meetups} meetups
-        </p>
-      )}
     </button>
   );
 };
@@ -837,14 +832,6 @@ export default function ClientDashboardPage() {
     ? Math.round((user.successfulMeetups / (user.successfulMeetups + 1)) * 100)
     : 0;
 
-  // Calculate refund progress
-  const refundProgress = tierData?.refund
-    ? Math.min((user.successfulMeetups / tierData.refund.meetups) * 100, 100)
-    : 0;
-  const meetupsToRefund = tierData?.refund
-    ? Math.max(0, tierData.refund.meetups - user.successfulMeetups)
-    : 0;
-
   // Get meetups data - merge database results with local state fallback
   const localMeetups = user.meetups || [];
   const meetups = dbMeetups.length > 0
@@ -949,31 +936,6 @@ export default function ClientDashboardPage() {
               <p className="text-white/40 text-xs mt-1">Trust deposit for unlocks & bookings</p>
             </div>
 
-            {/* Refund Progress */}
-            {tierData?.refund && (
-              <div className="bg-black/20 rounded-xl p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-white/60 text-sm">Deposit Refund Progress</span>
-                  <span className="text-white font-medium text-sm">{user.successfulMeetups}/{tierData.refund.meetups}</span>
-                </div>
-                <div className="h-2 bg-white/10 rounded-full overflow-hidden mb-2">
-                  <div
-                    className={`h-full ${tierColors.solid} transition-all duration-500`}
-                    style={{ width: `${refundProgress}%` }}
-                  />
-                </div>
-                {meetupsToRefund > 0 ? (
-                  <p className="text-white/40 text-xs">
-                    {meetupsToRefund} more successful meetup{meetupsToRefund > 1 ? 's' : ''} to get your {formatNaira(user.depositBalance || 0)} deposit back
-                  </p>
-                ) : (
-                  <p className="text-green-400 text-xs flex items-center gap-1">
-                    <CheckCircle size={12} />
-                    Eligible for deposit refund!
-                  </p>
-                )}
-              </div>
-            )}
           </div>
         )}
 

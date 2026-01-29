@@ -307,7 +307,7 @@ const AgeVerification = ({ onVerify }) => (
 );
 
 // ═══════════════════════════════════════════════════════════
-// TRUST DEPOSIT MODAL (Platform holds refundable deposit with Tiers)
+// TRUST DEPOSIT MODAL (Platform holds store-credit deposit with Tiers)
 // ═══════════════════════════════════════════════════════════
 
 const TierBadge = ({ tier, size = "md" }) => {
@@ -432,19 +432,10 @@ const TrustDepositModal = ({ isOpen, onClose, onDepositPaid }) => {
                           <span key={i} className="text-xs bg-white/10 px-2 py-0.5 rounded-full text-white/60">{benefit}</span>
                         ))}
                       </div>
-                      {tier.refund ? (
-                        <p className="text-green-400 text-xs mt-2 flex items-center gap-1">
-                          <CheckCircle size={12} />
-                          Refundable after {tier.refund.meetups} meetups or {tier.refund.months} months
-                        </p>
-                      ) : tier.refundNote ? (
-                        <p className="text-amber-400 text-xs mt-2 flex items-center gap-1">
-                          <Info size={12} />
-                          {tier.refundNote}
-                        </p>
-                      ) : (
-                        <p className="text-white/40 text-xs mt-2">Non-refundable</p>
-                      )}
+                      <p className="text-green-400 text-xs mt-2 flex items-center gap-1">
+                        <CheckCircle size={12} />
+                        Deposit becomes store credit for unlocks &amp; bookings
+                      </p>
                     </div>
                     <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
                       isSelected ? `${colors.border} ${colors.bg}` : 'border-white/30'
@@ -582,19 +573,6 @@ const TrustDepositModal = ({ isOpen, onClose, onDepositPaid }) => {
               ))}
             </div>
           </div>
-
-          {currentTier.refund && (
-            <div className="bg-blue-500/10 rounded-xl p-4 border border-blue-500/30 text-left">
-              <p className="text-blue-300 text-sm mb-2">Bonus: Get your deposit back!</p>
-              <div className="flex items-center gap-3">
-                <div className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
-                  <div className="h-full w-0 bg-blue-500 rounded-full" />
-                </div>
-                <span className="text-white/60 text-sm">0/{currentTier.refund.meetups}</span>
-              </div>
-              <p className="text-white/40 text-xs mt-2">Complete {currentTier.refund.meetups} meetups and get your {formatNaira(currentTier.deposit)} back (keep the credit too!)</p>
-            </div>
-          )}
 
           <button
             onClick={resetAndClose}
@@ -844,18 +822,7 @@ const MeetupModal = ({ isOpen, onClose, clientState, onNeedsTrustDeposit, modelC
                     </span>
                   )}
                 </div>
-                {PLATFORM_CONFIG.verificationTiers[clientState.tier]?.refund && (
-                  <p className="text-white/50 text-xs">{clientState.successfulMeetups}/{PLATFORM_CONFIG.verificationTiers[clientState.tier].refund.meetups} to refund</p>
-                )}
               </div>
-              {PLATFORM_CONFIG.verificationTiers[clientState.tier]?.refund && (
-                <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-green-500 rounded-full transition-all"
-                    style={{ width: `${(clientState.successfulMeetups / PLATFORM_CONFIG.verificationTiers[clientState.tier].refund.meetups) * 100}%` }}
-                  />
-                </div>
-              )}
             </div>
           ) : (
             <div className="bg-gradient-to-r from-amber-500/10 to-pink-500/10 border border-amber-500/30 rounded-xl p-4">
