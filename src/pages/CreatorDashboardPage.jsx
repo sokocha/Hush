@@ -13,6 +13,8 @@ import { PLATFORM_CONFIG } from '../data/models';
 import { useAuth } from '../context/AuthContext';
 import { creatorService } from '../services/creatorService';
 import { storageService } from '../services/storageService';
+import { bookingService } from '../services/bookingService';
+import { supabase } from '../lib/supabase';
 
 // Simple confetti component
 const Confetti = ({ active }) => {
@@ -216,7 +218,7 @@ const PricingInput = ({ label, value, onChange, placeholder, hint, required = fa
   </div>
 );
 
-// Camera Capture Component
+// Camera Capture Component - Live camera only (no file upload to prevent catfishing)
 const CameraCapture = ({ onCapture, onClose }) => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -583,13 +585,14 @@ const VerificationStep = ({ icon: Icon, title, description, status, action, onAc
 export default function CreatorDashboardPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout, updateUser, isCreator, updateBookingRequestStatus, recordCreatorEarnings, updateSchedule } = useAuth();
+  const { user, logout, updateUser, isCreator, updateSchedule } = useAuth();
 
   // Check if this is a new registration coming from auth page
   const isNewRegistration = location.state?.newRegistration;
 
   // Onboarding state - show setup flow for new registrations or incomplete profiles
-  const [showOnboarding, setShowOnboarding] = useState(false);
+  // Initialize to true if coming from new registration to avoid flash of dashboard
+  const [showOnboarding, setShowOnboarding] = useState(isNewRegistration || false);
   const [onboardingStep, setOnboardingStep] = useState(0);
   const [showPhotoMilestone, setShowPhotoMilestone] = useState(false);
   const [showVideoCallSchedule, setShowVideoCallSchedule] = useState(false);
@@ -611,6 +614,9 @@ export default function CreatorDashboardPage() {
   const [showDeclineModal, setShowDeclineModal] = useState(null);
   const [declineReason, setDeclineReason] = useState('');
   const [showCancelConfirm, setShowCancelConfirm] = useState(null); // holds bookingId to cancel
+  const [dbBookings, setDbBookings] = useState([]);
+  const [loadingBookings, setLoadingBookings] = useState(false);
+  const [dbEarnings, setDbEarnings] = useState([]);
 
   // Schedule editing state
   const [editingSchedule, setEditingSchedule] = useState(null);
@@ -669,6 +675,61 @@ export default function CreatorDashboardPage() {
       }
     }
   }, [isNewRegistration, isProfileComplete, user, isCreator]);
+
+  // Fetch bookings and earnings from database
+  const fetchBookings = useCallback(async () => {
+    if (!user?.id) return;
+    setLoadingBookings(true);
+    try {
+      console.log('[CreatorDashboard] Fetching bookings for creator:', user.id);
+      const result = await bookingService.getCreatorBookings(user.id);
+      if (result.success) {
+        const bookingsData = result.bookings || [];
+        console.log('[CreatorDashboard] Fetched', bookingsData.length, 'bookings from database');
+
+        // Look up client names if join didn't resolve them
+        const needsNameLookup = bookingsData.filter(b => !b.client?.users?.name);
+        if (needsNameLookup.length > 0) {
+          const clientIds = [...new Set(needsNameLookup.map(b => b.client_id))];
+          const { data: clientUsers } = await supabase
+            .from('users')
+            .select('id, name, username, phone')
+            .in('id', clientIds);
+          if (clientUsers) {
+            const nameMap = {};
+            clientUsers.forEach(u => { nameMap[u.id] = u; });
+            bookingsData.forEach(b => {
+              if (!b.client?.users?.name && nameMap[b.client_id]) {
+                b.client = { ...b.client, users: nameMap[b.client_id] };
+              }
+            });
+          }
+        }
+
+        setDbBookings(bookingsData);
+      } else {
+        console.error('[CreatorDashboard] Failed to fetch bookings:', result.error);
+      }
+
+      // Fetch earnings from database
+      const { data: earningsData } = await supabase
+        .from('creator_earnings')
+        .select('*')
+        .eq('creator_id', user.id)
+        .order('created_at', { ascending: false });
+      if (earningsData) {
+        setDbEarnings(earningsData);
+      }
+    } catch (err) {
+      console.error('[CreatorDashboard] Error fetching bookings:', err);
+    } finally {
+      setLoadingBookings(false);
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    fetchBookings();
+  }, [fetchBookings]);
 
   // Redirect if not a creator
   if (!user || !isCreator) {
@@ -787,7 +848,8 @@ export default function CreatorDashboardPage() {
       displayOrder: currentPhotos.length,
     };
 
-    // Upload to Supabase Storage and save to database
+    // Try to upload to Supabase Storage if user has an ID
+    let uploadSucceeded = false;
     if (user?.id) {
       try {
         console.log('[CreatorDashboard] Converting base64 to blob...');
@@ -806,20 +868,22 @@ export default function CreatorDashboardPage() {
           newPhoto.url = result.photo.url;
           newPhoto.storagePath = result.photo.storage_path;
           console.log('[CreatorDashboard] Photo uploaded and saved:', result.photo.id);
+          uploadSucceeded = true;
         } else {
           console.error('[CreatorDashboard] Failed to upload photo:', result.error);
-          setIsUploadingPhoto(false);
-          return; // Don't add photo to state if upload failed
+          // Continue with local storage as fallback
         }
       } catch (error) {
         console.error('[CreatorDashboard] Error uploading photo:', error);
-        setIsUploadingPhoto(false);
-        return; // Don't add photo to state if upload failed
+        // Continue with local storage as fallback
       }
     }
 
+    // Always save photo locally (even if Supabase upload failed)
+    // This allows onboarding to continue and photos can be synced later
     const newPhotos = [...currentPhotos, newPhoto];
-    updateUser({ photos: newPhotos }, false); // Don't sync to server, we already saved the photo
+    console.log('[CreatorDashboard] Saving photo locally, total photos:', newPhotos.length);
+    updateUser({ photos: newPhotos }, !uploadSucceeded); // Only sync if upload didn't succeed
     setIsUploadingPhoto(false);
 
     // Show milestone celebration when reaching 3 photos
@@ -867,28 +931,56 @@ export default function CreatorDashboardPage() {
     }
   };
 
-  const handleTogglePreview = (photoId) => {
+  const handleTogglePreview = async (photoId) => {
     const currentPhotos = user.photos || [];
+    const photo = currentPhotos.find(p => p.id === photoId);
+    if (!photo) return;
+
+    const newPreviewStatus = !photo.isPreview;
+
+    // Update local state immediately for responsiveness
     const updatedPhotos = currentPhotos.map(p => ({
       ...p,
-      isPreview: p.id === photoId ? !p.isPreview : p.isPreview,
+      isPreview: p.id === photoId ? newPreviewStatus : p.isPreview,
     }));
-    updateUser({ photos: updatedPhotos });
+    updateUser({ photos: updatedPhotos }, false);
+
+    // Sync to database
+    try {
+      await storageService.setPhotoPreview(photoId, newPreviewStatus);
+      console.log('[CreatorDashboard] Photo preview status updated in database');
+    } catch (error) {
+      console.error('[CreatorDashboard] Failed to update photo preview in database:', error);
+    }
   };
 
-  const handleSetProfilePhoto = (photoId) => {
+  const handleSetProfilePhoto = async (photoId) => {
     const currentPhotos = user.photos || [];
-    // Remove profile status from all photos and set it on the selected one
+
+    // Update local state immediately - set selected as profile, first preview photo logic
     const updatedPhotos = currentPhotos.map(p => ({
       ...p,
       isProfilePhoto: p.id === photoId,
+      // The profile photo should also be a preview photo
+      isPreview: p.id === photoId ? true : p.isPreview,
     }));
-    updateUser({ photos: updatedPhotos });
+    updateUser({ photos: updatedPhotos }, false);
+
+    // Sync to database - mark as preview (profile photos are always previews)
+    try {
+      // First, ensure the selected photo is marked as preview
+      await storageService.setPhotoPreview(photoId, true);
+      console.log('[CreatorDashboard] Profile photo updated in database');
+    } catch (error) {
+      console.error('[CreatorDashboard] Failed to update profile photo in database:', error);
+    }
   };
 
-  const handleDeletePhoto = (photoId) => {
+  const handleDeletePhoto = async (photoId) => {
     const currentPhotos = user.photos || [];
     const photoToDelete = currentPhotos.find(p => p.id === photoId);
+    if (!photoToDelete) return;
+
     let updatedPhotos = currentPhotos.filter(p => p.id !== photoId);
 
     // If deleting the profile photo, set the first remaining photo as profile
@@ -899,47 +991,87 @@ export default function CreatorDashboardPage() {
       }));
     }
 
-    updateUser({ photos: updatedPhotos });
+    // Update local state immediately
+    updateUser({ photos: updatedPhotos }, false);
     setShowDeletePhotoConfirm(null);
+
+    // Delete from database and storage
+    try {
+      const storagePath = photoToDelete.storagePath || photoToDelete.storage_path;
+      if (storagePath) {
+        await storageService.deleteCreatorPhoto(photoId, storagePath);
+        console.log('[CreatorDashboard] Photo deleted from database and storage');
+      } else {
+        // Just delete from database if no storage path
+        await creatorService.deleteCreatorPhoto(photoId);
+        console.log('[CreatorDashboard] Photo deleted from database');
+      }
+    } catch (error) {
+      console.error('[CreatorDashboard] Failed to delete photo:', error);
+    }
   };
 
-  const handleReorderPhotos = (fromIndex, toIndex) => {
+  const handleReorderPhotos = async (fromIndex, toIndex) => {
     const currentPhotos = [...(user.photos || [])];
     const [removed] = currentPhotos.splice(fromIndex, 1);
     currentPhotos.splice(toIndex, 0, removed);
-    updateUser({ photos: currentPhotos });
+
+    // Update display_order for all photos
+    const reorderedPhotos = currentPhotos.map((p, index) => ({
+      ...p,
+      displayOrder: index,
+      display_order: index,
+    }));
+
+    // Update local state immediately
+    updateUser({ photos: reorderedPhotos }, false);
+
+    // Sync to database
+    try {
+      const photoOrders = reorderedPhotos.map((p, index) => ({
+        id: p.id,
+        display_order: index,
+      }));
+      await storageService.reorderPhotos(photoOrders);
+      console.log('[CreatorDashboard] Photos reordered in database');
+    } catch (error) {
+      console.error('[CreatorDashboard] Failed to reorder photos in database:', error);
+    }
   };
 
   // Booking handlers
-  const handleConfirmBooking = (bookingId) => {
-    updateBookingRequestStatus(bookingId, 'confirmed');
+  const handleConfirmBooking = async (bookingId) => {
+    await bookingService.confirmBooking(bookingId);
     setShowBookingModal(false);
     setSelectedBooking(null);
+    fetchBookings();
   };
 
-  const handleDeclineBooking = (bookingId) => {
-    updateBookingRequestStatus(bookingId, 'declined', declineReason);
+  const handleDeclineBooking = async (bookingId) => {
+    await bookingService.declineBooking(bookingId, declineReason);
     setShowDeclineModal(null);
     setDeclineReason('');
+    fetchBookings();
   };
 
-  const handleCompleteBooking = (booking) => {
-    updateBookingRequestStatus(booking.id, 'completed');
-    recordCreatorEarnings(booking.totalPrice, booking.id);
+  const handleCompleteBooking = async (booking) => {
+    await bookingService.completeBooking(booking.id, user.id);
     setShowBookingModal(false);
     setSelectedBooking(null);
+    fetchBookings();
   };
 
   const handleCancelBooking = (bookingId) => {
     setShowCancelConfirm(bookingId);
   };
 
-  const confirmCancelBooking = () => {
+  const confirmCancelBooking = async () => {
     if (showCancelConfirm) {
-      updateBookingRequestStatus(showCancelConfirm, 'cancelled');
+      await bookingService.cancelBooking(showCancelConfirm);
       setShowCancelConfirm(null);
       setShowBookingModal(false);
       setSelectedBooking(null);
+      fetchBookings();
     }
   };
 
@@ -951,30 +1083,41 @@ export default function CreatorDashboardPage() {
     }
   };
 
+  // Default schedule structure for new users
+  const getDefaultSchedule = () => {
+    const defaultSchedule = {};
+    ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].forEach(day => {
+      defaultSchedule[day] = { active: false, start: '10:00', end: '22:00' };
+    });
+    return defaultSchedule;
+  };
+
   const handleToggleDay = (day) => {
-    const schedule = editingSchedule || user.schedule;
+    const schedule = editingSchedule || user.schedule || getDefaultSchedule();
+    const daySchedule = schedule[day] || { active: false, start: '10:00', end: '22:00' };
     setEditingSchedule({
       ...schedule,
       [day]: {
-        ...schedule[day],
-        active: !schedule[day].active,
+        ...daySchedule,
+        active: !daySchedule.active,
       },
     });
   };
 
   const handleUpdateTime = (day, field, value) => {
-    const schedule = editingSchedule || user.schedule;
+    const schedule = editingSchedule || user.schedule || getDefaultSchedule();
+    const daySchedule = schedule[day] || { active: false, start: '10:00', end: '22:00' };
     setEditingSchedule({
       ...schedule,
       [day]: {
-        ...schedule[day],
+        ...daySchedule,
         [field]: value,
       },
     });
   };
 
-  // Get bookings data
-  const bookings = user.bookingRequests || [];
+  // Get bookings data (from database)
+  const bookings = dbBookings;
   const filteredBookings = bookingFilter === 'all'
     ? bookings
     : bookings.filter(b => b.status === bookingFilter);
@@ -983,12 +1126,12 @@ export default function CreatorDashboardPage() {
   const confirmedBookings = bookings.filter(b => b.status === 'confirmed');
   const completedBookings = bookings.filter(b => b.status === 'completed');
 
-  // Get earnings data
-  const earnings = user.earnings || [];
-  const totalEarnings = earnings.reduce((sum, e) => sum + e.amount, 0);
+  // Get earnings data (from database, with local fallback)
+  const earnings = dbEarnings.length > 0 ? dbEarnings : (user.earnings || []);
+  const totalEarnings = earnings.reduce((sum, e) => sum + parseFloat(e.amount || 0), 0);
   const thisMonthEarnings = earnings
-    .filter(e => new Date(e.date).getMonth() === new Date().getMonth())
-    .reduce((sum, e) => sum + e.amount, 0);
+    .filter(e => new Date(e.created_at || e.date).getMonth() === new Date().getMonth())
+    .reduce((sum, e) => sum + parseFloat(e.amount || 0), 0);
 
   // Get photos data
   const creatorPhotos = user.photos || [];
@@ -1038,7 +1181,10 @@ export default function CreatorDashboardPage() {
       title: 'Add Your Photos',
       description: `You need at least 3 photos to complete your profile. You have ${user?.photos?.length || 0} of 3 photos.`,
       icon: Camera,
-      action: () => { setShowCameraCapture(true); },
+      action: () => {
+        console.log('[Onboarding] Take Photo button clicked, setting showCameraCapture to true');
+        setShowCameraCapture(true);
+      },
       actionText: (user?.photos?.length || 0) >= 3 ? 'Add More Photos' : `Take Photo (${user?.photos?.length || 0}/3)`,
       isComplete: (user?.photos?.length || 0) >= 3,
       showPhotoProgress: true,
@@ -1426,10 +1572,13 @@ export default function CreatorDashboardPage() {
 
         {/* Camera Capture - for onboarding photo upload */}
         {showCameraCapture && (
-          <CameraCapture
-            onCapture={handlePhotoCapture}
-            onClose={() => setShowCameraCapture(false)}
-          />
+          <>
+            {console.log('[Onboarding] Rendering CameraCapture component')}
+            <CameraCapture
+              onCapture={handlePhotoCapture}
+              onClose={() => setShowCameraCapture(false)}
+            />
+          </>
         )}
 
         {/* Photo Milestone Celebration Modal */}
@@ -1824,7 +1973,12 @@ export default function CreatorDashboardPage() {
             </div>
 
             {/* Bookings List */}
-            {filteredBookings.length > 0 ? (
+            {loadingBookings ? (
+              <div className="py-12 text-center">
+                <RefreshCw size={24} className="text-white/30 animate-spin mx-auto mb-3" />
+                <p className="text-white/50 text-sm">Loading bookings...</p>
+              </div>
+            ) : filteredBookings.length > 0 ? (
               <div className="space-y-3">
                 {filteredBookings.map(booking => (
                   <div
@@ -1841,8 +1995,8 @@ export default function CreatorDashboardPage() {
                           <User size={18} className="text-purple-400" />
                         </div>
                         <div>
-                          <p className="text-white font-medium">{booking.clientName || 'Client'}</p>
-                          <p className="text-white/50 text-xs">{booking.clientPhone}</p>
+                          <p className="text-white font-medium">{booking.client?.users?.name || 'Client'}</p>
+                          <p className="text-white/50 text-xs">{booking.client?.users?.phone}</p>
                         </div>
                       </div>
                       <span className={`px-2 py-1 rounded-lg text-xs font-medium ${
@@ -1867,19 +2021,19 @@ export default function CreatorDashboardPage() {
                       </div>
                       <div className="flex items-center gap-2 text-white/60">
                         <MapPin size={14} />
-                        <span>{booking.locationType === 'incall' ? 'Incall' : 'Outcall'}</span>
+                        <span>{booking.location_type === 'incall' ? 'Incall' : 'Outcall'}</span>
                       </div>
                       <div className="flex items-center gap-2 text-green-400 font-medium">
                         <DollarSign size={14} />
-                        <span>{formatNaira(booking.totalPrice)}</span>
+                        <span>{formatNaira(booking.total_price)}</span>
                       </div>
                     </div>
 
-                    {booking.specialRequests && (
+                    {booking.special_requests && (
                       <div className="mt-3 pt-3 border-t border-white/10">
                         <p className="text-white/40 text-xs flex items-center gap-1">
                           <MessageSquare size={12} />
-                          {booking.specialRequests}
+                          {booking.special_requests}
                         </p>
                       </div>
                     )}
@@ -1994,17 +2148,17 @@ export default function CreatorDashboardPage() {
               </h3>
               {earnings.length > 0 ? (
                 <div className="space-y-3">
-                  {earnings.slice(-10).reverse().map(earning => {
-                    const booking = bookings.find(b => b.id === earning.bookingId);
+                  {earnings.slice(0, 10).map(earning => {
+                    const booking = bookings.find(b => b.id === (earning.booking_id || earning.bookingId));
                     return (
                       <div key={earning.id} className="flex items-center justify-between py-2 border-b border-white/5 last:border-0">
                         <div>
-                          <p className="text-white font-medium">{booking?.clientName || 'Client'}</p>
+                          <p className="text-white font-medium">{booking?.client?.users?.name || 'Client'}</p>
                           <p className="text-white/40 text-xs">
-                            {new Date(earning.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                            {new Date(earning.created_at || earning.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                           </p>
                         </div>
-                        <span className="text-green-400 font-bold">+{formatNaira(earning.amount)}</span>
+                        <span className="text-green-400 font-bold">+{formatNaira(parseFloat(earning.amount))}</span>
                       </div>
                     );
                   })}
@@ -2806,8 +2960,8 @@ export default function CreatorDashboardPage() {
                 <User size={24} className="text-purple-400" />
               </div>
               <div>
-                <p className="text-white font-medium">{selectedBooking.clientName || 'Client'}</p>
-                <p className="text-white/50 text-sm">{selectedBooking.clientPhone}</p>
+                <p className="text-white font-medium">{selectedBooking.client?.users?.name || 'Client'}</p>
+                <p className="text-white/50 text-sm">{selectedBooking.client?.users?.phone}</p>
               </div>
             </div>
 
@@ -2827,7 +2981,7 @@ export default function CreatorDashboardPage() {
               </div>
               <div className="flex justify-between items-center py-2 border-b border-white/10">
                 <span className="text-white/60 flex items-center gap-2"><MapPin size={14} /> Type</span>
-                <span className="text-white font-medium">{selectedBooking.locationType === 'incall' ? 'Incall' : 'Outcall'}</span>
+                <span className="text-white font-medium">{selectedBooking.location_type === 'incall' ? 'Incall' : 'Outcall'}</span>
               </div>
               {selectedBooking.location && (
                 <div className="flex justify-between items-center py-2 border-b border-white/10">
@@ -2837,31 +2991,31 @@ export default function CreatorDashboardPage() {
               )}
               <div className="flex justify-between items-center py-2 border-b border-white/10">
                 <span className="text-white/60 flex items-center gap-2"><DollarSign size={14} /> Total</span>
-                <span className="text-green-400 font-bold">{formatNaira(selectedBooking.totalPrice)}</span>
+                <span className="text-green-400 font-bold">{formatNaira(selectedBooking.total_price)}</span>
               </div>
-              {selectedBooking.depositAmount && (
+              {selectedBooking.deposit_amount && (
                 <div className="flex justify-between items-center py-2 border-b border-white/10">
                   <span className="text-white/60">Deposit Paid</span>
-                  <span className="text-white font-medium">{formatNaira(selectedBooking.depositAmount)}</span>
+                  <span className="text-white font-medium">{formatNaira(selectedBooking.deposit_amount)}</span>
                 </div>
               )}
             </div>
 
             {/* Special Requests */}
-            {selectedBooking.specialRequests && (
+            {selectedBooking.special_requests && (
               <div className="p-3 bg-white/5 rounded-xl">
                 <p className="text-white/50 text-xs mb-1 flex items-center gap-1">
                   <MessageSquare size={12} /> Special Requests
                 </p>
-                <p className="text-white text-sm">{selectedBooking.specialRequests}</p>
+                <p className="text-white text-sm">{selectedBooking.special_requests}</p>
               </div>
             )}
 
             {/* Client Code */}
-            {selectedBooking.clientCode && selectedBooking.status === 'confirmed' && (
+            {selectedBooking.client_code && selectedBooking.status === 'confirmed' && (
               <div className="p-4 bg-purple-500/10 border border-purple-500/30 rounded-xl text-center">
                 <p className="text-purple-300 text-xs mb-1">Verification Code</p>
-                <p className="text-2xl font-mono font-bold text-white tracking-wider">{selectedBooking.clientCode}</p>
+                <p className="text-2xl font-mono font-bold text-white tracking-wider">{selectedBooking.client_code}</p>
                 <p className="text-purple-300/60 text-xs mt-1">Client will show this code at meetup</p>
               </div>
             )}

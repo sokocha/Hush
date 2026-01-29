@@ -531,3 +531,129 @@ describe('bookingService.getPendingBookingsCount', () => {
     expect(result.count).toBe(3);
   });
 });
+
+// ═══════════════════════════════════════════════════════════
+// QUERY FALLBACK TESTS (new resilience feature)
+// ═══════════════════════════════════════════════════════════
+
+describe('bookingService.getClientBookings - query fallback', () => {
+  it('falls back to simple query when join query fails', async () => {
+    const simpleBookings = [{ id: '1', creator_id: 'c1', total_price: 500 }];
+    let callCount = 0;
+
+    mockFrom.mockImplementation((table) => {
+      if (table !== 'bookings') return {};
+      callCount++;
+      if (callCount === 1) {
+        // First call: join query fails
+        return {
+          select: vi.fn(() => ({
+            eq: vi.fn(() => ({
+              order: vi.fn().mockResolvedValue({ data: null, error: { message: 'RLS policy violation' } }),
+            })),
+          })),
+        };
+      }
+      // Second call: simple fallback query succeeds
+      return {
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            order: vi.fn().mockResolvedValue({ data: simpleBookings, error: null }),
+          })),
+        })),
+      };
+    });
+
+    const result = await bookingService.getClientBookings('client-1');
+
+    expect(result.success).toBe(true);
+    expect(result.bookings).toEqual(simpleBookings);
+    expect(callCount).toBe(2); // Both queries were attempted
+  });
+
+  it('returns error when both join and simple queries fail', async () => {
+    mockFrom.mockReturnValue({
+      select: vi.fn(() => ({
+        eq: vi.fn(() => ({
+          order: vi.fn().mockResolvedValue({ data: null, error: { message: 'Permission denied' } }),
+        })),
+      })),
+    });
+
+    const result = await bookingService.getClientBookings('client-1');
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('Permission denied');
+  });
+
+  it('does not attempt fallback when join query succeeds', async () => {
+    const joinBookings = [{ id: '1', creator: { users: { name: 'Creator One' } } }];
+    let callCount = 0;
+
+    mockFrom.mockImplementation(() => {
+      callCount++;
+      return {
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            order: vi.fn().mockResolvedValue({ data: joinBookings, error: null }),
+          })),
+        })),
+      };
+    });
+
+    const result = await bookingService.getClientBookings('client-1');
+
+    expect(result.success).toBe(true);
+    expect(result.bookings).toEqual(joinBookings);
+    expect(callCount).toBe(1); // Only one query was needed
+  });
+});
+
+describe('bookingService.getCreatorBookings - query fallback', () => {
+  it('falls back to simple query when join query fails', async () => {
+    const simpleBookings = [{ id: '1', client_id: 'cl1', total_price: 300 }];
+    let callCount = 0;
+
+    mockFrom.mockImplementation((table) => {
+      if (table !== 'bookings') return {};
+      callCount++;
+      if (callCount === 1) {
+        return {
+          select: vi.fn(() => ({
+            eq: vi.fn(() => ({
+              order: vi.fn().mockResolvedValue({ data: null, error: { message: 'RLS error' } }),
+            })),
+          })),
+        };
+      }
+      return {
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            order: vi.fn().mockResolvedValue({ data: simpleBookings, error: null }),
+          })),
+        })),
+      };
+    });
+
+    const result = await bookingService.getCreatorBookings('creator-1');
+
+    expect(result.success).toBe(true);
+    expect(result.bookings).toEqual(simpleBookings);
+    expect(callCount).toBe(2);
+  });
+
+  it('returns error when both queries fail', async () => {
+    mockFrom.mockReturnValue({
+      select: vi.fn(() => ({
+        eq: vi.fn(() => ({
+          order: vi.fn().mockResolvedValue({ data: null, error: { message: 'All queries failed' } }),
+        })),
+      })),
+    });
+
+    const result = await bookingService.getCreatorBookings('creator-1');
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('All queries failed');
+  });
+});

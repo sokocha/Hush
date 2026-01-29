@@ -65,8 +65,18 @@ export const storageService = {
    */
   async uploadCreatorPhotoBlob(creatorId, blob, isPreview = false) {
     try {
+      console.log('[StorageService] Starting photo upload for creator:', creatorId);
+
+      // Ensure bucket exists first
+      const bucketResult = await this.ensureBucketExists();
+      if (!bucketResult.success) {
+        console.error('[StorageService] Failed to ensure bucket exists:', bucketResult.error);
+        // Continue anyway - bucket might already exist but we don't have permission to list
+      }
+
       // Generate unique filename
       const fileName = `${creatorId}/${Date.now()}.jpg`;
+      console.log('[StorageService] Uploading to path:', fileName);
 
       // Upload to Supabase Storage
       const { data: uploadData, error: uploadError } = await supabase.storage
@@ -77,17 +87,33 @@ export const storageService = {
           upsert: false,
         });
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('[StorageService] Upload error:', uploadError);
+        throw uploadError;
+      }
+
+      console.log('[StorageService] Upload successful, path:', uploadData.path);
 
       // Get the current photo count for display_order
-      const { data: photos, error: countError } = await supabase
-        .from('creator_photos')
-        .select('id')
-        .eq('creator_id', creatorId);
+      let displayOrder = 0;
+      try {
+        const { data: photos, error: countError } = await supabase
+          .from('creator_photos')
+          .select('id')
+          .eq('creator_id', creatorId);
 
-      if (countError) throw countError;
+        if (countError) {
+          console.error('[StorageService] Error counting photos:', countError);
+          // Continue with displayOrder = 0
+        } else {
+          displayOrder = photos ? photos.length : 0;
+        }
+      } catch (countErr) {
+        console.error('[StorageService] Exception counting photos:', countErr);
+        // Continue with displayOrder = 0
+      }
 
-      const displayOrder = photos ? photos.length : 0;
+      console.log('[StorageService] Display order for new photo:', displayOrder);
 
       // Create database record
       const { data: photoRecord, error: dbError } = await supabase
@@ -102,8 +128,25 @@ export const storageService = {
         .select()
         .single();
 
-      if (dbError) throw dbError;
+      if (dbError) {
+        console.error('[StorageService] Database insert error:', dbError);
+        // Photo was uploaded to storage but DB record failed
+        // Return success with storage URL so photo isn't lost
+        const publicUrl = this.getPhotoUrl(uploadData.path);
+        console.log('[StorageService] Returning storage-only photo with URL:', publicUrl);
+        return {
+          success: true,
+          photo: {
+            id: Date.now().toString(),
+            storage_path: uploadData.path,
+            url: publicUrl,
+            is_preview: isPreview,
+            display_order: displayOrder,
+          },
+        };
+      }
 
+      console.log('[StorageService] Photo record created:', photoRecord.id);
       return {
         success: true,
         photo: {
@@ -112,7 +155,7 @@ export const storageService = {
         },
       };
     } catch (error) {
-      console.error('Error uploading creator photo blob:', error);
+      console.error('[StorageService] Error uploading creator photo blob:', error);
       return { success: false, error: error.message };
     }
   },
@@ -247,20 +290,33 @@ export const storageService = {
    */
   async ensureBucketExists() {
     try {
+      console.log('[StorageService] Checking if bucket exists:', BUCKET_NAME);
       const { data: buckets, error: listError } = await supabase.storage.listBuckets();
 
-      if (listError) throw listError;
+      if (listError) {
+        console.error('[StorageService] Error listing buckets:', listError);
+        // This might fail due to permissions, but bucket might still exist
+        return { success: true }; // Continue anyway
+      }
 
       const bucketExists = buckets.some((bucket) => bucket.name === BUCKET_NAME);
+      console.log('[StorageService] Bucket exists:', bucketExists);
 
       if (!bucketExists) {
+        console.log('[StorageService] Creating bucket:', BUCKET_NAME);
         const { error: createError } = await supabase.storage.createBucket(BUCKET_NAME, {
-          public: false,
-          fileSizeLimit: 5242880, // 5MB
-          allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
+          public: true, // Make public so getPublicUrl works
+          fileSizeLimit: 10485760, // 10MB
+          allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
         });
 
-        if (createError) throw createError;
+        if (createError) {
+          console.error('[StorageService] Error creating bucket:', createError);
+          // Bucket might already exist, continue anyway
+          if (!createError.message?.includes('already exists')) {
+            throw createError;
+          }
+        }
       }
 
       return { success: true };

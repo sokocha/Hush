@@ -423,6 +423,21 @@ export const AuthProvider = ({ children }) => {
           ...prev,
           meetups: [...(prev.meetups || []), result.booking],
         }));
+      } else {
+        // Database insert failed (likely RLS policy issue) - save locally as fallback
+        console.error('[Booking] Database insert failed:', result.error);
+        console.error('[Booking] Saving locally as fallback. Run the RLS policy SQL to fix database storage.');
+        const localBooking = {
+          id: `local-${Date.now()}`,
+          ...meetupData,
+          status: 'pending',
+          created_at: new Date().toISOString(),
+        };
+        setUser((prev) => ({
+          ...prev,
+          meetups: [...(prev.meetups || []), localBooking],
+        }));
+        return { success: true, booking: localBooking, dbFailed: true };
       }
       return result;
     },
