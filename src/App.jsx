@@ -235,7 +235,7 @@ const PhotoGalleryModal = ({ isOpen, onClose, photos, initialIndex = 0, photosUn
                       {[...Array(5)].map((_, row) => (
                         <div key={row} className="flex gap-20">
                           {[...Array(4)].map((_, col) => (
-                            <span key={col} className="text-white/10 text-2xl font-bold tracking-widest uppercase whitespace-nowrap">HUSH</span>
+                            <span key={col} className="text-white/10 text-2xl font-bold tracking-widest uppercase whitespace-nowrap">HUSH @{modelConfig?.profile?.username}</span>
                           ))}
                         </div>
                       ))}
@@ -2150,7 +2150,7 @@ export default function App() {
                       {/* Diagonal watermark */}
                       <div className="absolute inset-0 pointer-events-none overflow-hidden select-none" aria-hidden="true">
                         <div className="absolute inset-0 flex items-center justify-center" style={{ transform: 'rotate(-30deg)' }}>
-                          <span className="text-white/10 text-sm font-bold tracking-widest uppercase">HUSH</span>
+                          <span className="text-white/10 text-[9px] font-bold tracking-widest uppercase whitespace-nowrap">HUSH @{profile.username}</span>
                         </div>
                       </div>
                       <div className="absolute bottom-0 left-0 right-0 bg-black/40 p-1">
