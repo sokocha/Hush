@@ -1676,6 +1676,26 @@ export default function App() {
   // Reactive favorite count - must be called before early returns
   const favoriteCount = useFavoriteCount(currentUsername, modelData?.stats?.favoriteCount || 0);
 
+  // Post-browse nudge: track profile views for registered-but-unverified users
+  // Must be before early returns to keep hook count stable across renders
+  useEffect(() => {
+    const tier = isAuthenticated && user?.userType === 'client' ? user?.tier : null;
+    const profileName = modelData?.profile?.name;
+    if (isAuthenticated && !tier && profileName) {
+      const key = 'hush_profile_views';
+      const views = parseInt(localStorage.getItem(key) || '0', 10) + 1;
+      localStorage.setItem(key, views.toString());
+      if (views === 3) {
+        const nudgeKey = 'hush_upgrade_nudge_shown';
+        if (!localStorage.getItem(nudgeKey)) {
+          localStorage.setItem(nudgeKey, 'true');
+          setTimeout(() => setShowVisitorPrompt(true), 1500);
+          setVisitorPromptMessage(`You've browsed ${views} profiles. Get Verified to start booking.`);
+        }
+      }
+    }
+  }, [isAuthenticated, user?.tier, user?.userType, modelData?.profile?.name]);
+
   // Show loading state while fetching from database
   if (creatorLoading && (ageVerified || isAuthenticated)) {
     return (
@@ -1730,23 +1750,6 @@ export default function App() {
   const photos = CONFIG?.photos;
   const contact = CONFIG?.contact;
   const hasOutcall = pricing?.meetupOutcall !== null;
-
-  // Post-browse nudge: track profile views for registered-but-unverified users
-  useEffect(() => {
-    if (isAuthenticated && !clientState.tier && profile?.name) {
-      const key = 'hush_profile_views';
-      const views = parseInt(localStorage.getItem(key) || '0', 10) + 1;
-      localStorage.setItem(key, views.toString());
-      if (views === 3) {
-        const nudgeKey = 'hush_upgrade_nudge_shown';
-        if (!localStorage.getItem(nudgeKey)) {
-          localStorage.setItem(nudgeKey, 'true');
-          setTimeout(() => setShowVisitorPrompt(true), 1500);
-          setVisitorPromptMessage(`You've browsed ${views} profiles. Get Verified to start booking.`);
-        }
-      }
-    }
-  }, [isAuthenticated, clientState.tier, profile?.name]);
 
   const protectedAction = (action) => {
     // Not authenticated (visitor) → show registration prompt
