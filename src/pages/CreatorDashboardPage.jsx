@@ -6,7 +6,7 @@ import {
   Settings, LogOut, Edit3, ChevronLeft, ChevronRight,
   MapPin, Target, TrendingUp, Eye, Phone,
   Ban, Sparkles, Award, X, Plus, Image, Trash2, Lock, Unlock,
-  GripVertical, RotateCcw, CalendarDays, Wallet, ClipboardList,
+  RotateCcw, CalendarDays, Wallet, ClipboardList,
   CheckCheck, XCircle, User, MessageSquare, RefreshCw, PartyPopper,
   ShieldCheck, BadgeCheck, Pause, Play, Aperture
 } from 'lucide-react';
@@ -675,9 +675,6 @@ export default function CreatorDashboardPage() {
   const [editingBoundaries, setEditingBoundaries] = useState([]);
   const [newBoundaryInput, setNewBoundaryInput] = useState('');
 
-  // Earnings period filter
-  const [earningsPeriod, setEarningsPeriod] = useState('all');
-
   // Pricing form state
   const [pricingData, setPricingData] = useState({
     unlockContact: 0,
@@ -1030,11 +1027,11 @@ export default function CreatorDashboardPage() {
     }
   };
 
-  // Handle photo milestone continue
+  // Handle photo milestone continue — navigate to pricing setup
   const handlePhotoMilestoneContinue = () => {
     setShowPhotoMilestone(false);
-    setShowOnboarding(true);
-    setOnboardingStep(2); // Move to pricing step
+    setActiveTab('settings');
+    handleOpenPricing();
   };
 
   // Handle video call scheduled
@@ -1061,7 +1058,6 @@ export default function CreatorDashboardPage() {
       setShowConfetti(true);
       setTimeout(() => {
         setShowConfetti(false);
-        setShowOnboarding(false);
       }, 4000);
     }
   };

@@ -15,7 +15,6 @@ import useFavorites, { useFavoriteCount } from './hooks/useFavorites';
 import { useAuth } from './context/AuthContext';
 import { creatorService } from './services/creatorService';
 import { userService } from './services/userService';
-import { storageService } from './services/storageService';
 import { transformDbCreatorToConfig } from './utils/transformDbCreator';
 
 // ═══════════════════════════════════════════════════════════
@@ -343,6 +342,7 @@ const TrustDepositModal = ({ isOpen, onClose, onDepositPaid }) => {
   const [selectedTier, setSelectedTier] = useState('verified');
   const [copied, setCopied] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
+  const { user: authUser } = useAuth();
 
   const { verificationTiers, trustDepositAccount } = PLATFORM_CONFIG;
   const tiers = Object.values(verificationTiers);
@@ -507,7 +507,7 @@ const TrustDepositModal = ({ isOpen, onClose, onDepositPaid }) => {
           <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3">
             <p className="text-blue-200 text-sm">
               <Info size={14} className="inline mr-1" />
-              Use your registered phone number ({clientState.phone || 'your number'}) as payment reference
+              Use your registered phone number ({authUser?.phone || 'your number'}) as payment reference
             </p>
           </div>
 
