@@ -1872,7 +1872,10 @@ export default function App() {
         {/* 1. PROFILE + TRUST */}
         <div className="text-center mb-6">
           <div className="relative inline-block mb-4">
-            <div className="w-28 h-28 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 p-1">
+            <div
+              className={`w-28 h-28 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 p-1 ${photos.previewImages?.[0] ? 'cursor-pointer' : ''}`}
+              onClick={() => photos.previewImages?.[0] && openPhotoGallery(0)}
+            >
               {photos.previewImages?.[0] ? (
                 <img
                   src={photos.previewImages[0]}
