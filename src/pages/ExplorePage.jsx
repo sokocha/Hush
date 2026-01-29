@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   MapPin, Star, CheckCircle, Shield, Filter,
-  ChevronLeft, ChevronRight, Search, Target, Video, Aperture,
+  ChevronLeft, ChevronRight, Search, Target,
   TrendingUp, Heart, Clock, Users, Sparkles, X, ChevronDown, ChevronUp, User
 } from 'lucide-react';
 import { getModelsList, getLocations, getAllExtras, PLATFORM_CONFIG } from '../data/models';
@@ -83,7 +83,7 @@ const AGE_RANGES = [
 ];
 
 // Services options (common ones)
-const SERVICES = ['GFE', 'Duo', 'Travel companion', 'Dinner date', 'Event date'];
+const SERVICES = ['GFE', 'Oral', 'Anal', 'BDSM', 'Massage', 'Duo', 'Roleplay', 'Dinner date', 'Travel companion'];
 
 // Build locations dynamically from models data
 const getLocationsWithCounts = (models) => [
@@ -115,9 +115,11 @@ const ModelCard = ({ model, isFavorite, onToggleFavorite, showMatchBadge = false
           </div>
         )}
 
-        {/* Status badges */}
+        {/* Gradient overlay for badge readability */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/20 pointer-events-none" />
+
+        {/* Status badges — capped to key signals only */}
         <div className="absolute top-3 left-3 flex flex-col gap-1.5">
-          {/* Match percentage badge */}
           {showMatchBadge && model.matchPercentage > 0 && (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gradient-to-r from-pink-500 to-purple-500 text-white text-xs font-medium">
               <Sparkles size={10} />
@@ -136,85 +138,64 @@ const ModelCard = ({ model, isFavorite, onToggleFavorite, showMatchBadge = false
               Online
             </span>
           )}
-          {model.isAvailable && (
-            <span className="px-2 py-0.5 rounded-full bg-blue-500/90 text-white text-xs font-medium">
-              Available
-            </span>
-          )}
         </div>
 
-        {/* Verification badges */}
-        <div className="absolute top-3 right-3 flex flex-col gap-1">
-          {model.isVideoVerified && (
+        {/* Verification badge — single merged checkmark */}
+        {(model.isVideoVerified || model.isStudioVerified) && (
+          <div className="absolute top-3 right-3">
             <span className="p-1.5 rounded-full bg-blue-500/80">
-              <Video size={12} className="text-white" />
+              <CheckCircle size={12} className="text-white" />
             </span>
-          )}
-          {model.isStudioVerified && (
-            <span className="p-1.5 rounded-full bg-cyan-500/80">
-              <Aperture size={12} className="text-white" />
-            </span>
-          )}
-        </div>
+          </div>
+        )}
 
-        {/* Success rate badge */}
+        {/* Bottom-left: price overlay */}
         <div className="absolute bottom-3 left-3">
-          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-black/60 backdrop-blur-sm text-green-400 text-xs font-medium">
-            <Target size={12} />
-            {model.meetupSuccessRate}% success
-          </span>
+          <span className="text-white font-semibold text-sm drop-shadow-lg">{formatNaira(model.startingPrice)}/hr</span>
         </div>
       </div>
 
       {/* Info */}
-      <div className="p-4">
-        <div className="flex items-start justify-between mb-2">
-          <div>
-            <h3 className="text-white font-semibold text-lg group-hover:text-pink-300 transition-colors">{model.name}</h3>
-            <p className="text-white/50 text-sm">@{model.username}</p>
-          </div>
-          <div className="flex items-center gap-1 text-yellow-400">
-            <Star size={14} className="fill-yellow-400" />
-            <span className="text-white text-sm font-medium">{model.rating}</span>
+      <div className="p-3">
+        <div className="flex items-start justify-between mb-1.5">
+          <h3 className="text-white font-semibold text-base group-hover:text-pink-300 transition-colors leading-tight">{model.name}</h3>
+          <div className="flex items-center gap-1 text-yellow-400 flex-shrink-0 ml-2">
+            <Star size={12} className="fill-yellow-400" />
+            <span className="text-white text-xs font-medium">{model.rating}</span>
           </div>
         </div>
 
-        <p className="text-white/60 text-sm mb-3">{model.tagline}</p>
+        <div className="flex items-center gap-1.5 text-xs text-white/40 mb-2">
+          <MapPin size={11} className="flex-shrink-0" />
+          <span className="truncate">{model.location}{model.areas.length > 0 ? ` · ${model.areas.slice(0, 2).join(", ")}` : ''}</span>
+        </div>
 
-        <div className="flex items-center gap-2 text-xs text-white/40 mb-3">
-          <span className="flex items-center gap-1">
-            <MapPin size={12} />
-            {model.location}{model.areas.length > 0 ? ` · ${model.areas.slice(0, 2).join(", ")}` : ''}
-          </span>
-          <span>•</span>
-          <span>{model.verifiedMeetups} meetups</span>
-          <span>•</span>
-          <span className="flex items-center gap-1">
+        <div className="flex items-center justify-between pt-2 border-t border-white/10">
+          <div className="flex items-center gap-2 text-xs text-white/40">
+            {model.verifiedMeetups > 0 && model.meetupSuccessRate > 0 && (
+              <span className="flex items-center gap-1 text-green-400">
+                <Target size={11} />
+                {model.meetupSuccessRate}%
+              </span>
+            )}
+            <span>{model.verifiedMeetups} meetups</span>
+          </div>
+          <span className="flex items-center gap-1 text-xs text-white/40">
             <Heart size={10} className="text-pink-400 fill-pink-400" />
             {favoriteCount}
           </span>
         </div>
-
-        <div className="flex items-center justify-between pt-3 border-t border-white/10">
-          <div className="flex items-center gap-2">
-            <span className="text-white/40 text-xs">From</span>
-            {model.hasOutcall && (
-              <span className="text-xs px-1.5 py-0.5 bg-blue-500/15 border border-blue-500/25 rounded text-blue-300">Outcall</span>
-            )}
-          </div>
-          <span className="text-pink-400 font-semibold">{formatNaira(model.startingPrice)}/hr</span>
-        </div>
       </div>
     </Link>
 
-    {/* Favorite button - positioned outside the Link */}
+    {/* Favorite button */}
     <button
       onClick={(e) => {
         e.preventDefault();
         e.stopPropagation();
         onToggleFavorite(model.username);
       }}
-      className={`absolute bottom-[4.5rem] right-3 p-2 rounded-full transition-all z-10 ${
+      className={`absolute bottom-[3.5rem] right-3 p-2 rounded-full transition-all z-10 ${
         isFavorite
           ? 'bg-pink-500 text-white'
           : 'bg-black/60 backdrop-blur-sm text-white/70 hover:text-pink-400 hover:bg-black/80'
@@ -658,9 +639,9 @@ export default function ExplorePage() {
           </div>
 
           {/* Filter row */}
-          <div className="flex flex-wrap gap-2">
+          <div className="flex gap-2 overflow-x-auto pb-1 hide-scrollbar" style={{ WebkitOverflowScrolling: 'touch' }}>
             {/* Sort dropdown */}
-            <div className="relative">
+            <div className="relative flex-shrink-0">
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
@@ -680,7 +661,7 @@ export default function ExplorePage() {
             {/* More filters toggle */}
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all flex items-center gap-2 ${
+              className={`flex-shrink-0 px-4 py-2 rounded-xl text-sm font-medium transition-all flex items-center gap-2 ${
                 showFilters || hasActiveFilters
                   ? 'bg-pink-500/20 border border-pink-500/50 text-pink-300'
                   : 'bg-white/10 border border-white/10 text-white/70 hover:bg-white/20'
@@ -697,7 +678,7 @@ export default function ExplorePage() {
             {/* Toggle filters */}
             <button
               onClick={() => setShowOnlineOnly(!showOnlineOnly)}
-              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+              className={`flex-shrink-0 whitespace-nowrap px-4 py-2 rounded-xl text-sm font-medium transition-all ${
                 showOnlineOnly
                   ? 'bg-green-500/20 border border-green-500/50 text-green-300'
                   : 'bg-white/10 border border-white/10 text-white/70 hover:bg-white/20'
@@ -707,7 +688,7 @@ export default function ExplorePage() {
             </button>
             <button
               onClick={() => setShowAvailableOnly(!showAvailableOnly)}
-              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+              className={`flex-shrink-0 whitespace-nowrap px-4 py-2 rounded-xl text-sm font-medium transition-all ${
                 showAvailableOnly
                   ? 'bg-blue-500/20 border border-blue-500/50 text-blue-300'
                   : 'bg-white/10 border border-white/10 text-white/70 hover:bg-white/20'
@@ -717,7 +698,7 @@ export default function ExplorePage() {
             </button>
             <button
               onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
-              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all flex items-center gap-1.5 ${
+              className={`flex-shrink-0 whitespace-nowrap px-4 py-2 rounded-xl text-sm font-medium transition-all flex items-center gap-1.5 ${
                 showFavoritesOnly
                   ? 'bg-pink-500/20 border border-pink-500/50 text-pink-300'
                   : 'bg-white/10 border border-white/10 text-white/70 hover:bg-white/20'
@@ -973,7 +954,7 @@ export default function ExplorePage() {
         </div>
 
         {/* Social proof stats bar */}
-        <div className="flex items-center justify-center gap-3 text-white/40 text-xs mb-4 flex-wrap">
+        <div className="flex items-center justify-center gap-3 text-white/40 text-xs mb-6 flex-wrap">
           {platformStats.members > 0 && (
             <>
               <span className="flex items-center gap-1"><Users size={12} className="text-green-400" />{platformStats.members.toLocaleString()} members</span>
@@ -987,19 +968,6 @@ export default function ExplorePage() {
             </>
           )}
           <span className="flex items-center gap-1"><Shield size={12} className="text-blue-400" />Deposit-protected</span>
-        </div>
-
-        {/* Trust banner */}
-        <div className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/20 rounded-xl p-4 mb-6">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-green-500/20 rounded-full">
-              <Shield size={20} className="text-green-400" />
-            </div>
-            <div className="flex-1">
-              <p className="text-green-300 font-medium text-sm">All models are verified</p>
-              <p className="text-green-300/60 text-xs">Video verified • Studio photos • Anti-catfish protected</p>
-            </div>
-          </div>
         </div>
 
         {/* For You Section - Only show for clients with preferences and matching creators */}

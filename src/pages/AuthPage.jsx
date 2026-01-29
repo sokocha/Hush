@@ -39,7 +39,8 @@ const AGE_PREFERENCES = [
 ];
 
 const SERVICE_PREFERENCES = [
-  "GFE", "PSE", "Dinner dates", "Travel companion", "Overnights", "Duos"
+  "GFE", "Oral", "Anal", "BDSM", "Massage", "Duo",
+  "Dinner date", "Overnight", "Travel companion"
 ];
 
 // Creator profile options
@@ -49,21 +50,25 @@ const HEIGHT_RANGES = ["Under 5'2\"", "5'2\" - 5'5\"", "5'5\" - 5'8\"", "5'8\" -
 
 const SERVICES_OFFERED = [
   { id: "gfe", name: "GFE (Girlfriend Experience)", description: "Intimate, romantic companionship" },
-  { id: "pse", name: "PSE (Porn Star Experience)", description: "More adventurous encounters" },
-  { id: "duo", name: "Duo (with friend)", description: "Two companions together" },
+  { id: "oral", name: "Oral", description: "Oral services (giving, receiving, or both)" },
+  { id: "anal", name: "Anal", description: "Anal play" },
+  { id: "bdsm", name: "BDSM / Kink", description: "Domination, submission, fetish play" },
+  { id: "massage", name: "Sensual Massage", description: "Body-to-body or tantric massage" },
+  { id: "duo", name: "Duo / Threesome", description: "Two companions together" },
+  { id: "roleplay", name: "Roleplay", description: "Fantasy and scenario play" },
   { id: "dinner", name: "Dinner Date", description: "Upscale dining companionship" },
   { id: "travel", name: "Travel Companion", description: "Trips and getaways" },
   { id: "overnight", name: "Overnight", description: "Extended time together" },
-  { id: "event", name: "Event Date", description: "Social events and parties" },
 ];
 
 const COMMON_BOUNDARIES = [
   "No bareback",
   "No anal",
-  "No kissing",
-  "No rough play",
-  "No filming/photos",
+  "No kissing on lips",
+  "No rough play / BDSM",
+  "No filming or photos",
   "No overnight on first booking",
+  "No CIM / COF",
   "Outcall only to hotels",
   "Incall only",
   "Screening required for new clients",

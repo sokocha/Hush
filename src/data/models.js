@@ -103,7 +103,7 @@ export const getAllExtras = () => {
     model.extras.forEach(extra => extrasSet.add(extra.name));
   });
   // Include common extras so the filter section is never empty
-  ['Massage', 'Roleplay', 'Toys', 'Duo', 'Overnight cuddles', 'Dinner date', 'Travel companion'].forEach(e => extrasSet.add(e));
+  ['Sensual massage', 'Roleplay', 'Toys', 'Duo / Threesome', 'BDSM / Kink', 'Oral', 'Anal', 'Dinner date', 'Travel companion'].forEach(e => extrasSet.add(e));
   return Array.from(extrasSet).sort();
 };
 

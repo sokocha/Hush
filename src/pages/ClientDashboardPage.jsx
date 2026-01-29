@@ -38,7 +38,8 @@ const AGE_PREFERENCES = [
 ];
 
 const SERVICE_PREFERENCES = [
-  "GFE", "PSE", "Dinner dates", "Travel companion", "Overnights", "Duos"
+  "GFE", "Oral", "Anal", "BDSM", "Massage", "Duo",
+  "Dinner date", "Overnight", "Travel companion"
 ];
 
 // ═══════════════════════════════════════════════════════════
