@@ -19,6 +19,9 @@ export const adminService = {
       if (status === 'disputed') {
         // Show denied creators who have submitted a dispute
         query = query.eq('verification_status', 'denied').not('dispute_message', 'is', null);
+      } else if (status === 'pending') {
+        // Match both explicit 'pending' and NULL (pre-migration rows)
+        query = query.or('verification_status.eq.pending,verification_status.is.null');
       } else if (status !== 'all') {
         query = query.eq('verification_status', status);
       }
