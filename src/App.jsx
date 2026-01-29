@@ -216,11 +216,39 @@ const PhotoGalleryModal = ({ isOpen, onClose, photos, initialIndex = 0, photosUn
                 Unlock All Photos — {formatNaira(modelConfig?.pricing?.unlockPhotos || 0)}
               </button>
             </div>
-          ) : (
-            <div className="w-full max-w-2xl aspect-[3/4] bg-gradient-to-br from-pink-500/20 to-purple-500/20 rounded-2xl flex items-center justify-center">
-              <span className="text-6xl">📸</span>
-            </div>
-          )}
+          ) : (() => {
+            const isPreview = currentIndex < previewCount;
+            const photoUrl = isPreview
+              ? photos?.previewImages?.[currentIndex]
+              : photos?.lockedImages?.[currentIndex - previewCount];
+            return photoUrl ? (
+              <div className="relative w-full h-full flex items-center justify-center">
+                <img
+                  src={photoUrl}
+                  alt={`Photo ${currentIndex + 1}`}
+                  className="max-w-full max-h-full object-contain rounded-lg"
+                />
+                {/* Diagonal watermark */}
+                <div className="absolute inset-0 pointer-events-none overflow-hidden select-none" aria-hidden="true">
+                  <div className="absolute inset-0 flex items-center justify-center" style={{ transform: 'rotate(-30deg)' }}>
+                    <div className="flex flex-col gap-16 items-center">
+                      {[...Array(5)].map((_, row) => (
+                        <div key={row} className="flex gap-20">
+                          {[...Array(4)].map((_, col) => (
+                            <span key={col} className="text-white/10 text-2xl font-bold tracking-widest uppercase whitespace-nowrap">HUSH</span>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="w-full max-w-2xl aspect-[3/4] bg-gradient-to-br from-pink-500/20 to-purple-500/20 rounded-2xl flex items-center justify-center">
+                <span className="text-6xl">📸</span>
+              </div>
+            );
+          })()}
         </div>
       </div>
 
@@ -1895,7 +1923,10 @@ export default function App() {
         {/* 1. PROFILE + TRUST */}
         <div className="text-center mb-6">
           <div className="relative inline-block mb-4">
-            <div className="w-28 h-28 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 p-1">
+            <div
+              className="w-28 h-28 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 p-1 cursor-pointer"
+              onClick={() => photos.previewImages?.[0] && openPhotoGallery(0)}
+            >
               {photos.previewImages?.[0] ? (
                 <img
                   src={photos.previewImages[0]}
@@ -2116,6 +2147,12 @@ export default function App() {
 
                   {isVisible ? (
                     <div className="absolute inset-0 flex flex-col items-center justify-center">
+                      {/* Diagonal watermark */}
+                      <div className="absolute inset-0 pointer-events-none overflow-hidden select-none" aria-hidden="true">
+                        <div className="absolute inset-0 flex items-center justify-center" style={{ transform: 'rotate(-30deg)' }}>
+                          <span className="text-white/10 text-sm font-bold tracking-widest uppercase">HUSH</span>
+                        </div>
+                      </div>
                       <div className="absolute bottom-0 left-0 right-0 bg-black/40 p-1">
                         <p className="text-white/50 text-[7px] text-center truncate">{PLATFORM_CONFIG.name} • @{profile.username}</p>
                       </div>
