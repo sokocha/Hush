@@ -115,8 +115,11 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <BrowserRouter>
       <AuthProvider>
         <Routes>
-          {/* Auth routes */}
-          <Route path="/auth" element={<PublicRoute><AuthPage /></PublicRoute>} />
+          {/* Auth route - uses RegularRoute instead of PublicRoute so that
+               post-registration navigates (e.g. to /creator-onboarding) aren't
+               overridden. AuthPage handles its own authenticated-user redirect
+               via useEffect with an isCompletingRegistration guard. */}
+          <Route path="/auth" element={<RegularRoute><AuthPage /></RegularRoute>} />
 
           {/* Public routes (can view without auth, but some features require auth) */}
           <Route path="/" element={<Navigate to="/explore/all" replace />} />
