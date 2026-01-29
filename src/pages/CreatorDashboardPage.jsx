@@ -14,6 +14,7 @@ import { useAuth } from '../context/AuthContext';
 import { creatorService } from '../services/creatorService';
 import { storageService } from '../services/storageService';
 import { bookingService } from '../services/bookingService';
+import { supabase } from '../lib/supabase';
 
 // Simple confetti component
 const Confetti = ({ active }) => {
@@ -615,6 +616,7 @@ export default function CreatorDashboardPage() {
   const [showCancelConfirm, setShowCancelConfirm] = useState(null); // holds bookingId to cancel
   const [dbBookings, setDbBookings] = useState([]);
   const [loadingBookings, setLoadingBookings] = useState(false);
+  const [dbEarnings, setDbEarnings] = useState([]);
 
   // Schedule editing state
   const [editingSchedule, setEditingSchedule] = useState(null);
@@ -674,7 +676,7 @@ export default function CreatorDashboardPage() {
     }
   }, [isNewRegistration, isProfileComplete, user, isCreator]);
 
-  // Fetch bookings from database
+  // Fetch bookings and earnings from database
   const fetchBookings = useCallback(async () => {
     if (!user?.id) return;
     setLoadingBookings(true);
@@ -682,10 +684,41 @@ export default function CreatorDashboardPage() {
       console.log('[CreatorDashboard] Fetching bookings for creator:', user.id);
       const result = await bookingService.getCreatorBookings(user.id);
       if (result.success) {
-        console.log('[CreatorDashboard] Fetched', (result.bookings || []).length, 'bookings from database');
-        setDbBookings(result.bookings || []);
+        const bookingsData = result.bookings || [];
+        console.log('[CreatorDashboard] Fetched', bookingsData.length, 'bookings from database');
+
+        // Look up client names if join didn't resolve them
+        const needsNameLookup = bookingsData.filter(b => !b.client?.users?.name);
+        if (needsNameLookup.length > 0) {
+          const clientIds = [...new Set(needsNameLookup.map(b => b.client_id))];
+          const { data: clientUsers } = await supabase
+            .from('users')
+            .select('id, name, username, phone')
+            .in('id', clientIds);
+          if (clientUsers) {
+            const nameMap = {};
+            clientUsers.forEach(u => { nameMap[u.id] = u; });
+            bookingsData.forEach(b => {
+              if (!b.client?.users?.name && nameMap[b.client_id]) {
+                b.client = { ...b.client, users: nameMap[b.client_id] };
+              }
+            });
+          }
+        }
+
+        setDbBookings(bookingsData);
       } else {
         console.error('[CreatorDashboard] Failed to fetch bookings:', result.error);
+      }
+
+      // Fetch earnings from database
+      const { data: earningsData } = await supabase
+        .from('creator_earnings')
+        .select('*')
+        .eq('creator_id', user.id)
+        .order('created_at', { ascending: false });
+      if (earningsData) {
+        setDbEarnings(earningsData);
       }
     } catch (err) {
       console.error('[CreatorDashboard] Error fetching bookings:', err);
@@ -1093,12 +1126,12 @@ export default function CreatorDashboardPage() {
   const confirmedBookings = bookings.filter(b => b.status === 'confirmed');
   const completedBookings = bookings.filter(b => b.status === 'completed');
 
-  // Get earnings data
-  const earnings = user.earnings || [];
-  const totalEarnings = earnings.reduce((sum, e) => sum + e.amount, 0);
+  // Get earnings data (from database, with local fallback)
+  const earnings = dbEarnings.length > 0 ? dbEarnings : (user.earnings || []);
+  const totalEarnings = earnings.reduce((sum, e) => sum + parseFloat(e.amount || 0), 0);
   const thisMonthEarnings = earnings
-    .filter(e => new Date(e.date).getMonth() === new Date().getMonth())
-    .reduce((sum, e) => sum + e.amount, 0);
+    .filter(e => new Date(e.created_at || e.date).getMonth() === new Date().getMonth())
+    .reduce((sum, e) => sum + parseFloat(e.amount || 0), 0);
 
   // Get photos data
   const creatorPhotos = user.photos || [];
@@ -2115,17 +2148,17 @@ export default function CreatorDashboardPage() {
               </h3>
               {earnings.length > 0 ? (
                 <div className="space-y-3">
-                  {earnings.slice(-10).reverse().map(earning => {
-                    const booking = bookings.find(b => b.id === earning.bookingId);
+                  {earnings.slice(0, 10).map(earning => {
+                    const booking = bookings.find(b => b.id === (earning.booking_id || earning.bookingId));
                     return (
                       <div key={earning.id} className="flex items-center justify-between py-2 border-b border-white/5 last:border-0">
                         <div>
                           <p className="text-white font-medium">{booking?.client?.users?.name || 'Client'}</p>
                           <p className="text-white/40 text-xs">
-                            {new Date(earning.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                            {new Date(earning.created_at || earning.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                           </p>
                         </div>
-                        <span className="text-green-400 font-bold">+{formatNaira(earning.amount)}</span>
+                        <span className="text-green-400 font-bold">+{formatNaira(parseFloat(earning.amount))}</span>
                       </div>
                     );
                   })}

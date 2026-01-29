@@ -528,11 +528,26 @@ export default function ClientDashboardPage() {
       const result = await bookingService.getClientBookings(user.id);
       if (result.success && result.bookings?.length > 0) {
         console.log('[ClientDashboard] Fetched', result.bookings.length, 'bookings from database');
+
+        // Collect creator_ids that need name lookup
+        const needsNameLookup = result.bookings.filter(b => !b.creator?.users?.name);
+        let creatorNameMap = {};
+        if (needsNameLookup.length > 0) {
+          const creatorIds = [...new Set(needsNameLookup.map(b => b.creator_id))];
+          const { data: creatorUsers } = await supabase
+            .from('users')
+            .select('id, name, username')
+            .in('id', creatorIds);
+          if (creatorUsers) {
+            creatorUsers.forEach(u => { creatorNameMap[u.id] = u; });
+          }
+        }
+
         // Normalize database snake_case fields to camelCase for MeetupCard
         const normalized = result.bookings.map(b => ({
           ...b,
-          creatorName: b.creator?.users?.name || 'Model',
-          creatorUsername: b.creator?.users?.username,
+          creatorName: b.creator?.users?.name || creatorNameMap[b.creator_id]?.name || 'Model',
+          creatorUsername: b.creator?.users?.username || creatorNameMap[b.creator_id]?.username,
           totalPrice: b.total_price,
           locationType: b.location_type,
           specialRequests: b.special_requests,
