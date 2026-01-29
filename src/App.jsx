@@ -1819,6 +1819,10 @@ export default function App() {
 
   // Unlock both photos and contact with bundle discount - opens modal
   const handleUnlockBundle = () => {
+    if (!isAuthenticated) {
+      navigate('/auth');
+      return;
+    }
     if (!clientState.tier) {
       setModal('trustDeposit');
       return;
@@ -1906,7 +1910,7 @@ export default function App() {
             {profile.isOnline && <div className="absolute bottom-1 right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-gray-900 animate-pulse-green" />}
             {/* Favorite button */}
             <button
-              onClick={() => toggleFavorite(currentUsername)}
+              onClick={() => isAuthenticated ? toggleFavorite(currentUsername) : navigate('/auth')}
               className={`absolute -top-1 -right-1 p-2 rounded-full transition-all shadow-lg ${
                 isFavorite(currentUsername)
                   ? 'bg-pink-500 text-white'
@@ -2011,7 +2015,7 @@ export default function App() {
               return (
                 <button
                   key={i}
-                  onClick={() => isVisible ? openPhotoGallery(i) : setModal('unlockPhotos')}
+                  onClick={() => isVisible ? openPhotoGallery(i) : (isAuthenticated ? setModal('unlockPhotos') : navigate('/auth'))}
                   className={`relative aspect-square rounded-xl overflow-hidden group transition-transform hover:scale-[1.02] active:scale-[0.98] ${
                     isVisible
                       ? 'bg-gradient-to-br from-pink-500/40 to-purple-500/40'
@@ -2057,7 +2061,7 @@ export default function App() {
                 /* Not verified - show CTA to get verified */
                 <div className="text-center">
                   <p className="text-white/70 text-sm mb-2">Get verified to unlock photos & contact</p>
-                  <button onClick={() => setModal('trustDeposit')} className="px-4 py-2 bg-pink-500 hover:bg-pink-600 rounded-full text-white font-medium text-sm transition-colors">
+                  <button onClick={() => isAuthenticated ? setModal('trustDeposit') : navigate('/auth')} className="px-4 py-2 bg-pink-500 hover:bg-pink-600 rounded-full text-white font-medium text-sm transition-colors">
                     Get Verified — {formatNaira(PLATFORM_CONFIG.verificationTiers.verified.deposit)}
                   </button>
                 </div>
@@ -2092,7 +2096,7 @@ export default function App() {
                         <span className="text-pink-300 text-xs font-medium">Photos Unlocked</span>
                       </div>
                     ) : (
-                      <button onClick={() => setModal('unlockPhotos')} className="flex items-center justify-between p-2.5 rounded-lg bg-white/5 border border-white/10 hover:border-pink-500/30 hover:bg-pink-500/10 transition-all">
+                      <button onClick={() => isAuthenticated ? setModal('unlockPhotos') : navigate('/auth')} className="flex items-center justify-between p-2.5 rounded-lg bg-white/5 border border-white/10 hover:border-pink-500/30 hover:bg-pink-500/10 transition-all">
                         <div className="flex items-center gap-2">
                           <Camera size={16} className="text-pink-400" />
                           <span className="text-white text-xs">Photos</span>
@@ -2108,7 +2112,7 @@ export default function App() {
                         <span className="text-green-300 text-xs font-medium font-mono">+{contact.whatsapp}</span>
                       </button>
                     ) : (
-                      <button onClick={() => setModal('unlockContact')} className="flex items-center justify-between p-2.5 rounded-lg bg-white/5 border border-white/10 hover:border-green-500/30 hover:bg-green-500/10 transition-all">
+                      <button onClick={() => isAuthenticated ? setModal('unlockContact') : navigate('/auth')} className="flex items-center justify-between p-2.5 rounded-lg bg-white/5 border border-white/10 hover:border-green-500/30 hover:bg-green-500/10 transition-all">
                         <div className="flex items-center gap-2">
                           <Phone size={16} className="text-green-400" />
                           <span className="text-white text-xs">Phone</span>
@@ -2228,7 +2232,7 @@ export default function App() {
 
             {/* Get Verified CTA if not verified */}
             {!clientState.tier && (
-              <button onClick={() => setModal('trustDeposit')} className="w-full flex items-center gap-3 p-3 rounded-xl bg-blue-500/10 border border-blue-500/30 hover:border-blue-500/50 transition-colors">
+              <button onClick={() => isAuthenticated ? setModal('trustDeposit') : navigate('/auth')} className="w-full flex items-center gap-3 p-3 rounded-xl bg-blue-500/10 border border-blue-500/30 hover:border-blue-500/50 transition-colors">
                 <ShieldCheck size={18} className="text-blue-400" />
                 <span className="flex-1 text-left">
                   <span className="text-blue-300 font-medium text-sm">Get Verified</span>
@@ -2291,7 +2295,7 @@ export default function App() {
             <span className="flex items-center gap-1"><Key size={12} />Meetup Codes</span>
           </div>
           <p className="text-white/20 text-xs mb-3">{PLATFORM_CONFIG.name} • 18+ Only • Anti-Catfish Platform</p>
-          <button onClick={() => setModal('report')} className="text-white/30 text-xs hover:text-red-400 flex items-center gap-1 mx-auto"><AlertTriangle size={12} />Report</button>
+          <button onClick={() => isAuthenticated ? setModal('report') : navigate('/auth')} className="text-white/30 text-xs hover:text-red-400 flex items-center gap-1 mx-auto"><AlertTriangle size={12} />Report</button>
         </div>
       </div>
 
