@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Wallet, CreditCard, History, Calendar, Clock, MapPin,
@@ -11,6 +11,7 @@ import {
 import { PLATFORM_CONFIG, getModelByUsername } from '../data/models';
 import { useAuth } from '../context/AuthContext';
 import { useFavorites } from '../hooks/useFavorites';
+import { bookingService } from '../services/bookingService';
 import { supabase } from '../lib/supabase';
 
 // ═══════════════════════════════════════════════════════════
@@ -498,7 +499,7 @@ const MeetupCard = ({ meetup, onCancel }) => {
 export default function ClientDashboardPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { user, logout, updateUser, updateTier, isClient, cancelMeetup } = useAuth();
+  const { user, logout, updateUser, updateTier, isClient, cancelMeetup: authCancelMeetup } = useAuth();
   const { favorites } = useFavorites();
 
   const [activeTab, setActiveTab] = useState('overview');
@@ -516,6 +517,44 @@ export default function ClientDashboardPage() {
   const [selectedTier, setSelectedTier] = useState(null);
   const [editName, setEditName] = useState('');
   const [depositStep, setDepositStep] = useState('select'); // select, payment, confirm
+  const [dbMeetups, setDbMeetups] = useState([]);
+  const [loadingMeetups, setLoadingMeetups] = useState(false);
+
+  // Fetch bookings from database and normalize field names
+  const fetchClientBookings = useCallback(async () => {
+    if (!user?.id) return;
+    setLoadingMeetups(true);
+    try {
+      const result = await bookingService.getClientBookings(user.id);
+      if (result.success) {
+        // Normalize database snake_case fields to camelCase for MeetupCard
+        const normalized = (result.bookings || []).map(b => ({
+          ...b,
+          creatorName: b.creator?.users?.name || 'Model',
+          creatorUsername: b.creator?.users?.username,
+          totalPrice: b.total_price,
+          locationType: b.location_type,
+          specialRequests: b.special_requests,
+          clientCode: b.client_code,
+          depositAmount: b.deposit_amount,
+        }));
+        setDbMeetups(normalized);
+      }
+    } catch (err) {
+      console.error('Error fetching client bookings:', err);
+    } finally {
+      setLoadingMeetups(false);
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    fetchClientBookings();
+  }, [fetchClientBookings]);
+
+  const handleCancelMeetup = useCallback(async (meetupId) => {
+    await authCancelMeetup(meetupId);
+    fetchClientBookings();
+  }, [authCancelMeetup, fetchClientBookings]);
 
   // Redirect if not a client
   if (!user || !isClient) {
@@ -602,8 +641,8 @@ export default function ClientDashboardPage() {
     ? Math.max(0, tierData.refund.meetups - user.successfulMeetups)
     : 0;
 
-  // Get meetups data
-  const meetups = user.meetups || [];
+  // Get meetups data (from database)
+  const meetups = dbMeetups;
   const upcomingMeetups = meetups.filter(m => m.status === 'pending' || m.status === 'confirmed');
   const pastMeetups = meetups.filter(m => m.status === 'completed' || m.status === 'cancelled' || m.status === 'declined');
 
@@ -826,7 +865,7 @@ export default function ClientDashboardPage() {
                 </div>
                 <div className="space-y-2">
                   {upcomingMeetups.slice(0, 2).map(meetup => (
-                    <MeetupCard key={meetup.id} meetup={meetup} onCancel={cancelMeetup} />
+                    <MeetupCard key={meetup.id} meetup={meetup} onCancel={handleCancelMeetup} />
                   ))}
                 </div>
               </div>
@@ -871,7 +910,7 @@ export default function ClientDashboardPage() {
               {upcomingMeetups.length > 0 ? (
                 <div className="space-y-3">
                   {upcomingMeetups.map(meetup => (
-                    <MeetupCard key={meetup.id} meetup={meetup} onCancel={cancelMeetup} />
+                    <MeetupCard key={meetup.id} meetup={meetup} onCancel={handleCancelMeetup} />
                   ))}
                 </div>
               ) : (
@@ -903,7 +942,7 @@ export default function ClientDashboardPage() {
                 </h2>
                 <div className="space-y-3">
                   {pastMeetups.map(meetup => (
-                    <MeetupCard key={meetup.id} meetup={meetup} onCancel={cancelMeetup} />
+                    <MeetupCard key={meetup.id} meetup={meetup} onCancel={handleCancelMeetup} />
                   ))}
                 </div>
               </div>

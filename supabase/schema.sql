@@ -291,74 +291,55 @@ ALTER TABLE otp_codes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE unlocks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE favorites ENABLE ROW LEVEL SECURITY;
 
--- Favorites policies
-CREATE POLICY "Clients can view their own favorites" ON favorites
-  FOR SELECT USING (auth.uid() = client_id);
+-- Favorites policies (permissive)
+CREATE POLICY "Allow all on favorites" ON favorites
+  FOR ALL USING (true);
 
-CREATE POLICY "Clients can add favorites" ON favorites
-  FOR INSERT WITH CHECK (auth.uid() = client_id);
+-- Users policies (permissive - app uses custom OTP auth, not Supabase auth)
+CREATE POLICY "Allow all select on users" ON users
+  FOR SELECT USING (true);
 
-CREATE POLICY "Clients can remove their own favorites" ON favorites
-  FOR DELETE USING (auth.uid() = client_id);
+CREATE POLICY "Allow all insert on users" ON users
+  FOR INSERT WITH CHECK (true);
 
--- Users policies
-CREATE POLICY "Users can view their own data" ON users
-  FOR SELECT USING (auth.uid() = id);
+CREATE POLICY "Allow all update on users" ON users
+  FOR UPDATE USING (true);
 
-CREATE POLICY "Users can update their own data" ON users
-  FOR UPDATE USING (auth.uid() = id);
+-- Clients policies (permissive)
+CREATE POLICY "Allow all select on clients" ON clients
+  FOR SELECT USING (true);
 
--- Clients policies
-CREATE POLICY "Clients can view their own data" ON clients
-  FOR SELECT USING (auth.uid() = id);
+CREATE POLICY "Allow all insert on clients" ON clients
+  FOR INSERT WITH CHECK (true);
 
-CREATE POLICY "Clients can update their own data" ON clients
-  FOR UPDATE USING (auth.uid() = id);
+CREATE POLICY "Allow all update on clients" ON clients
+  FOR UPDATE USING (true);
 
--- Creators policies
-CREATE POLICY "Anyone can view verified creators" ON creators
-  FOR SELECT USING (is_visible_in_explore = TRUE OR auth.uid() = id);
+-- Creators policies (permissive)
+CREATE POLICY "Allow all select on creators" ON creators
+  FOR SELECT USING (true);
 
-CREATE POLICY "Creators can update their own data" ON creators
-  FOR UPDATE USING (auth.uid() = id);
+CREATE POLICY "Allow all insert on creators" ON creators
+  FOR INSERT WITH CHECK (true);
 
--- Creator areas policies
-CREATE POLICY "Anyone can view creator areas" ON creator_areas
-  FOR SELECT USING (TRUE);
+CREATE POLICY "Allow all update on creators" ON creators
+  FOR UPDATE USING (true);
 
-CREATE POLICY "Creators can manage their areas" ON creator_areas
-  FOR ALL USING (auth.uid() = creator_id);
+-- Creator areas policies (permissive)
+CREATE POLICY "Allow all on creator_areas" ON creator_areas
+  FOR ALL USING (true);
 
--- Creator photos policies
-CREATE POLICY "Anyone can view preview photos" ON creator_photos
-  FOR SELECT USING (is_preview = TRUE);
+-- Creator photos policies (permissive)
+CREATE POLICY "Allow all on creator_photos" ON creator_photos
+  FOR ALL USING (true);
 
-CREATE POLICY "Clients with unlocks can view all photos" ON creator_photos
-  FOR SELECT USING (
-    EXISTS (
-      SELECT 1 FROM unlocks
-      WHERE unlocks.client_id = auth.uid()
-      AND unlocks.creator_id = creator_photos.creator_id
-      AND unlocks.unlock_type = 'photos'
-    )
-  );
+-- Creator extras policies (permissive)
+CREATE POLICY "Allow all on creator_extras" ON creator_extras
+  FOR ALL USING (true);
 
-CREATE POLICY "Creators can manage their photos" ON creator_photos
-  FOR ALL USING (auth.uid() = creator_id);
-
--- Creator extras policies
-CREATE POLICY "Anyone can view creator extras" ON creator_extras
-  FOR SELECT USING (TRUE);
-
-CREATE POLICY "Creators can manage their extras" ON creator_extras
-  FOR ALL USING (auth.uid() = creator_id);
-
--- Creator boundaries policies
-CREATE POLICY "Anyone can view creator boundaries" ON creator_boundaries
-  FOR SELECT USING (TRUE);
-
-CREATE POLICY "Creators can manage their boundaries" ON creator_boundaries
-  FOR ALL USING (auth.uid() = creator_id);
+-- Creator boundaries policies (permissive)
+CREATE POLICY "Allow all on creator_boundaries" ON creator_boundaries
+  FOR ALL USING (true);
 
 -- Bookings policies (permissive - app uses custom OTP auth, not Supabase auth)
 CREATE POLICY "Allow all select on bookings" ON bookings
@@ -377,20 +358,23 @@ CREATE POLICY "Allow all select on booking_extras" ON booking_extras
 CREATE POLICY "Allow all insert on booking_extras" ON booking_extras
   FOR INSERT WITH CHECK (true);
 
--- Creator earnings policies
-CREATE POLICY "Creators can view their own earnings" ON creator_earnings
-  FOR SELECT USING (auth.uid() = creator_id);
+-- Creator earnings policies (permissive - app uses custom OTP auth)
+CREATE POLICY "Allow all select on creator_earnings" ON creator_earnings
+  FOR SELECT USING (true);
+
+CREATE POLICY "Allow all insert on creator_earnings" ON creator_earnings
+  FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Allow all update on creator_earnings" ON creator_earnings
+  FOR UPDATE USING (true);
 
 -- OTP codes policies (service role only)
 CREATE POLICY "Service role can manage OTP codes" ON otp_codes
   FOR ALL USING (TRUE);
 
--- Unlocks policies
-CREATE POLICY "Users can view their unlocks" ON unlocks
-  FOR SELECT USING (auth.uid() = client_id OR auth.uid() = creator_id);
-
-CREATE POLICY "Clients can create unlocks" ON unlocks
-  FOR INSERT WITH CHECK (auth.uid() = client_id);
+-- Unlocks policies (permissive)
+CREATE POLICY "Allow all on unlocks" ON unlocks
+  FOR ALL USING (true);
 
 -- ============================================
 -- FUNCTIONS
