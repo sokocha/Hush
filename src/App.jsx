@@ -1891,9 +1891,17 @@ export default function App() {
         <div className="text-center mb-6">
           <div className="relative inline-block mb-4">
             <div className="w-28 h-28 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 p-1">
-              <div className="w-full h-full rounded-full bg-gray-900 flex items-center justify-center">
-                <span className="text-3xl font-bold text-white">{profile.name.slice(0,2).toUpperCase()}</span>
-              </div>
+              {photos.previewImages?.[0] ? (
+                <img
+                  src={photos.previewImages[0]}
+                  alt={profile.name}
+                  className="w-full h-full rounded-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full rounded-full bg-gray-900 flex items-center justify-center">
+                  <span className="text-3xl font-bold text-white">{profile.name.slice(0,2).toUpperCase()}</span>
+                </div>
+              )}
             </div>
             {profile.isOnline && <div className="absolute bottom-1 right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-gray-900 animate-pulse-green" />}
             {/* Favorite button */}
@@ -1993,7 +2001,13 @@ export default function App() {
 
           <div className="grid grid-cols-3 gap-2">
             {[...Array(photos.total)].map((_, i) => {
-              const isVisible = i < photos.previewCount || photosUnlocked;
+              const isPreview = i < photos.previewCount;
+              const isVisible = isPreview || photosUnlocked;
+              // Get the actual photo URL
+              const photoUrl = isPreview
+                ? photos.previewImages?.[i]
+                : photos.lockedImages?.[i - photos.previewCount];
+
               return (
                 <button
                   key={i}
@@ -2004,9 +2018,17 @@ export default function App() {
                       : 'bg-gradient-to-br from-pink-500/30 to-purple-500/30'
                   }`}
                 >
+                  {/* Show actual photo if URL exists */}
+                  {photoUrl && (
+                    <img
+                      src={photoUrl}
+                      alt={`Photo ${i + 1}`}
+                      className={`absolute inset-0 w-full h-full object-cover ${!isVisible ? 'blur-lg scale-110' : ''}`}
+                    />
+                  )}
+
                   {isVisible ? (
                     <div className="absolute inset-0 flex flex-col items-center justify-center">
-                      <span className="text-white/40 text-xs mb-2">Photo {i + 1}</span>
                       <div className="absolute bottom-0 left-0 right-0 bg-black/40 p-1">
                         <p className="text-white/50 text-[7px] text-center truncate">{PLATFORM_CONFIG.name} • @{profile.username}</p>
                       </div>
@@ -2017,11 +2039,10 @@ export default function App() {
                       </div>
                     </div>
                   ) : (
-                    /* Locked photo - lighter blur so they can see what they're paying for */
-                    <div className="absolute inset-0 flex flex-col items-center justify-center backdrop-blur-[2px]">
-                      <div className="text-white/60 text-xs mb-1">Photo {i + 1}</div>
-                      <Lock size={18} className="text-white/50 group-hover:scale-110 transition-all" />
-                      <span className="text-pink-300/60 text-[9px] mt-1">Tap to unlock</span>
+                    /* Locked photo - show blurred image with lock overlay */
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/30">
+                      <Lock size={18} className="text-white/70 group-hover:scale-110 transition-all" />
+                      <span className="text-pink-300/80 text-[9px] mt-1">Tap to unlock</span>
                     </div>
                   )}
                 </button>
