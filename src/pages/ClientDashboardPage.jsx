@@ -187,30 +187,35 @@ const FavoriteModelCard = ({ username }) => {
         return;
       }
 
-      // If not in mock data, fetch from database
+      // Fetch from database — query users and creators separately (matches ExplorePage pattern)
       try {
-        const { data, error } = await supabase
+        const { data: userData, error: userError } = await supabase
           .from('users')
-          .select(`
-            name,
-            creators(location, rating, is_video_verified, tagline, starting_price, is_available)
-          `)
+          .select('id, name, last_seen_at')
           .eq('username', username)
-          .eq('user_type', 'creator')
           .single();
 
-        if (!error && data) {
-          setCreatorData({
-            name: data.name,
-            location: data.creators?.location || 'Lagos',
-            rating: data.creators?.rating || 4.8,
-            isOnline: false,
-            isAvailable: data.creators?.is_available || false,
-            isVideoVerified: data.creators?.is_video_verified || false,
-            tagline: data.creators?.tagline || null,
-            startingPrice: data.creators?.starting_price || null,
-          });
+        if (userError || !userData) {
+          setLoading(false);
+          return;
         }
+
+        const { data: creatorRow } = await supabase
+          .from('creators')
+          .select('location, rating, is_video_verified, tagline, starting_price, is_available')
+          .eq('id', userData.id)
+          .single();
+
+        setCreatorData({
+          name: userData.name,
+          location: creatorRow?.location || 'Lagos',
+          rating: creatorRow?.rating || 4.8,
+          isOnline: userData.last_seen_at ? (Date.now() - new Date(userData.last_seen_at).getTime() < 15 * 60 * 1000) : false,
+          isAvailable: creatorRow?.is_available || false,
+          isVideoVerified: creatorRow?.is_video_verified || false,
+          tagline: creatorRow?.tagline || null,
+          startingPrice: creatorRow?.starting_price || null,
+        });
       } catch (err) {
         console.error('Error fetching creator:', err);
       }
@@ -232,7 +237,24 @@ const FavoriteModelCard = ({ username }) => {
     );
   }
 
-  if (!creatorData) return null;
+  // Fallback card when creator data couldn't be fetched
+  if (!creatorData) {
+    return (
+      <Link
+        to={`/model/${username}`}
+        className="flex items-center gap-3 p-3 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 hover:border-pink-500/30 transition-all"
+      >
+        <div className="w-14 h-14 rounded-full bg-gradient-to-br from-pink-500/30 to-purple-500/30 flex items-center justify-center flex-shrink-0">
+          <span className="text-lg font-bold text-white/50">{username.slice(0, 2).toUpperCase()}</span>
+        </div>
+        <div className="flex-1 min-w-0">
+          <h4 className="text-white font-semibold truncate">@{username}</h4>
+          <p className="text-white/40 text-sm">Tap to view profile</p>
+        </div>
+        <ChevronRight size={20} className="text-white/30 flex-shrink-0" />
+      </Link>
+    );
+  }
 
   return (
     <Link
