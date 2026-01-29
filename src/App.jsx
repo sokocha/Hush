@@ -1543,6 +1543,9 @@ export default function App() {
   const { username } = useParams();
   const navigate = useNavigate();
 
+  // Auth context — must be near top so other hooks can reference user/isAuthenticated
+  const { user, isAuthenticated, isCreator, isClient, updateUser, updateTier, deductBalance, addMeetupBooking } = useAuth();
+
   // Age verification - skip if authenticated OR if already verified this session
   const [ageVerified, setAgeVerified] = useState(() => {
     // If authenticated, they've already verified during registration
@@ -1560,51 +1563,10 @@ export default function App() {
   const [contactUnlocked, setContactUnlocked] = useState(false);
   const [photosUnlocked, setPhotosUnlocked] = useState(false);
 
-  // State for database creator data (declared early so creatorId can reference it)
+  // State for database creator data
   const [dbCreator, setDbCreator] = useState(null);
   const [creatorLoading, setCreatorLoading] = useState(false);
   const [creatorNotFound, setCreatorNotFound] = useState(false);
-
-  // Restore unlock state from database when viewing a real creator
-  const creatorId = dbCreator?.creators?.id || null;
-  useEffect(() => {
-    if (!isAuthenticated || !user?.id || !creatorId) return;
-    let cancelled = false;
-    (async () => {
-      const [photos, contact] = await Promise.all([
-        userService.checkUnlock(user.id, creatorId, 'photos'),
-        userService.checkUnlock(user.id, creatorId, 'contact'),
-      ]);
-      if (cancelled) return;
-      if (photos.unlocked) setPhotosUnlocked(true);
-      if (contact.unlocked) setContactUnlocked(true);
-    })();
-    return () => { cancelled = true; };
-  }, [isAuthenticated, user?.id, creatorId]);
-
-  // Persist unlocks to database and update local state
-  const handleUnlockPhotos = async () => {
-    setPhotosUnlocked(true);
-    if (isAuthenticated && user?.id && creatorId) {
-      await userService.createUnlock(user.id, creatorId, 'photos', CONFIG.pricing.unlockPhotos);
-    }
-  };
-  const handleUnlockContact = async () => {
-    setContactUnlocked(true);
-    if (isAuthenticated && user?.id && creatorId) {
-      await userService.createUnlock(user.id, creatorId, 'contact', CONFIG.pricing.unlockContact);
-    }
-  };
-  const handleUnlockBundle = async () => {
-    setPhotosUnlocked(true);
-    setContactUnlocked(true);
-    if (isAuthenticated && user?.id && creatorId) {
-      await Promise.all([
-        userService.createUnlock(user.id, creatorId, 'photos', CONFIG.pricing.unlockPhotos),
-        userService.createUnlock(user.id, creatorId, 'contact', CONFIG.pricing.unlockContact),
-      ]);
-    }
-  };
 
   const [modal, setModal] = useState(null);
   const [photoGalleryIndex, setPhotoGalleryIndex] = useState(0);
@@ -1615,9 +1577,6 @@ export default function App() {
   const [toast, setToast] = useState({ visible: false, message: '', type: 'success' });
   const showToast = (message, type = 'success') => setToast({ visible: true, message, type });
   const hideToast = useCallback(() => setToast(prev => ({ ...prev, visible: false })), []);
-
-  // Auth context
-  const { user, isAuthenticated, isCreator, isClient, updateUser, updateTier, deductBalance, addMeetupBooking } = useAuth();
 
   // Determine the correct dashboard link based on user type
   const dashboardLink = isCreator ? '/creator-dashboard' : '/dashboard';
@@ -1664,6 +1623,47 @@ export default function App() {
 
     fetchCreator();
   }, [currentUsername, mockModelData]);
+
+  // Restore unlock state from database when viewing a real creator
+  const creatorId = dbCreator?.creators?.id || null;
+  useEffect(() => {
+    if (!isAuthenticated || !user?.id || !creatorId) return;
+    let cancelled = false;
+    (async () => {
+      const [photos, contact] = await Promise.all([
+        userService.checkUnlock(user.id, creatorId, 'photos'),
+        userService.checkUnlock(user.id, creatorId, 'contact'),
+      ]);
+      if (cancelled) return;
+      if (photos.unlocked) setPhotosUnlocked(true);
+      if (contact.unlocked) setContactUnlocked(true);
+    })();
+    return () => { cancelled = true; };
+  }, [isAuthenticated, user?.id, creatorId]);
+
+  // Persist unlocks to database and update local state
+  const handleUnlockPhotos = async () => {
+    setPhotosUnlocked(true);
+    if (isAuthenticated && user?.id && creatorId) {
+      await userService.createUnlock(user.id, creatorId, 'photos', CONFIG.pricing.unlockPhotos);
+    }
+  };
+  const handleUnlockContact = async () => {
+    setContactUnlocked(true);
+    if (isAuthenticated && user?.id && creatorId) {
+      await userService.createUnlock(user.id, creatorId, 'contact', CONFIG.pricing.unlockContact);
+    }
+  };
+  const handleUnlockBundle = async () => {
+    setPhotosUnlocked(true);
+    setContactUnlocked(true);
+    if (isAuthenticated && user?.id && creatorId) {
+      await Promise.all([
+        userService.createUnlock(user.id, creatorId, 'photos', CONFIG.pricing.unlockPhotos),
+        userService.createUnlock(user.id, creatorId, 'contact', CONFIG.pricing.unlockContact),
+      ]);
+    }
+  };
 
   // Transform database creator to CONFIG format
   const transformDbCreatorToConfig = (dbData) => {
