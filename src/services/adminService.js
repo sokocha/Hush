@@ -5,7 +5,7 @@ export const adminService = {
    * Get creators filtered by verification status
    * @param {string} status - 'pending' | 'scheduled' | 'under_review' | 'approved' | 'denied' | 'all' | 'disputed'
    */
-  async getVerificationQueue(status = 'scheduled') {
+  async getVerificationQueue(status = 'pending') {
     try {
       let query = supabase
         .from('creators')
@@ -14,14 +14,20 @@ export const adminService = {
           users:id(id, name, username, phone, created_at),
           creator_areas(area),
           creator_photos(id, storage_path, is_preview, display_order)
-        `)
-        .order('verification_call_scheduled_at', { ascending: true });
+        `);
 
       if (status === 'disputed') {
         // Show denied creators who have submitted a dispute
         query = query.eq('verification_status', 'denied').not('dispute_message', 'is', null);
       } else if (status !== 'all') {
         query = query.eq('verification_status', status);
+      }
+
+      // Sort scheduled by call time, everything else by creation date
+      if (status === 'scheduled') {
+        query = query.order('verification_call_scheduled_at', { ascending: true });
+      } else {
+        query = query.order('created_at', { ascending: false });
       }
 
       const { data, error } = await query;

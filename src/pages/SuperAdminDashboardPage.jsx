@@ -14,6 +14,7 @@ import {
 // ═══════════════════════════════════════════════════════════
 
 const TABS = [
+  { id: 'pending', label: 'Pending', icon: Clock, color: 'gray' },
   { id: 'scheduled', label: 'Upcoming Calls', icon: Calendar, color: 'blue' },
   { id: 'under_review', label: 'Under Review', icon: Clock, color: 'purple' },
   { id: 'denied', label: 'Denied', icon: XCircle, color: 'red' },
@@ -225,18 +226,14 @@ const CreatorCard = ({ creator, onApprove, onDeny, onReschedule, onViewDetail })
       )}
 
       {/* Actions */}
-      {(creator.verification_status === 'scheduled' ||
-        creator.verification_status === 'under_review' ||
-        creator.verification_status === 'denied') && (
+      {creator.verification_status !== 'approved' && (
         <div className="flex gap-2 px-4 pb-4">
-          {creator.verification_status !== 'approved' && (
-            <button
-              onClick={() => onApprove(creator)}
-              className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-green-500/20 hover:bg-green-500/30 border border-green-500/30 rounded-lg text-green-300 text-sm font-medium transition-colors"
-            >
-              <CheckCircle size={14} /> Approve
-            </button>
-          )}
+          <button
+            onClick={() => onApprove(creator)}
+            className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-green-500/20 hover:bg-green-500/30 border border-green-500/30 rounded-lg text-green-300 text-sm font-medium transition-colors"
+          >
+            <CheckCircle size={14} /> Approve
+          </button>
           {creator.verification_status !== 'denied' && (
             <button
               onClick={() => onDeny(creator)}
@@ -265,7 +262,7 @@ export default function SuperAdminDashboardPage() {
   const navigate = useNavigate();
   const { user, isSuperAdmin, isAuthenticated, isLoading: authLoading } = useAuth();
 
-  const [activeTab, setActiveTab] = useState('scheduled');
+  const [activeTab, setActiveTab] = useState('pending');
   const [creators, setCreators] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -462,6 +459,7 @@ export default function SuperAdminDashboardPage() {
               )}
             </div>
             <p className="text-white/40 text-sm">
+              {activeTab === 'pending' && 'No pending creators'}
               {activeTab === 'scheduled' && 'No upcoming verification calls'}
               {activeTab === 'under_review' && 'No creators under review'}
               {activeTab === 'approved' && 'No approved creators yet'}
