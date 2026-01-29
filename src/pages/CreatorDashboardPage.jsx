@@ -1420,22 +1420,45 @@ export default function CreatorDashboardPage() {
           </div>
         </div>
 
-        {/* Incomplete profile banner - links to onboarding wizard */}
+        {/* Incomplete profile banner with checklist - links to onboarding wizard */}
         {showIncompleteProfileBanner && (
           <div className="mb-4 p-4 bg-gradient-to-r from-purple-500/15 to-fuchsia-500/15 border border-purple-500/30 rounded-xl">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-white font-medium text-sm">Complete your profile</p>
-                <p className="text-white/50 text-xs mt-0.5">
-                  {!hasPhotos ? 'Add photos and set pricing to go live.' : 'Set your pricing to go live.'}
-                </p>
-              </div>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-white font-medium text-sm">Complete your profile</p>
               <button
                 onClick={() => navigate('/creator-onboarding')}
                 className="px-4 py-2 bg-purple-500 hover:bg-purple-600 rounded-lg text-white text-sm font-medium transition-colors"
               >
                 Continue Setup
               </button>
+            </div>
+            <div className="space-y-2">
+              {[
+                { label: 'Upload 3+ photos', done: creatorPhotos.length >= 3 },
+                { label: 'Set your pricing', done: hasPricingSet },
+                { label: 'Schedule verification call', done: !!user.verificationCallScheduledAt || user.isVerified || user.isVideoVerified },
+              ].map(({ label, done }) => (
+                <div key={label} className="flex items-center gap-2 text-sm">
+                  {done ? (
+                    <CheckCircle size={14} className="text-green-400" />
+                  ) : (
+                    <div className="w-3.5 h-3.5 rounded-full border border-white/30" />
+                  )}
+                  <span className={done ? 'text-white/40 line-through' : 'text-white/70'}>{label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Peer comparison stat — only show for unverified creators */}
+        {!user.isVerified && !user.isVideoVerified && (
+          <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl">
+            <div className="flex items-center gap-2">
+              <TrendingUp size={16} className="text-amber-400 flex-shrink-0" />
+              <p className="text-amber-200/80 text-sm">
+                Verified models receive <span className="font-semibold text-amber-300">5x more profile views</span> and appear in search results.
+              </p>
             </div>
           </div>
         )}

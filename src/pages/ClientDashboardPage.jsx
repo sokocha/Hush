@@ -16,6 +16,33 @@ import { userService } from '../services/userService';
 import { supabase } from '../lib/supabase';
 
 // ═══════════════════════════════════════════════════════════
+// CONSTANTS
+// ═══════════════════════════════════════════════════════════
+
+const LOCATIONS = [
+  { name: "Lagos", areas: ["Lekki", "VI", "Ikoyi", "Ajah", "Ikeja", "GRA", "Maryland"] },
+  { name: "Abuja", areas: ["Maitama", "Wuse", "Asokoro", "Garki", "Jabi"] },
+  { name: "Port Harcourt", areas: ["GRA", "Trans Amadi", "Rumuola", "Eleme"] },
+];
+
+const BODY_TYPE_PREFERENCES = [
+  "Slim", "Athletic", "Curvy", "Thick", "BBW", "Petite", "Tall", "No preference"
+];
+
+const SKIN_TONE_PREFERENCES = [
+  "Fair", "Light", "Caramel", "Brown", "Dark", "No preference"
+];
+
+const AGE_PREFERENCES = [
+  "18-22", "23-27", "28-32", "33-40", "40+", "No preference"
+];
+
+const SERVICE_PREFERENCES = [
+  "GFE", "Oral", "Anal", "BDSM", "Massage", "Duo",
+  "Dinner date", "Overnight", "Travel companion"
+];
+
+// ═══════════════════════════════════════════════════════════
 // HELPER FUNCTIONS
 // ═══════════════════════════════════════════════════════════
 
@@ -160,30 +187,35 @@ const FavoriteModelCard = ({ username }) => {
         return;
       }
 
-      // If not in mock data, fetch from database
+      // Fetch from database — query users and creators separately (matches ExplorePage pattern)
       try {
-        const { data, error } = await supabase
+        const { data: userData, error: userError } = await supabase
           .from('users')
-          .select(`
-            name,
-            creators(location, rating, is_video_verified, tagline, starting_price, is_available)
-          `)
+          .select('id, name, last_seen_at')
           .eq('username', username)
-          .eq('user_type', 'creator')
           .single();
 
-        if (!error && data) {
-          setCreatorData({
-            name: data.name,
-            location: data.creators?.location || 'Lagos',
-            rating: data.creators?.rating || 4.8,
-            isOnline: false,
-            isAvailable: data.creators?.is_available || false,
-            isVideoVerified: data.creators?.is_video_verified || false,
-            tagline: data.creators?.tagline || null,
-            startingPrice: data.creators?.starting_price || null,
-          });
+        if (userError || !userData) {
+          setLoading(false);
+          return;
         }
+
+        const { data: creatorRow } = await supabase
+          .from('creators')
+          .select('location, rating, is_video_verified, tagline, starting_price, is_available')
+          .eq('id', userData.id)
+          .single();
+
+        setCreatorData({
+          name: userData.name,
+          location: creatorRow?.location || 'Lagos',
+          rating: creatorRow?.rating || 4.8,
+          isOnline: userData.last_seen_at ? (Date.now() - new Date(userData.last_seen_at).getTime() < 15 * 60 * 1000) : false,
+          isAvailable: creatorRow?.is_available || false,
+          isVideoVerified: creatorRow?.is_video_verified || false,
+          tagline: creatorRow?.tagline || null,
+          startingPrice: creatorRow?.starting_price || null,
+        });
       } catch (err) {
         console.error('Error fetching creator:', err);
       }
@@ -205,7 +237,24 @@ const FavoriteModelCard = ({ username }) => {
     );
   }
 
-  if (!creatorData) return null;
+  // Fallback card when creator data couldn't be fetched
+  if (!creatorData) {
+    return (
+      <Link
+        to={`/model/${username}`}
+        className="flex items-center gap-3 p-3 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 hover:border-pink-500/30 transition-all"
+      >
+        <div className="w-14 h-14 rounded-full bg-gradient-to-br from-pink-500/30 to-purple-500/30 flex items-center justify-center flex-shrink-0">
+          <span className="text-lg font-bold text-white/50">{username.slice(0, 2).toUpperCase()}</span>
+        </div>
+        <div className="flex-1 min-w-0">
+          <h4 className="text-white font-semibold truncate">@{username}</h4>
+          <p className="text-white/40 text-sm">Tap to view profile</p>
+        </div>
+        <ChevronRight size={20} className="text-white/30 flex-shrink-0" />
+      </Link>
+    );
+  }
 
   return (
     <Link
@@ -1672,6 +1721,174 @@ export default function ClientDashboardPage() {
         meetup={reviewMeetup}
         onSubmit={handleSubmitReview}
       />
+
+      {/* Edit Preferences Modal */}
+      <Modal
+        isOpen={showEditPreferences}
+        onClose={() => setShowEditPreferences(false)}
+        title="Edit Preferences"
+        size="lg"
+      >
+        <div className="space-y-5">
+          {/* Location */}
+          <div>
+            <label className="text-white/70 text-sm mb-2 block">Preferred Location</label>
+            <div className="flex flex-wrap gap-2">
+              {LOCATIONS.map(loc => (
+                <button
+                  key={loc.name}
+                  onClick={() => setEditPrefs(prev => ({
+                    ...prev,
+                    preferredLocation: prev.preferredLocation === loc.name ? '' : loc.name
+                  }))}
+                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all border ${
+                    editPrefs.preferredLocation === loc.name
+                      ? 'bg-pink-500/20 border-pink-500/50 text-pink-300'
+                      : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'
+                  }`}
+                >
+                  {loc.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Body Types */}
+          <div>
+            <label className="text-white/70 text-sm mb-2 block">Body Types</label>
+            <div className="flex flex-wrap gap-2">
+              {BODY_TYPE_PREFERENCES.map(type => {
+                const selected = (editPrefs.bodyTypes || []).includes(type);
+                const isNoPreference = type === 'No preference';
+                const noPreferenceSelected = (editPrefs.bodyTypes || []).includes('No preference');
+                return (
+                  <button
+                    key={type}
+                    onClick={() => setEditPrefs(prev => {
+                      const current = prev.bodyTypes || [];
+                      if (isNoPreference) return { ...prev, bodyTypes: selected ? [] : ['No preference'] };
+                      const filtered = current.filter(t => t !== 'No preference');
+                      return { ...prev, bodyTypes: selected ? filtered.filter(t => t !== type) : [...filtered, type] };
+                    })}
+                    className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all border ${
+                      selected
+                        ? 'bg-pink-500/20 border-pink-500/50 text-pink-300'
+                        : noPreferenceSelected && !isNoPreference
+                          ? 'bg-white/5 border-white/5 text-white/30 cursor-default'
+                          : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'
+                    }`}
+                  >
+                    {type}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Complexion */}
+          <div>
+            <label className="text-white/70 text-sm mb-2 block">Complexion</label>
+            <div className="flex flex-wrap gap-2">
+              {SKIN_TONE_PREFERENCES.map(tone => {
+                const selected = (editPrefs.skinTones || []).includes(tone);
+                const isNoPreference = tone === 'No preference';
+                const noPreferenceSelected = (editPrefs.skinTones || []).includes('No preference');
+                return (
+                  <button
+                    key={tone}
+                    onClick={() => setEditPrefs(prev => {
+                      const current = prev.skinTones || [];
+                      if (isNoPreference) return { ...prev, skinTones: selected ? [] : ['No preference'] };
+                      const filtered = current.filter(t => t !== 'No preference');
+                      return { ...prev, skinTones: selected ? filtered.filter(t => t !== tone) : [...filtered, tone] };
+                    })}
+                    className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all border ${
+                      selected
+                        ? 'bg-pink-500/20 border-pink-500/50 text-pink-300'
+                        : noPreferenceSelected && !isNoPreference
+                          ? 'bg-white/5 border-white/5 text-white/30 cursor-default'
+                          : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'
+                    }`}
+                  >
+                    {tone}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Age Range */}
+          <div>
+            <label className="text-white/70 text-sm mb-2 block">Age Range</label>
+            <div className="flex flex-wrap gap-2">
+              {AGE_PREFERENCES.map(age => {
+                const selected = (editPrefs.ageRanges || []).includes(age);
+                const isNoPreference = age === 'No preference';
+                const noPreferenceSelected = (editPrefs.ageRanges || []).includes('No preference');
+                return (
+                  <button
+                    key={age}
+                    onClick={() => setEditPrefs(prev => {
+                      const current = prev.ageRanges || [];
+                      if (isNoPreference) return { ...prev, ageRanges: selected ? [] : ['No preference'] };
+                      const filtered = current.filter(t => t !== 'No preference');
+                      return { ...prev, ageRanges: selected ? filtered.filter(t => t !== age) : [...filtered, age] };
+                    })}
+                    className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all border ${
+                      selected
+                        ? 'bg-pink-500/20 border-pink-500/50 text-pink-300'
+                        : noPreferenceSelected && !isNoPreference
+                          ? 'bg-white/5 border-white/5 text-white/30 cursor-default'
+                          : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'
+                    }`}
+                  >
+                    {age}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Services */}
+          <div>
+            <label className="text-white/70 text-sm mb-2 block">Services</label>
+            <div className="flex flex-wrap gap-2">
+              {SERVICE_PREFERENCES.map(service => {
+                const selected = (editPrefs.services || []).includes(service);
+                return (
+                  <button
+                    key={service}
+                    onClick={() => setEditPrefs(prev => {
+                      const current = prev.services || [];
+                      return { ...prev, services: selected ? current.filter(s => s !== service) : [...current, service] };
+                    })}
+                    className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all border ${
+                      selected
+                        ? 'bg-pink-500/20 border-pink-500/50 text-pink-300'
+                        : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'
+                    }`}
+                  >
+                    {service}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <button
+            onClick={async () => {
+              updateUser({ preferences: editPrefs });
+              if (user?.id) {
+                await userService.updateClientPreferences(user.id, editPrefs);
+              }
+              setShowEditPreferences(false);
+            }}
+            className="w-full py-4 bg-pink-500 hover:bg-pink-600 rounded-xl text-white font-semibold transition-all"
+          >
+            Save Preferences
+          </button>
+        </div>
+      </Modal>
 
       {/* Top Up Modal */}
       <Modal

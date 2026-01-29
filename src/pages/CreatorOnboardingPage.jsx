@@ -756,15 +756,35 @@ export default function CreatorOnboardingPage() {
       </p>
 
       <div className="w-full max-w-sm space-y-4">
+        {/* What to expect */}
         <div className="p-4 bg-purple-500/10 border border-purple-500/20 rounded-xl">
-          <div className="flex items-center gap-3 mb-3">
-            <Shield size={20} className="text-purple-400" />
-            <div className="text-left">
-              <p className="text-white font-medium text-sm">Identity Verification</p>
-              <p className="text-white/50 text-xs">
-                A Hush team member will video call you to verify your identity. It only takes 2-3 minutes!
-              </p>
+          <div className="flex items-center gap-2 mb-3">
+            <Shield size={18} className="text-purple-400" />
+            <p className="text-white font-medium text-sm">What to expect</p>
+          </div>
+          <div className="space-y-2.5 text-sm">
+            <div className="flex items-start gap-2">
+              <span className="w-5 h-5 rounded-full bg-purple-500/20 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs text-purple-300 font-medium">1</span>
+              <p className="text-white/60">A Hush team member will video call you on WhatsApp.</p>
             </div>
+            <div className="flex items-start gap-2">
+              <span className="w-5 h-5 rounded-full bg-purple-500/20 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs text-purple-300 font-medium">2</span>
+              <p className="text-white/60">You'll be asked to hold up your ID and say your name.</p>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="w-5 h-5 rounded-full bg-purple-500/20 flex items-center justify-center flex-shrink-0 mt-0.5 text-xs text-purple-300 font-medium">3</span>
+              <p className="text-white/60">That's it! Takes 2-3 minutes. Your profile goes live after approval.</p>
+            </div>
+          </div>
+        </div>
+
+        {/* What you earn */}
+        <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-xl">
+          <p className="text-green-300 font-medium text-sm mb-2">After verification you'll get:</p>
+          <div className="space-y-1.5 text-sm">
+            <p className="text-white/50 flex items-center gap-2"><Video size={12} className="text-green-400" />Verified badge on your profile</p>
+            <p className="text-white/50 flex items-center gap-2"><MapPin size={12} className="text-green-400" />Visible in search results</p>
+            <p className="text-white/50 flex items-center gap-2"><DollarSign size={12} className="text-green-400" />Able to accept bookings and earn</p>
           </div>
         </div>
 
