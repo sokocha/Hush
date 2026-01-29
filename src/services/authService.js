@@ -170,7 +170,13 @@ export const authService = {
 
       return {
         success: true,
-        user: { ...user, creator, areas },
+        user: {
+          ...user,
+          creators: {
+            ...creator,
+            creator_areas: (areas || []).map(area => ({ area })),
+          },
+        },
       };
     } catch (error) {
       console.error('Error registering creator:', error);

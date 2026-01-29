@@ -2,14 +2,13 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   Crown, Shield, Video, Camera, DollarSign, Calendar,
-  CheckCircle, Clock, AlertTriangle, Star, Users, Heart,
+  CheckCircle, Clock, AlertTriangle, Star, Users,
   Settings, LogOut, Edit3, ChevronLeft, ChevronRight,
-  MapPin, Target, TrendingUp, Eye, Phone, MessageCircle,
+  MapPin, Target, TrendingUp, Eye, Phone,
   Ban, Sparkles, Award, X, Plus, Image, Trash2, Lock, Unlock,
   GripVertical, RotateCcw, CalendarDays, Wallet, ClipboardList,
   CheckCheck, XCircle, User, MessageSquare, RefreshCw, PartyPopper
 } from 'lucide-react';
-import { PLATFORM_CONFIG } from '../data/models';
 import { useAuth } from '../context/AuthContext';
 import { creatorService } from '../services/creatorService';
 import { storageService } from '../services/storageService';
@@ -49,7 +48,7 @@ const Confetti = ({ active }) => {
 };
 
 // Photo milestone celebration modal
-const PhotoMilestoneModal = ({ isOpen, onClose, onContinue, onAddMore }) => {
+const PhotoMilestoneModal = ({ isOpen, _onClose, onContinue, onAddMore }) => {
   if (!isOpen) return null;
 
   return (
@@ -599,6 +598,14 @@ export default function CreatorDashboardPage() {
   const [showConfetti, setShowConfetti] = useState(false);
   const [verificationCallScheduled, setVerificationCallScheduled] = useState(false);
 
+  // Dispute / re-verification modals
+  const [showDisputeModal, setShowDisputeModal] = useState(false);
+  const [showReverifyModal, setShowReverifyModal] = useState(false);
+  const [disputeText, setDisputeText] = useState('');
+  const [reverifyDate, setReverifyDate] = useState('');
+  const [reverifyTime, setReverifyTime] = useState('');
+  const [disputeLoading, setDisputeLoading] = useState(false);
+
   const [activeTab, setActiveTab] = useState('overview');
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -665,16 +672,13 @@ export default function CreatorDashboardPage() {
     return missing;
   };
 
-  // Show onboarding for new registrations or incomplete profiles
+  // Redirect new registrations and incomplete profiles to onboarding wizard
   useEffect(() => {
-    if (isNewRegistration || (!isProfileComplete && user && isCreator)) {
-      setShowOnboarding(true);
-      // Clear the navigation state so refresh doesn't re-trigger
-      if (isNewRegistration) {
-        navigate(location.pathname, { replace: true, state: {} });
-      }
+    if (isNewRegistration) {
+      navigate('/creator-onboarding', { replace: true, state: { newRegistration: true } });
+      return;
     }
-  }, [isNewRegistration, isProfileComplete, user, isCreator]);
+  }, [isNewRegistration]);
 
   // Fetch bookings and earnings from database
   const fetchBookings = useCallback(async () => {
@@ -749,6 +753,40 @@ export default function CreatorDashboardPage() {
   const handleLogout = () => {
     logout();
     navigate('/auth');
+  };
+
+  // Dispute submission
+  const handleDisputeSubmit = async () => {
+    if (!disputeText.trim() || !user?.id) return;
+    setDisputeLoading(true);
+    const result = await creatorService.submitDispute(user.id, disputeText.trim());
+    setDisputeLoading(false);
+    if (result.success) {
+      updateUser({ disputeMessage: disputeText.trim(), disputeSubmittedAt: new Date().toISOString() }, false);
+      setShowDisputeModal(false);
+      setDisputeText('');
+    }
+  };
+
+  // Re-verification request
+  const handleReverifySubmit = async () => {
+    if (!reverifyDate || !reverifyTime || !user?.id) return;
+    setDisputeLoading(true);
+    const scheduledAt = new Date(`${reverifyDate}T${reverifyTime}`).toISOString();
+    const result = await creatorService.requestReverification(user.id, scheduledAt);
+    setDisputeLoading(false);
+    if (result.success) {
+      updateUser({
+        verificationStatus: 'scheduled',
+        verificationCallScheduledAt: scheduledAt,
+        verificationDeniedReason: null,
+        disputeMessage: null,
+        disputeSubmittedAt: null,
+      }, false);
+      setShowReverifyModal(false);
+      setReverifyDate('');
+      setReverifyTime('');
+    }
   };
 
   const handleEditProfile = () => {
@@ -1217,8 +1255,11 @@ export default function CreatorDashboardPage() {
 
   const currentOnboardingStep = onboardingSteps[onboardingStep];
 
-  // Show onboarding overlay for new registrations
-  if (showOnboarding) {
+  // Incomplete profile banner (shown inline in dashboard, no longer a blocking overlay)
+  const showIncompleteProfileBanner = !isProfileComplete && user && isCreator;
+
+  // Legacy: onboarding overlay removed - now handled by /creator-onboarding route
+  if (false && showOnboarding) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-pink-950 via-rose-950 to-fuchsia-950">
         {/* Background effects */}
@@ -1694,20 +1735,38 @@ export default function CreatorDashboardPage() {
           </div>
         </div>
 
-        {/* Verification Banner - shows different states */}
+        {/* Incomplete profile banner - links to onboarding wizard */}
+        {showIncompleteProfileBanner && (
+          <div className="mb-4 p-4 bg-gradient-to-r from-purple-500/15 to-fuchsia-500/15 border border-purple-500/30 rounded-xl">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-white font-medium text-sm">Complete your profile</p>
+                <p className="text-white/50 text-xs mt-0.5">
+                  {!hasPhotos ? 'Add photos and set pricing to go live.' : 'Set your pricing to go live.'}
+                </p>
+              </div>
+              <button
+                onClick={() => navigate('/creator-onboarding')}
+                className="px-4 py-2 bg-purple-500 hover:bg-purple-600 rounded-lg text-white text-sm font-medium transition-colors"
+              >
+                Continue Setup
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Verification Banner - shows different states based on verification_status */}
         {(() => {
           const hasPhotos = creatorPhotos.length >= 3;
-          const hasScheduledCall = verificationCallScheduled || user.verificationCallScheduled;
-          const isVerified = user.isVideoVerified || user.isVerified;
-          const isDenied = user.verificationDenied;
-          const isUnderReview = user.verificationUnderReview;
-          const allUserStepsComplete = hasPhotos && hasScheduledCall;
+          const vStatus = user.verificationStatus || 'pending';
+          const isVerified = vStatus === 'approved' || user.isVideoVerified || user.isVerified;
+          const scheduledAt = user.verificationCallScheduledAt;
 
           // Don't show banner if fully verified
           if (isVerified) return null;
 
-          // Waiting for call - all user steps done
-          if (allUserStepsComplete && !isDenied && !isUnderReview) {
+          // Scheduled - waiting for call
+          if (vStatus === 'scheduled') {
             return (
               <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4 mb-6">
                 <div className="flex items-start gap-3">
@@ -1715,11 +1774,11 @@ export default function CreatorDashboardPage() {
                   <div>
                     <h3 className="text-blue-300 font-medium mb-1">Waiting for Verification Call</h3>
                     <p className="text-blue-300/70 text-sm">
-                      You've completed all steps! We'll call you at your scheduled time to complete verification.
+                      You've completed all steps! We'll call you at your scheduled time.
                     </p>
-                    {user.verificationCallScheduled && (
+                    {scheduledAt && (
                       <p className="text-blue-300 text-sm mt-1">
-                        📅 Scheduled: {user.verificationCallScheduled.date} at {user.verificationCallScheduled.time}
+                        Scheduled: {new Date(scheduledAt).toLocaleDateString('en-NG', { weekday: 'short', month: 'short', day: 'numeric' })} at {new Date(scheduledAt).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' })}
                       </p>
                     )}
                   </div>
@@ -1729,7 +1788,7 @@ export default function CreatorDashboardPage() {
           }
 
           // Under review
-          if (isUnderReview) {
+          if (vStatus === 'under_review') {
             return (
               <div className="bg-purple-500/10 border border-purple-500/30 rounded-xl p-4 mb-6">
                 <div className="flex items-start gap-3">
@@ -1745,34 +1804,57 @@ export default function CreatorDashboardPage() {
             );
           }
 
-          // Denied - needs to reschedule
-          if (isDenied) {
+          // Denied
+          if (vStatus === 'denied') {
+            const hasDisputed = !!user.disputeMessage;
             return (
               <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 mb-6">
                 <div className="flex items-start gap-3">
                   <XCircle size={20} className="text-red-400 flex-shrink-0 mt-0.5" />
-                  <div>
+                  <div className="flex-1">
                     <h3 className="text-red-300 font-medium mb-1">Verification Not Approved</h3>
-                    <p className="text-red-300/70 text-sm">
-                      {user.verificationDeniedReason || 'Please schedule another verification call to try again.'}
-                    </p>
-                    <button
-                      onClick={() => setShowVideoCallSchedule(true)}
-                      className="mt-2 px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 rounded-lg text-red-300 text-sm font-medium transition-colors"
-                    >
-                      Reschedule Call
-                    </button>
+                    {user.verificationDeniedReason && (
+                      <p className="text-red-300/70 text-sm mb-2">
+                        Reason: {user.verificationDeniedReason}
+                      </p>
+                    )}
+                    {hasDisputed ? (
+                      <div className="p-2.5 bg-amber-500/10 border border-amber-500/20 rounded-lg mt-2">
+                        <p className="text-amber-300 text-xs font-medium mb-1">Your dispute has been submitted</p>
+                        <p className="text-amber-200/60 text-sm">{user.disputeMessage}</p>
+                      </div>
+                    ) : (
+                      <p className="text-red-300/60 text-sm mb-2">
+                        Your profile is hidden from the platform. You can dispute this decision or schedule a new call.
+                      </p>
+                    )}
+                    {!hasDisputed && (
+                      <div className="flex gap-2 mt-3">
+                        <button
+                          onClick={() => setShowDisputeModal(true)}
+                          className="px-3 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 rounded-lg text-amber-300 text-sm font-medium transition-colors"
+                        >
+                          Dispute Decision
+                        </button>
+                        <button
+                          onClick={() => setShowReverifyModal(true)}
+                          className="px-3 py-1.5 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/30 rounded-lg text-blue-300 text-sm font-medium transition-colors"
+                        >
+                          Request New Call
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
             );
           }
 
-          // Still has steps to complete
-          if (user.pendingVerification) {
+          // Pending - still has steps to complete
+          if (vStatus === 'pending' || user.pendingVerification) {
             const missingSteps = [];
             if (!hasPhotos) missingSteps.push('upload at least 3 photos');
-            if (!hasScheduledCall) missingSteps.push('schedule your verification call');
+            if (!scheduledAt) missingSteps.push('schedule your verification call');
 
             return (
               <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 mb-6">
@@ -2739,6 +2821,109 @@ export default function CreatorDashboardPage() {
               className="flex-1 py-3 bg-red-500 hover:bg-red-600 rounded-xl text-white font-semibold transition-all"
             >
               Sign Out
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Dispute Modal */}
+      <Modal
+        isOpen={showDisputeModal}
+        onClose={() => setShowDisputeModal(false)}
+        title="Dispute Verification Decision"
+      >
+        <div className="space-y-4">
+          <p className="text-white/60 text-sm">
+            Explain why you believe the denial was incorrect. Our team will review your dispute.
+          </p>
+          {user?.verificationDeniedReason && (
+            <div className="p-2.5 bg-red-500/10 border border-red-500/20 rounded-lg">
+              <p className="text-red-300 text-xs font-medium mb-1">Denial reason:</p>
+              <p className="text-red-200/60 text-sm">{user.verificationDeniedReason}</p>
+            </div>
+          )}
+          <div className="space-y-2">
+            <label className="text-white/70 text-sm">Your dispute message</label>
+            <textarea
+              value={disputeText}
+              onChange={(e) => setDisputeText(e.target.value)}
+              placeholder="Explain your case..."
+              rows={4}
+              maxLength={500}
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:border-amber-500 focus:outline-none resize-none"
+            />
+            <p className="text-white/30 text-xs text-right">{disputeText.length}/500</p>
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowDisputeModal(false)}
+              className="flex-1 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-white/70 font-medium transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleDisputeSubmit}
+              disabled={!disputeText.trim() || disputeLoading}
+              className={`flex-1 py-3 rounded-xl font-medium transition-colors ${
+                disputeText.trim()
+                  ? 'bg-amber-500 hover:bg-amber-600 text-white'
+                  : 'bg-white/10 text-white/30 cursor-not-allowed'
+              }`}
+            >
+              {disputeLoading ? 'Submitting...' : 'Submit Dispute'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Re-verification Modal */}
+      <Modal
+        isOpen={showReverifyModal}
+        onClose={() => setShowReverifyModal(false)}
+        title="Request New Verification Call"
+      >
+        <div className="space-y-4">
+          <p className="text-white/60 text-sm">
+            Schedule a new verification call. Make sure you're available at the selected time.
+          </p>
+          <div className="space-y-3">
+            <div className="space-y-2">
+              <label className="text-white/70 text-sm">Date</label>
+              <input
+                type="date"
+                value={reverifyDate}
+                onChange={(e) => setReverifyDate(e.target.value)}
+                min={new Date().toISOString().split('T')[0]}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-blue-500 focus:outline-none"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-white/70 text-sm">Time</label>
+              <input
+                type="time"
+                value={reverifyTime}
+                onChange={(e) => setReverifyTime(e.target.value)}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-blue-500 focus:outline-none"
+              />
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowReverifyModal(false)}
+              className="flex-1 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-white/70 font-medium transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleReverifySubmit}
+              disabled={!reverifyDate || !reverifyTime || disputeLoading}
+              className={`flex-1 py-3 rounded-xl font-medium transition-colors ${
+                reverifyDate && reverifyTime
+                  ? 'bg-blue-500 hover:bg-blue-600 text-white'
+                  : 'bg-white/10 text-white/30 cursor-not-allowed'
+              }`}
+            >
+              {disputeLoading ? 'Scheduling...' : 'Schedule Call'}
             </button>
           </div>
         </div>

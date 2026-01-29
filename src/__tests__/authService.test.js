@@ -222,7 +222,7 @@ describe('authService.registerCreator', () => {
 
     expect(result.success).toBe(true);
     expect(result.user.id).toBe('creator-1');
-    expect(result.user.areas).toEqual(['Lekki', 'VI']);
+    expect(result.user.creators.creator_areas).toEqual([{ area: 'Lekki' }, { area: 'VI' }]);
   });
 });
 
