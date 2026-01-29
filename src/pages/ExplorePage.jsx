@@ -15,6 +15,9 @@ import { storageService } from '../services/storageService';
 // Get models from shared data store
 const HARDCODED_MODELS = getModelsList();
 
+// How many days the "New" badge shows on a creator's profile
+const NEW_TAG_DURATION_DAYS = 14;
+
 // Transform database creator to model format
 const transformCreatorToModel = (creator, user) => {
   const photos = creator.creator_photos || [];
@@ -40,7 +43,9 @@ const transformCreatorToModel = (creator, user) => {
     hasOutcall: !!creator.pricing?.meetupOutcall,
     extras: (creator.creator_extras || []).map(e => ({ name: e.name, price: e.price })),
     profilePhotoUrl: profilePhoto?.storage_path ? storageService.getPhotoUrl(profilePhoto.storage_path) : null,
-    isRegisteredCreator: true,
+    isNew: user?.created_at
+      ? (Date.now() - new Date(user.created_at).getTime() < NEW_TAG_DURATION_DAYS * 24 * 60 * 60 * 1000)
+      : false,
     // Attributes for matching
     bodyType: creator.body_type || null,
     skinTone: creator.skin_tone || null,
@@ -119,7 +124,7 @@ const ModelCard = ({ model, isFavorite, onToggleFavorite, showMatchBadge = false
               {model.matchPercentage}% match
             </span>
           )}
-          {model.isRegisteredCreator && (
+          {model.isNew && (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-500/90 text-white text-xs font-medium">
               <Sparkles size={10} />
               New
@@ -269,7 +274,7 @@ export default function ExplorePage() {
           const creatorIds = creatorsData.map(c => c.id);
           const { data: usersData, error: usersError } = await supabase
             .from('users')
-            .select('id, name, username, last_seen_at')
+            .select('id, name, username, last_seen_at, created_at')
             .in('id', creatorIds);
 
           if (usersError) {
