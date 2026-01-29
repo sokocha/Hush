@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   MapPin, Star, CheckCircle, Shield, Filter,
-  ChevronLeft, Search, Target, Video, Aperture,
+  ChevronLeft, ChevronRight, Search, Target, Video, Aperture,
   TrendingUp, Heart, Clock, Users, Sparkles, X, ChevronDown, ChevronUp, User
 } from 'lucide-react';
 import { getModelsList, getLocations, getAllExtras, PLATFORM_CONFIG } from '../data/models';
@@ -247,8 +247,16 @@ export default function ExplorePage() {
   const { isAuthenticated, isCreator, isClient, user } = useAuth();
   const navigate = useNavigate();
 
+  // Registration prompt modal for visitors
+  const [showRegisterPrompt, setShowRegisterPrompt] = useState(false);
+  const [registerPromptMessage, setRegisterPromptMessage] = useState('');
+
   const guardedToggleFavorite = (username) => {
-    if (!isAuthenticated) { navigate('/auth'); return; }
+    if (!isAuthenticated) {
+      setRegisterPromptMessage(`Create a free account to save models to your favorites.`);
+      setShowRegisterPrompt(true);
+      return;
+    }
     toggleFavorite(username);
   };
 
@@ -943,6 +951,15 @@ export default function ExplorePage() {
           )}
         </div>
 
+        {/* Social proof stats bar */}
+        <div className="flex items-center justify-center gap-3 text-white/40 text-xs mb-4 flex-wrap">
+          <span className="flex items-center gap-1"><Users size={12} className="text-pink-400" />{allModels.length}+ verified models</span>
+          <span>·</span>
+          <span className="flex items-center gap-1"><TrendingUp size={12} className="text-green-400" />1,200+ members</span>
+          <span>·</span>
+          <span className="flex items-center gap-1"><Shield size={12} className="text-blue-400" />Deposit-protected</span>
+        </div>
+
         {/* Trust banner */}
         <div className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/20 rounded-xl p-4 mb-6">
           <div className="flex items-center gap-3">
@@ -1015,10 +1032,55 @@ export default function ExplorePage() {
         )}
 
         {/* Footer */}
-        <div className="text-center mt-12 pb-8">
+        <div className="text-center mt-12 pb-8 space-y-3">
+          {!isAuthenticated && (
+            <Link
+              to="/for-models"
+              className="inline-flex items-center gap-2 text-purple-400 text-sm hover:text-purple-300 transition-colors"
+            >
+              <Sparkles size={14} />
+              Are you a model? List on Hush
+              <ChevronRight size={14} />
+            </Link>
+          )}
           <p className="text-white/30 text-xs">Hush • 18+ Only • Anti-Catfish Platform</p>
         </div>
       </div>
+
+      {/* Registration Prompt Modal */}
+      {showRegisterPrompt && (
+        <div className="fixed inset-0 bg-black/90 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center" onClick={() => setShowRegisterPrompt(false)}>
+          <div className="bg-gray-900 border border-white/10 rounded-t-2xl sm:rounded-2xl w-full max-w-sm p-6 animate-slideUp" onClick={e => e.stopPropagation()}>
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-pink-500/20 flex items-center justify-center">
+                <Heart size={32} className="text-pink-400" />
+              </div>
+              <h3 className="text-xl font-bold text-white mb-2">Join Hush for Free</h3>
+              <p className="text-white/60 text-sm">{registerPromptMessage}</p>
+            </div>
+            <div className="space-y-3">
+              <Link
+                to="/auth"
+                className="block w-full py-3.5 bg-pink-500 hover:bg-pink-600 rounded-xl text-white font-semibold text-center transition-colors"
+              >
+                Create Free Account
+              </Link>
+              <button
+                onClick={() => setShowRegisterPrompt(false)}
+                className="w-full py-3 bg-white/10 hover:bg-white/15 rounded-xl text-white/70 font-medium transition-colors"
+              >
+                Maybe Later
+              </button>
+            </div>
+            <div className="mt-4 pt-4 border-t border-white/10">
+              <p className="text-white/30 text-xs text-center">
+                Already have an account?{' '}
+                <Link to="/auth" className="text-pink-400 hover:text-pink-300">Sign in</Link>
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

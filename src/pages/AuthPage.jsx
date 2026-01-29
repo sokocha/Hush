@@ -668,7 +668,7 @@ const ClientBasicInfoStep = ({ data, setData, onSubmit, onBack, checkUsername })
 };
 
 // Client Step 2: Preferences
-const ClientPreferencesStep = ({ data, setData, onSubmit, onBack }) => {
+const ClientPreferencesStep = ({ data, setData, onSubmit, onBack, onSkip }) => {
   const togglePreference = (key, value) => {
     setData(prev => {
       const current = prev[key] || [];
@@ -826,12 +826,20 @@ const ClientPreferencesStep = ({ data, setData, onSubmit, onBack }) => {
       >
         Continue
       </button>
+      {onSkip && (
+        <button
+          onClick={onSkip}
+          className="w-full py-3 text-white/40 text-sm hover:text-white/60 transition-colors"
+        >
+          Skip for now — set preferences later
+        </button>
+      )}
     </div>
   );
 };
 
 // Client Step 3: Bio
-const ClientBioStep = ({ data, setData, onSubmit, onBack, isLoading }) => {
+const ClientBioStep = ({ data, setData, onSubmit, onBack, isLoading, onSkip }) => {
   const [error, setError] = useState('');
 
   // Phone number patterns to detect
@@ -932,6 +940,15 @@ const ClientBioStep = ({ data, setData, onSubmit, onBack, isLoading }) => {
       >
         {isLoading ? 'Creating account...' : 'Complete Registration'}
       </button>
+      {onSkip && (
+        <button
+          onClick={onSkip}
+          disabled={isLoading}
+          className="w-full py-3 text-white/40 text-sm hover:text-white/60 transition-colors disabled:opacity-50"
+        >
+          Skip bio — add it later from your dashboard
+        </button>
+      )}
     </div>
   );
 };
@@ -1782,6 +1799,17 @@ export default function AuthPage() {
     setStep('profile3');
   };
 
+  // Skip preferences — jump to bio with empty prefs
+  const handleClientSkipPreferences = () => {
+    setStep('profile3');
+  };
+
+  // Skip bio — complete registration without bio text
+  const handleClientSkipBio = async () => {
+    setClientData(prev => ({ ...prev, bio: '' }));
+    await handleClientProfileComplete();
+  };
+
   const handleClientProfileComplete = async () => {
     setIsLoading(true);
     setAuthError('');
@@ -2012,6 +2040,7 @@ export default function AuthPage() {
                 setData={setClientData}
                 onSubmit={handleClientProfile2Submit}
                 onBack={() => setStep('profile1')}
+                onSkip={handleClientSkipPreferences}
               />
             )}
 
@@ -2022,6 +2051,7 @@ export default function AuthPage() {
                 onSubmit={handleClientProfileComplete}
                 onBack={() => setStep('profile2')}
                 isLoading={isLoading}
+                onSkip={handleClientSkipBio}
               />
             )}
 

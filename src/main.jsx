@@ -9,6 +9,7 @@ import CreatorDashboardPage from './pages/CreatorDashboardPage.jsx'
 import CreatorOnboardingPage from './pages/CreatorOnboardingPage.jsx'
 import SuperAdminDashboardPage from './pages/SuperAdminDashboardPage.jsx'
 import ReviewsPage from './pages/ReviewsPage.jsx'
+import ForModelsPage from './pages/ForModelsPage.jsx'
 import AuthPage from './pages/AuthPage.jsx'
 import './index.css'
 
@@ -144,6 +145,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
           <Route path="/explore/:location" element={<RegularRoute><ExplorePage /></RegularRoute>} />
           <Route path="/reviews" element={<RegularRoute><ReviewsPage /></RegularRoute>} />
           <Route path="/reviews/:username" element={<RegularRoute><ReviewsPage /></RegularRoute>} />
+          <Route path="/for-models" element={<RegularRoute><ForModelsPage /></RegularRoute>} />
 
           {/* Protected routes */}
           <Route path="/dashboard" element={<ProtectedRoute><ClientDashboardPage /></ProtectedRoute>} />

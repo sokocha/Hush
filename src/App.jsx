@@ -1574,6 +1574,28 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [balanceAnimating, setBalanceAnimating] = useState(false);
 
+  // Visitor registration prompt
+  const [showVisitorPrompt, setShowVisitorPrompt] = useState(false);
+  const [visitorPromptMessage, setVisitorPromptMessage] = useState('');
+
+  // Post-browse nudge: track profile views for registered-but-unverified users
+  useEffect(() => {
+    if (isAuthenticated && !clientState.tier && profile?.name) {
+      const key = 'hush_profile_views';
+      const views = parseInt(localStorage.getItem(key) || '0', 10) + 1;
+      localStorage.setItem(key, views.toString());
+      if (views === 3) {
+        const nudgeKey = 'hush_upgrade_nudge_shown';
+        if (!localStorage.getItem(nudgeKey)) {
+          localStorage.setItem(nudgeKey, 'true');
+          // Show nudge after a short delay so page renders first
+          setTimeout(() => setShowVisitorPrompt(true), 1500);
+          setVisitorPromptMessage(`You've browsed ${views} profiles. Get Verified to start booking.`);
+        }
+      }
+    }
+  }, [isAuthenticated, clientState.tier, profile?.name]);
+
   // Toast state
   const [toast, setToast] = useState({ visible: false, message: '', type: 'success' });
   const showToast = (message, type = 'success') => setToast({ visible: true, message, type });
@@ -1728,9 +1750,17 @@ export default function App() {
   const hasOutcall = pricing?.meetupOutcall !== null;
 
   const protectedAction = (action) => {
-    // Not authenticated (visitor) → redirect to signup
+    // Not authenticated (visitor) → show registration prompt
     if (!isAuthenticated) {
-      navigate('/auth');
+      const messages = {
+        meetup: `Create a free account to book a meetup with ${profile.name}.`,
+        unlockPhotos: `Create a free account to view ${profile.name}'s full gallery.`,
+        unlockContact: `Create a free account to get ${profile.name}'s contact info.`,
+        unlockBundle: `Create a free account to unlock ${profile.name}'s photos and contact.`,
+        chat: `Create a free account to chat with ${profile.name}.`,
+      };
+      setVisitorPromptMessage(messages[action] || 'Create a free account to access this feature.');
+      setShowVisitorPrompt(true);
       return;
     }
     // Authenticated but no tier → show tier verification modal
@@ -2343,6 +2373,26 @@ export default function App() {
         </div>
 
 
+        {/* "Are you a model?" recruitment section - only for unauthenticated visitors */}
+        {!isAuthenticated && (
+          <div className="mb-8 p-5 bg-gradient-to-r from-purple-500/10 to-fuchsia-500/10 border border-purple-500/20 rounded-2xl text-center">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <Sparkles size={18} className="text-purple-400" />
+              <h3 className="text-white font-semibold">Are you a model?</h3>
+            </div>
+            <p className="text-white/50 text-sm mb-4">
+              Join Hush to get your own profile like this one. Set your rates, get verified clients, and earn on your terms.
+            </p>
+            <Link
+              to="/for-models"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-purple-500 hover:bg-purple-600 rounded-xl text-white text-sm font-medium transition-colors"
+            >
+              Get Started
+              <ChevronRight size={16} />
+            </Link>
+          </div>
+        )}
+
         {/* Footer */}
         <div className="text-center">
           <div className="flex flex-wrap items-center justify-center gap-3 text-white/30 text-xs mb-3">
@@ -2368,11 +2418,17 @@ export default function App() {
               <Heart size={22} className="fill-white" />
               Book Meetup with {profile.name}
             </button>
-            <div className="flex items-center justify-center gap-4 mt-2 text-xs text-white/40">
-              <span className="flex items-center gap-1"><Shield size={10} />Protected</span>
-              <span className="flex items-center gap-1"><Target size={10} />{stats.meetupSuccessRate}% success</span>
-              <span className="flex items-center gap-1"><CheckCircle size={10} />Verified</span>
-            </div>
+            {!isAuthenticated ? (
+              <p className="text-center text-white/40 text-xs mt-2">
+                Join Hush free — browse galleries, save favorites, and book verified models.
+              </p>
+            ) : (
+              <div className="flex items-center justify-center gap-4 mt-2 text-xs text-white/40">
+                <span className="flex items-center gap-1"><Shield size={10} />Protected</span>
+                <span className="flex items-center gap-1"><Target size={10} />{stats.meetupSuccessRate}% success</span>
+                <span className="flex items-center gap-1"><CheckCircle size={10} />Verified</span>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -2398,6 +2454,54 @@ export default function App() {
         modelConfig={CONFIG}
       />
       <ReportModal isOpen={modal === 'report'} onClose={() => setModal(null)} />
+
+      {/* Visitor Registration / Upgrade Nudge Prompt */}
+      {showVisitorPrompt && (
+        <div className="fixed inset-0 bg-black/90 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center" onClick={() => setShowVisitorPrompt(false)}>
+          <div className="bg-gray-900 border border-white/10 rounded-t-2xl sm:rounded-2xl w-full max-w-sm p-6 animate-slideUp" onClick={e => e.stopPropagation()}>
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-pink-500/20 flex items-center justify-center">
+                {isAuthenticated ? <ShieldCheck size={32} className="text-blue-400" /> : <Heart size={32} className="text-pink-400" />}
+              </div>
+              <h3 className="text-xl font-bold text-white mb-2">
+                {isAuthenticated ? 'Get Verified' : 'Join Hush for Free'}
+              </h3>
+              <p className="text-white/60 text-sm">{visitorPromptMessage}</p>
+            </div>
+            <div className="space-y-3">
+              {isAuthenticated ? (
+                <button
+                  onClick={() => { setShowVisitorPrompt(false); setModal('trustDeposit'); }}
+                  className="w-full py-3.5 bg-blue-500 hover:bg-blue-600 rounded-xl text-white font-semibold transition-colors"
+                >
+                  Choose Your Tier
+                </button>
+              ) : (
+                <Link
+                  to="/auth"
+                  className="block w-full py-3.5 bg-pink-500 hover:bg-pink-600 rounded-xl text-white font-semibold text-center transition-colors"
+                >
+                  Create Free Account
+                </Link>
+              )}
+              <button
+                onClick={() => setShowVisitorPrompt(false)}
+                className="w-full py-3 bg-white/10 hover:bg-white/15 rounded-xl text-white/70 font-medium transition-colors"
+              >
+                Maybe Later
+              </button>
+            </div>
+            {!isAuthenticated && (
+              <div className="mt-4 pt-4 border-t border-white/10">
+                <p className="text-white/30 text-xs text-center">
+                  Already have an account?{' '}
+                  <Link to="/auth" className="text-pink-400 hover:text-pink-300">Sign in</Link>
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
