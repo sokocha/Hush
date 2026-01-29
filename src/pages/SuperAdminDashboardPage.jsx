@@ -266,6 +266,7 @@ export default function SuperAdminDashboardPage() {
   const [creators, setCreators] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(null);
   const [actionLoading, setActionLoading] = useState(null);
 
   // Modals
@@ -286,20 +287,27 @@ export default function SuperAdminDashboardPage() {
   // Fetch data
   const fetchData = useCallback(async () => {
     setLoading(true);
-    const [queueResult, statsResult] = await Promise.all([
-      adminService.getVerificationQueue(activeTab),
-      adminService.getDashboardStats(),
-    ]);
-    if (queueResult.success) {
-      setCreators(queueResult.creators);
-    } else {
-      console.error('[AdminDashboard] Queue fetch failed:', queueResult.error);
-      setCreators([]);
-    }
-    if (statsResult.success) {
-      setStats(statsResult.stats);
-    } else {
-      console.error('[AdminDashboard] Stats fetch failed:', statsResult.error);
+    setFetchError(null);
+    try {
+      const [queueResult, statsResult] = await Promise.all([
+        adminService.getVerificationQueue(activeTab),
+        adminService.getDashboardStats(),
+      ]);
+      if (queueResult.success) {
+        setCreators(queueResult.creators);
+      } else {
+        console.error('[AdminDashboard] Queue fetch failed:', queueResult.error);
+        setFetchError('Queue: ' + (queueResult.error || 'unknown error'));
+        setCreators([]);
+      }
+      if (statsResult.success) {
+        setStats(statsResult.stats);
+      } else {
+        console.error('[AdminDashboard] Stats fetch failed:', statsResult.error);
+      }
+    } catch (err) {
+      console.error('[AdminDashboard] Unexpected error:', err);
+      setFetchError(err.message || 'Unexpected error');
     }
     setLoading(false);
   }, [activeTab]);
@@ -440,6 +448,17 @@ export default function SuperAdminDashboardPage() {
             );
           })}
         </div>
+
+        {/* Error banner */}
+        {fetchError && (
+          <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4">
+            <p className="text-red-300 text-sm font-medium">Failed to load creators</p>
+            <p className="text-red-200/60 text-xs mt-1">{fetchError}</p>
+            <button onClick={fetchData} className="mt-2 px-3 py-1 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 rounded-lg text-red-300 text-xs transition-colors">
+              Retry
+            </button>
+          </div>
+        )}
 
         {/* Creator list */}
         {loading ? (
