@@ -2,25 +2,54 @@ import { supabase } from '../lib/supabase';
 
 export const adminService = {
   /**
-   * Fetch all creators with related data. Filters and groups in JS
-   * to avoid PostgREST issues with OR filters + resource embedding.
+   * Fetch all creators with related data using separate queries
+   * to avoid PostgREST resource-embedding / RLS issues.
    */
   async _fetchAllCreators() {
-    const { data, error } = await supabase
+    // 1. Fetch all creators (simple select — proven to work via stats)
+    const { data: creators, error: creatorsErr } = await supabase
       .from('creators')
-      .select(`
-        *,
-        users:id(id, name, username, phone, created_at),
-        creator_areas(area),
-        creator_photos(id, storage_path, is_preview, display_order)
-      `)
+      .select('*')
       .order('created_at', { ascending: false });
 
-    if (error) {
-      console.error('[AdminService] Error fetching creators:', error);
-      throw error;
+    if (creatorsErr) {
+      console.error('[AdminService] Error fetching creators:', creatorsErr);
+      throw creatorsErr;
     }
-    return data || [];
+    if (!creators || creators.length === 0) return [];
+
+    const ids = creators.map(c => c.id);
+
+    // 2. Batch-fetch related data in parallel
+    const [usersRes, areasRes, photosRes] = await Promise.all([
+      supabase.from('users').select('id, name, username, phone, created_at').in('id', ids),
+      supabase.from('creator_areas').select('creator_id, area').in('creator_id', ids),
+      supabase.from('creator_photos').select('id, creator_id, storage_path, is_preview, display_order').in('creator_id', ids),
+    ]);
+
+    // Build lookup maps
+    const usersMap = {};
+    (usersRes.data || []).forEach(u => { usersMap[u.id] = u; });
+
+    const areasMap = {};
+    (areasRes.data || []).forEach(a => {
+      if (!areasMap[a.creator_id]) areasMap[a.creator_id] = [];
+      areasMap[a.creator_id].push({ area: a.area });
+    });
+
+    const photosMap = {};
+    (photosRes.data || []).forEach(p => {
+      if (!photosMap[p.creator_id]) photosMap[p.creator_id] = [];
+      photosMap[p.creator_id].push(p);
+    });
+
+    // 3. Merge into the shape the CreatorCard component expects
+    return creators.map(c => ({
+      ...c,
+      users: usersMap[c.id] || null,
+      creator_areas: areasMap[c.id] || [],
+      creator_photos: (photosMap[c.id] || []).sort((a, b) => a.display_order - b.display_order),
+    }));
   },
 
   /**
