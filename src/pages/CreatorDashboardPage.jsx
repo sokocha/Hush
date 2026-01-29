@@ -7,8 +7,10 @@ import {
   MapPin, Target, TrendingUp, Eye, Phone,
   Ban, Sparkles, Award, X, Plus, Image, Trash2, Lock, Unlock,
   GripVertical, RotateCcw, CalendarDays, Wallet, ClipboardList,
-  CheckCheck, XCircle, User, MessageSquare, RefreshCw, PartyPopper
+  CheckCheck, XCircle, User, MessageSquare, RefreshCw, PartyPopper,
+  ShieldCheck, BadgeCheck, Pause, Play
 } from 'lucide-react';
+import { PLATFORM_CONFIG } from '../data/models';
 import { useAuth } from '../context/AuthContext';
 import { creatorService } from '../services/creatorService';
 import { storageService } from '../services/storageService';
@@ -167,6 +169,27 @@ const VideoCallScheduleModal = ({ isOpen, onClose, onSchedule }) => {
 };
 
 const formatNaira = (amount) => `₦${(amount || 0).toLocaleString()}`;
+
+const getClientTierLabel = (client) => {
+  if (!client?.has_paid_trust_deposit) return null;
+  const tier = client.tier;
+  const tierData = PLATFORM_CONFIG.verificationTiers[tier];
+  if (!tierData) return null;
+  const colors = {
+    visitor: 'bg-gray-500/20 text-gray-300 border-gray-500/30',
+    verified: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
+    baller: 'bg-purple-500/20 text-purple-300 border-purple-500/30',
+    bossman: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+  };
+  const icons = { visitor: BadgeCheck, verified: ShieldCheck, baller: Award, bossman: Crown };
+  const Icon = icons[tier] || BadgeCheck;
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs font-medium ${colors[tier] || colors.visitor}`}>
+      <Icon size={10} />
+      {tierData.name}
+    </span>
+  );
+};
 
 // Parse Naira input (handles "50,000" or "50000" formats)
 const parseNairaInput = (value) => {
@@ -584,7 +607,7 @@ const VerificationStep = ({ icon: Icon, title, description, status, action, onAc
 export default function CreatorDashboardPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout, updateUser, isCreator, updateSchedule } = useAuth();
+  const { user, logout, updateUser, isCreator, updateSchedule, toggleExploreVisibility } = useAuth();
 
   // Check if this is a new registration coming from auth page
   const isNewRegistration = location.state?.newRegistration;
@@ -624,6 +647,11 @@ export default function CreatorDashboardPage() {
   const [dbBookings, setDbBookings] = useState([]);
   const [loadingBookings, setLoadingBookings] = useState(false);
   const [dbEarnings, setDbEarnings] = useState([]);
+  const [dbReviews, setDbReviews] = useState([]);
+
+  // Services editing state
+  const [showServicesModal, setShowServicesModal] = useState(false);
+  const [editingServices, setEditingServices] = useState([]);
 
   // Schedule editing state
   const [editingSchedule, setEditingSchedule] = useState(null);
@@ -723,6 +751,16 @@ export default function CreatorDashboardPage() {
         .order('created_at', { ascending: false });
       if (earningsData) {
         setDbEarnings(earningsData);
+      }
+
+      // Fetch reviews from database
+      const { data: reviewsData } = await supabase
+        .from('reviews')
+        .select('*, client:client_id(users:id(name, username))')
+        .eq('creator_id', user.id)
+        .order('created_at', { ascending: false });
+      if (reviewsData) {
+        setDbReviews(reviewsData);
       }
     } catch (err) {
       console.error('[CreatorDashboard] Error fetching bookings:', err);
@@ -825,6 +863,41 @@ export default function CreatorDashboardPage() {
   const handleSaveAreas = () => {
     updateUser({ areas: editingAreas });
     setShowEditAreasModal(false);
+  };
+
+  // Services editing
+  const SERVICES_LIST = [
+    { id: "gfe", name: "GFE (Girlfriend Experience)" },
+    { id: "pse", name: "PSE (Porn Star Experience)" },
+    { id: "duo", name: "Duo (with friend)" },
+    { id: "dinner", name: "Dinner Date" },
+    { id: "travel", name: "Travel Companion" },
+    { id: "overnight", name: "Overnight" },
+    { id: "event", name: "Event Date" },
+  ];
+
+  const handleOpenServicesModal = () => {
+    setEditingServices(user.services || []);
+    setShowServicesModal(true);
+  };
+
+  const toggleServiceSelection = (serviceId) => {
+    setEditingServices(prev =>
+      prev.includes(serviceId)
+        ? prev.filter(s => s !== serviceId)
+        : [...prev, serviceId]
+    );
+  };
+
+  const handleSaveServices = async () => {
+    await updateUser({ services: editingServices });
+    setShowServicesModal(false);
+  };
+
+  // Vacation mode toggle
+  const handleToggleVacation = async () => {
+    const newVisibility = !user.isVisibleInExplore;
+    await toggleExploreVisibility(newVisibility);
   };
 
   // Open pricing modal with current values
@@ -1258,387 +1331,6 @@ export default function CreatorDashboardPage() {
   // Incomplete profile banner (shown inline in dashboard, no longer a blocking overlay)
   const showIncompleteProfileBanner = !isProfileComplete && user && isCreator;
 
-  // Legacy: onboarding overlay removed - now handled by /creator-onboarding route
-  if (false && showOnboarding) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-pink-950 via-rose-950 to-fuchsia-950">
-        {/* Background effects */}
-        <div className="fixed inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl" />
-          <div className="absolute bottom-0 left-0 w-96 h-96 bg-pink-500/10 rounded-full blur-3xl" />
-        </div>
-
-        <div className="relative max-w-md mx-auto px-4 py-8 min-h-screen flex flex-col">
-          {/* Progress indicator */}
-          <div className="flex items-center justify-center gap-2 mb-8">
-            {onboardingSteps.map((_, i) => (
-              <div
-                key={i}
-                className={`h-1.5 rounded-full transition-all ${
-                  i < onboardingStep
-                    ? 'w-8 bg-purple-500'
-                    : i === onboardingStep
-                    ? 'w-8 bg-purple-500/50'
-                    : 'w-4 bg-white/20'
-                }`}
-              />
-            ))}
-          </div>
-
-          {/* Content */}
-          <div className="flex-1 flex flex-col items-center justify-center text-center">
-            <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-purple-500/20 flex items-center justify-center">
-              {currentOnboardingStep.icon && (
-                <currentOnboardingStep.icon size={40} className="text-purple-400" />
-              )}
-            </div>
-
-            <h2 className="text-2xl font-bold text-white mb-3">
-              {currentOnboardingStep.title}
-            </h2>
-
-            <p className="text-white/60 mb-8 max-w-sm">
-              {currentOnboardingStep.description}
-            </p>
-
-            {/* Progress summary on welcome screen */}
-            {onboardingStep === 0 && (
-              <div className="w-full max-w-sm mb-8 p-4 bg-white/5 border border-white/10 rounded-xl">
-                <p className="text-white/70 text-sm mb-3">Profile setup progress</p>
-                <div className="space-y-2">
-                  {onboardingSteps.slice(1).map((step, i) => (
-                    <div key={i} className="flex items-center gap-2 text-sm">
-                      {step.isComplete ? (
-                        <CheckCircle size={16} className="text-green-400" />
-                      ) : (
-                        <div className="w-4 h-4 rounded-full border border-white/30" />
-                      )}
-                      <span className={step.isComplete ? 'text-green-400' : 'text-white/50'}>
-                        {step.title}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Photo progress indicator - only show on photos step */}
-            {currentOnboardingStep.showPhotoProgress && (
-              <div className="w-full max-w-sm mb-6">
-                {/* Progress bar */}
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-white/70 text-sm">Photo Progress</span>
-                  <span className="text-white font-medium">{Math.min(user?.photos?.length || 0, 3)}/3</span>
-                </div>
-                <div className="h-3 bg-white/10 rounded-full overflow-hidden mb-4">
-                  <div
-                    className="h-full bg-gradient-to-r from-purple-500 to-fuchsia-500 rounded-full transition-all duration-500"
-                    style={{ width: `${Math.min((user?.photos?.length || 0) / 3 * 100, 100)}%` }}
-                  />
-                </div>
-
-                {/* Photo thumbnails */}
-                <div className="flex justify-center gap-3 mb-4">
-                  {[0, 1, 2].map((index) => {
-                    const photo = user?.photos?.[index];
-                    return (
-                      <div
-                        key={index}
-                        className={`w-20 h-20 rounded-xl border-2 flex items-center justify-center overflow-hidden ${
-                          photo
-                            ? 'border-green-500/50 bg-green-500/10'
-                            : 'border-dashed border-white/30 bg-white/5'
-                        }`}
-                      >
-                        {photo ? (
-                          <img src={photo.url} alt={`Photo ${index + 1}`} className="w-full h-full object-cover" />
-                        ) : (
-                          <Camera size={24} className="text-white/30" />
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {(user?.photos?.length || 0) >= 3 && (
-                  <p className="text-green-400 text-sm text-center mb-2">
-                    Great! You have enough photos. You can add more or continue to the next step.
-                  </p>
-                )}
-              </div>
-            )}
-
-            {/* Completion badge */}
-            {currentOnboardingStep.isComplete && onboardingStep > 0 && !currentOnboardingStep.showPhotoProgress && (
-              <div className="mb-4 px-4 py-2 bg-green-500/20 border border-green-500/50 rounded-full flex items-center gap-2">
-                <CheckCircle size={16} className="text-green-400" />
-                <span className="text-green-400 text-sm font-medium">Completed!</span>
-              </div>
-            )}
-
-            {/* Action button - always show for photos step, otherwise only when not complete */}
-            {currentOnboardingStep.action && (!currentOnboardingStep.isComplete || currentOnboardingStep.showPhotoProgress) && (
-              <button
-                onClick={currentOnboardingStep.action}
-                className="w-full max-w-sm py-4 bg-gradient-to-r from-purple-500 to-fuchsia-500 hover:from-purple-600 hover:to-fuchsia-600 rounded-xl text-white font-semibold transition-all mb-4"
-              >
-                {currentOnboardingStep.actionText}
-              </button>
-            )}
-          </div>
-
-          {/* Navigation buttons */}
-          <div className="flex gap-3 mt-auto">
-            {onboardingStep > 0 && (
-              <button
-                onClick={() => setOnboardingStep(onboardingStep - 1)}
-                className="flex-1 py-3 bg-white/10 hover:bg-white/15 rounded-xl text-white font-medium transition-colors"
-              >
-                Back
-              </button>
-            )}
-
-            {onboardingStep < onboardingSteps.length - 1 ? (
-              <button
-                onClick={() => setOnboardingStep(onboardingStep + 1)}
-                className={`flex-1 py-3 rounded-xl text-white font-medium transition-colors ${
-                  onboardingStep === 0
-                    ? 'bg-gradient-to-r from-purple-500 to-fuchsia-500 hover:from-purple-600 hover:to-fuchsia-600'
-                    : 'bg-white/10 hover:bg-white/15'
-                }`}
-              >
-                {onboardingStep === 0 ? "Let's Go!" : 'Next'}
-              </button>
-            ) : (
-              <button
-                onClick={() => setShowOnboarding(false)}
-                className="flex-1 py-3 bg-gradient-to-r from-purple-500 to-fuchsia-500 hover:from-purple-600 hover:to-fuchsia-600 rounded-xl text-white font-medium transition-colors"
-              >
-                Go to Dashboard
-              </button>
-            )}
-          </div>
-
-          {/* Skip option */}
-          {onboardingStep > 0 && (
-            <button
-              onClick={() => setShowOnboarding(false)}
-              className="mt-4 text-white/40 text-sm hover:text-white/60 transition-colors"
-            >
-              Skip setup, go to dashboard
-            </button>
-          )}
-        </div>
-
-        {/* Pricing Modal - needs to be inside onboarding return */}
-        <Modal
-          isOpen={showPricingModal}
-          onClose={() => { setShowPricingModal(false); setShowPricingErrors(false); }}
-          title="Set Your Pricing"
-          size="lg"
-        >
-          <div className="space-y-6">
-            {/* Required fields note */}
-            <p className="text-white/50 text-sm">
-              Fields marked with <span className="text-red-400">*</span> are required
-            </p>
-
-            {/* Unlock Fees */}
-            <div className="space-y-4">
-              <h4 className="text-white font-medium flex items-center gap-2">
-                <Lock size={16} className="text-purple-400" />
-                Unlock Fees
-              </h4>
-              <div className="grid grid-cols-2 gap-3">
-                <PricingInput
-                  label="Contact Info"
-                  value={pricingData.unlockContact}
-                  onChange={(v) => setPricingData(prev => ({ ...prev, unlockContact: v }))}
-                  placeholder="1,000"
-                  hint="To view your WhatsApp"
-                  required
-                  showError={showPricingErrors}
-                />
-                <PricingInput
-                  label="All Photos"
-                  value={pricingData.unlockPhotos}
-                  onChange={(v) => setPricingData(prev => ({ ...prev, unlockPhotos: v }))}
-                  placeholder="5,000"
-                  hint="To unlock locked photos"
-                  required
-                  showError={showPricingErrors}
-                />
-              </div>
-            </div>
-
-            {/* Incall Rates */}
-            <div className="space-y-4">
-              <h4 className="text-white font-medium flex items-center gap-2">
-                <MapPin size={16} className="text-green-400" />
-                Incall Rates
-                <span className="text-white/40 text-xs font-normal">(Client comes to you)</span>
-              </h4>
-              <div className="grid grid-cols-3 gap-3">
-                <PricingInput
-                  label="1 Hour"
-                  value={pricingData.meetupIncall1}
-                  onChange={(v) => setPricingData(prev => ({ ...prev, meetupIncall1: v }))}
-                  placeholder="50,000"
-                  required
-                  showError={showPricingErrors}
-                />
-                <PricingInput
-                  label="2 Hours"
-                  value={pricingData.meetupIncall2}
-                  onChange={(v) => setPricingData(prev => ({ ...prev, meetupIncall2: v }))}
-                  placeholder="80,000"
-                  required
-                  showError={showPricingErrors}
-                />
-                <PricingInput
-                  label="Overnight"
-                  value={pricingData.meetupIncallOvernight}
-                  onChange={(v) => setPricingData(prev => ({ ...prev, meetupIncallOvernight: v }))}
-                  placeholder="150,000"
-                  required
-                  showError={showPricingErrors}
-                />
-              </div>
-            </div>
-
-            {/* Outcall Toggle */}
-            <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl">
-              <div>
-                <p className="text-white font-medium">Enable Outcall</p>
-                <p className="text-white/50 text-sm">You travel to the client</p>
-              </div>
-              <button
-                onClick={() => setPricingData(prev => ({ ...prev, enableOutcall: !prev.enableOutcall }))}
-                className={`w-12 h-7 rounded-full transition-colors relative ${
-                  pricingData.enableOutcall ? 'bg-purple-500' : 'bg-white/20'
-                }`}
-              >
-                <div className={`absolute top-1 w-5 h-5 rounded-full bg-white transition-all ${
-                  pricingData.enableOutcall ? 'left-6' : 'left-1'
-                }`} />
-              </button>
-            </div>
-
-            {/* Outcall Rates */}
-            {pricingData.enableOutcall && (
-              <div className="space-y-4">
-                <h4 className="text-white font-medium flex items-center gap-2">
-                  <Target size={16} className="text-blue-400" />
-                  Outcall Rates
-                  <span className="text-white/40 text-xs font-normal">(You go to client)</span>
-                </h4>
-                <div className="grid grid-cols-3 gap-3">
-                  <PricingInput
-                    label="1 Hour"
-                    value={pricingData.meetupOutcall1}
-                    onChange={(v) => setPricingData(prev => ({ ...prev, meetupOutcall1: v }))}
-                    placeholder="70,000"
-                  />
-                  <PricingInput
-                    label="2 Hours"
-                    value={pricingData.meetupOutcall2}
-                    onChange={(v) => setPricingData(prev => ({ ...prev, meetupOutcall2: v }))}
-                    placeholder="100,000"
-                  />
-                  <PricingInput
-                    label="Overnight"
-                    value={pricingData.meetupOutcallOvernight}
-                    onChange={(v) => setPricingData(prev => ({ ...prev, meetupOutcallOvernight: v }))}
-                    placeholder="200,000"
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Summary */}
-            <div className="p-4 bg-purple-500/10 border border-purple-500/20 rounded-xl">
-              <h4 className="text-purple-300 font-medium mb-3">Pricing Summary</h4>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-white/60">Incall (1hr)</span>
-                  <span className="text-white font-medium">{formatNaira(pricingData.meetupIncall1)}</span>
-                </div>
-                {pricingData.enableOutcall && (
-                  <div className="flex justify-between">
-                    <span className="text-white/60">Outcall (1hr)</span>
-                    <span className="text-white font-medium">{formatNaira(pricingData.meetupOutcall1)}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Validation error message */}
-            {showPricingErrors && !isPricingFormValid && (
-              <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl">
-                <p className="text-red-400 text-sm font-medium mb-1">Please fill in all required fields:</p>
-                <p className="text-red-300/70 text-xs">{getMissingPricingFields().join(', ')}</p>
-              </div>
-            )}
-
-            <button
-              onClick={() => {
-                if (isPricingFormValid) {
-                  handleSavePricing();
-                  setShowPricingErrors(false);
-                  // After saving pricing, move to next onboarding step
-                  if (showOnboarding && onboardingStep === 2) {
-                    setOnboardingStep(3);
-                  }
-                } else {
-                  setShowPricingErrors(true);
-                }
-              }}
-              className={`w-full py-4 rounded-xl text-white font-semibold transition-all ${
-                isPricingFormValid
-                  ? 'bg-purple-500 hover:bg-purple-600'
-                  : 'bg-purple-500/50 hover:bg-purple-500/70'
-              }`}
-            >
-              {isPricingFormValid ? 'Save Pricing' : 'Complete Required Fields'}
-            </button>
-          </div>
-        </Modal>
-
-        {/* Video Call Scheduling Modal - for onboarding */}
-        <VideoCallScheduleModal
-          isOpen={showVideoCallSchedule}
-          onClose={() => setShowVideoCallSchedule(false)}
-          onSchedule={handleVideoCallScheduled}
-        />
-
-        {/* Camera Capture - for onboarding photo upload */}
-        {showCameraCapture && (
-          <>
-            {console.log('[Onboarding] Rendering CameraCapture component')}
-            <CameraCapture
-              onCapture={handlePhotoCapture}
-              onClose={() => setShowCameraCapture(false)}
-            />
-          </>
-        )}
-
-        {/* Photo Milestone Celebration Modal */}
-        <PhotoMilestoneModal
-          isOpen={showPhotoMilestone}
-          onClose={() => setShowPhotoMilestone(false)}
-          onContinue={handlePhotoMilestoneContinue}
-          onAddMore={() => {
-            setShowPhotoMilestone(false);
-            setShowCameraCapture(true);
-          }}
-        />
-
-        {/* Confetti */}
-        <Confetti active={showConfetti} />
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-950 via-rose-950 to-fuchsia-950">
       {/* Background effects */}
@@ -1977,12 +1669,21 @@ export default function CreatorDashboardPage() {
             </div>
 
             {/* Services */}
-            {user.services?.length > 0 && (
-              <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-                <h3 className="text-white font-semibold mb-3 flex items-center gap-2">
+            <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-white font-semibold flex items-center gap-2">
                   <Sparkles size={18} className="text-purple-400" />
                   Services Offered
                 </h3>
+                <button
+                  onClick={handleOpenServicesModal}
+                  className="text-purple-400 text-sm flex items-center gap-1 hover:text-purple-300"
+                >
+                  <Edit3 size={14} />
+                  Edit
+                </button>
+              </div>
+              {user.services?.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
                   {user.services.map(service => (
                     <span key={service} className="px-3 py-1.5 bg-purple-500/20 border border-purple-500/30 rounded-lg text-purple-300 text-sm">
@@ -1990,8 +1691,10 @@ export default function CreatorDashboardPage() {
                     </span>
                   ))}
                 </div>
-              </div>
-            )}
+              ) : (
+                <p className="text-white/40 text-sm">No services set. Tap Edit to add services.</p>
+              )}
+            </div>
 
             {/* Boundaries */}
             {user.boundaries?.length > 0 && (
@@ -2005,6 +1708,36 @@ export default function CreatorDashboardPage() {
                     <span key={boundary} className="px-3 py-1.5 bg-red-500/10 border border-red-500/30 rounded-lg text-red-300 text-xs">
                       {boundary}
                     </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Recent Reviews */}
+            {dbReviews.length > 0 && (
+              <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                <h3 className="text-white font-semibold mb-3 flex items-center gap-2">
+                  <Star size={18} className="text-yellow-400" />
+                  Recent Reviews ({dbReviews.length})
+                </h3>
+                <div className="space-y-3">
+                  {dbReviews.slice(0, 5).map(review => (
+                    <div key={review.id} className="bg-black/20 rounded-lg p-3">
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="text-white font-medium text-sm">{review.client?.users?.name || 'Anonymous'}</p>
+                        <div className="flex items-center gap-0.5">
+                          {[1, 2, 3, 4, 5].map(s => (
+                            <Star key={s} size={12} className={s <= review.rating ? 'text-yellow-400 fill-yellow-400' : 'text-white/20'} />
+                          ))}
+                        </div>
+                      </div>
+                      {review.comment && (
+                        <p className="text-white/60 text-sm">{review.comment}</p>
+                      )}
+                      <p className="text-white/30 text-xs mt-1">
+                        {new Date(review.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      </p>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -2077,7 +1810,10 @@ export default function CreatorDashboardPage() {
                           <User size={18} className="text-purple-400" />
                         </div>
                         <div>
-                          <p className="text-white font-medium">{booking.client?.users?.name || 'Client'}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-white font-medium">{booking.client?.users?.name || 'Client'}</p>
+                            {getClientTierLabel(booking.client)}
+                          </div>
                           <p className="text-white/50 text-xs">{booking.client?.users?.phone}</p>
                         </div>
                       </div>
@@ -2696,6 +2432,40 @@ export default function CreatorDashboardPage() {
               </div>
             </button>
 
+            {/* Vacation Mode */}
+            <button
+              onClick={handleToggleVacation}
+              className="w-full flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className={`p-2 rounded-lg ${user.isVisibleInExplore === false ? 'bg-amber-500/20' : 'bg-green-500/20'}`}>
+                  {user.isVisibleInExplore === false ? (
+                    <Pause size={18} className="text-amber-400" />
+                  ) : (
+                    <Play size={18} className="text-green-400" />
+                  )}
+                </div>
+                <div className="text-left">
+                  <p className="text-white font-medium">
+                    {user.isVisibleInExplore === false ? 'Profile Hidden' : 'Profile Visible'}
+                  </p>
+                  <p className="text-white/50 text-sm">
+                    {user.isVisibleInExplore === false
+                      ? 'Your profile is hidden from browse. Tap to go live.'
+                      : 'You are visible to clients. Tap to pause bookings.'
+                    }
+                  </p>
+                </div>
+              </div>
+              <div className={`w-12 h-7 rounded-full relative transition-colors ${
+                user.isVisibleInExplore === false ? 'bg-white/20' : 'bg-green-500'
+              }`}>
+                <div className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow transition-transform ${
+                  user.isVisibleInExplore === false ? 'left-0.5' : 'left-[22px]'
+                }`} />
+              </div>
+            </button>
+
             {/* Logout */}
             <button
               onClick={() => setShowLogoutConfirm(true)}
@@ -3145,7 +2915,10 @@ export default function CreatorDashboardPage() {
                 <User size={24} className="text-purple-400" />
               </div>
               <div>
-                <p className="text-white font-medium">{selectedBooking.client?.users?.name || 'Client'}</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-white font-medium">{selectedBooking.client?.users?.name || 'Client'}</p>
+                  {getClientTierLabel(selectedBooking.client)}
+                </div>
                 <p className="text-white/50 text-sm">{selectedBooking.client?.users?.phone}</p>
               </div>
             </div>
@@ -3439,6 +3212,50 @@ export default function CreatorDashboardPage() {
             className="w-full py-4 bg-purple-500 hover:bg-purple-600 rounded-xl text-white font-semibold transition-all"
           >
             Save Service Areas
+          </button>
+        </div>
+      </Modal>
+
+      {/* Edit Services Modal */}
+      <Modal
+        isOpen={showServicesModal}
+        onClose={() => setShowServicesModal(false)}
+        title="Edit Services"
+      >
+        <div className="space-y-4">
+          <p className="text-white/60 text-sm">
+            Select the services you offer. Clients will see these on your profile.
+          </p>
+          <div className="space-y-2">
+            {SERVICES_LIST.map(service => (
+              <button
+                key={service.id}
+                type="button"
+                onClick={() => toggleServiceSelection(service.id)}
+                className={`w-full p-3 rounded-xl text-left transition-all flex items-center gap-3 ${
+                  editingServices.includes(service.id)
+                    ? 'bg-purple-500/20 border border-purple-500/50'
+                    : 'bg-white/5 border border-white/10 hover:bg-white/10'
+                }`}
+              >
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                  editingServices.includes(service.id)
+                    ? 'border-purple-400 bg-purple-500'
+                    : 'border-white/30'
+                }`}>
+                  {editingServices.includes(service.id) && (
+                    <CheckCircle size={14} className="text-white" />
+                  )}
+                </div>
+                <span className="text-white text-sm">{service.name}</span>
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={handleSaveServices}
+            className="w-full py-4 bg-purple-500 hover:bg-purple-600 rounded-xl text-white font-semibold transition-all"
+          >
+            Save Services
           </button>
         </div>
       </Modal>
