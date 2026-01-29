@@ -8,8 +8,7 @@ async function fetchAllCreators() {
   // 1. Fetch all creators (simple select — proven to work via stats)
   const { data: creators, error: creatorsErr } = await supabase
     .from('creators')
-    .select('*')
-    .order('created_at', { ascending: false });
+    .select('*');
 
   if (creatorsErr) {
     console.error('[AdminService] Error fetching creators:', creatorsErr);
