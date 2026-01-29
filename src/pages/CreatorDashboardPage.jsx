@@ -13,6 +13,7 @@ import { PLATFORM_CONFIG } from '../data/models';
 import { useAuth } from '../context/AuthContext';
 import { creatorService } from '../services/creatorService';
 import { storageService } from '../services/storageService';
+import { bookingService } from '../services/bookingService';
 
 // Simple confetti component
 const Confetti = ({ active }) => {
@@ -583,7 +584,7 @@ const VerificationStep = ({ icon: Icon, title, description, status, action, onAc
 export default function CreatorDashboardPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout, updateUser, isCreator, updateBookingRequestStatus, recordCreatorEarnings, updateSchedule } = useAuth();
+  const { user, logout, updateUser, isCreator, updateSchedule } = useAuth();
 
   // Check if this is a new registration coming from auth page
   const isNewRegistration = location.state?.newRegistration;
@@ -612,6 +613,8 @@ export default function CreatorDashboardPage() {
   const [showDeclineModal, setShowDeclineModal] = useState(null);
   const [declineReason, setDeclineReason] = useState('');
   const [showCancelConfirm, setShowCancelConfirm] = useState(null); // holds bookingId to cancel
+  const [dbBookings, setDbBookings] = useState([]);
+  const [loadingBookings, setLoadingBookings] = useState(false);
 
   // Schedule editing state
   const [editingSchedule, setEditingSchedule] = useState(null);
@@ -670,6 +673,28 @@ export default function CreatorDashboardPage() {
       }
     }
   }, [isNewRegistration, isProfileComplete, user, isCreator]);
+
+  // Fetch bookings from database
+  const fetchBookings = useCallback(async () => {
+    if (!user?.id) return;
+    setLoadingBookings(true);
+    try {
+      const result = await bookingService.getCreatorBookings(user.id);
+      if (result.success) {
+        setDbBookings(result.bookings || []);
+      } else {
+        console.error('Failed to fetch bookings:', result.error);
+      }
+    } catch (err) {
+      console.error('Error fetching bookings:', err);
+    } finally {
+      setLoadingBookings(false);
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    fetchBookings();
+  }, [fetchBookings]);
 
   // Redirect if not a creator
   if (!user || !isCreator) {
@@ -980,35 +1005,38 @@ export default function CreatorDashboardPage() {
   };
 
   // Booking handlers
-  const handleConfirmBooking = (bookingId) => {
-    updateBookingRequestStatus(bookingId, 'confirmed');
+  const handleConfirmBooking = async (bookingId) => {
+    await bookingService.confirmBooking(bookingId);
     setShowBookingModal(false);
     setSelectedBooking(null);
+    fetchBookings();
   };
 
-  const handleDeclineBooking = (bookingId) => {
-    updateBookingRequestStatus(bookingId, 'declined', declineReason);
+  const handleDeclineBooking = async (bookingId) => {
+    await bookingService.declineBooking(bookingId, declineReason);
     setShowDeclineModal(null);
     setDeclineReason('');
+    fetchBookings();
   };
 
-  const handleCompleteBooking = (booking) => {
-    updateBookingRequestStatus(booking.id, 'completed');
-    recordCreatorEarnings(booking.totalPrice, booking.id);
+  const handleCompleteBooking = async (booking) => {
+    await bookingService.completeBooking(booking.id, user.id);
     setShowBookingModal(false);
     setSelectedBooking(null);
+    fetchBookings();
   };
 
   const handleCancelBooking = (bookingId) => {
     setShowCancelConfirm(bookingId);
   };
 
-  const confirmCancelBooking = () => {
+  const confirmCancelBooking = async () => {
     if (showCancelConfirm) {
-      updateBookingRequestStatus(showCancelConfirm, 'cancelled');
+      await bookingService.cancelBooking(showCancelConfirm);
       setShowCancelConfirm(null);
       setShowBookingModal(false);
       setSelectedBooking(null);
+      fetchBookings();
     }
   };
 
@@ -1053,8 +1081,8 @@ export default function CreatorDashboardPage() {
     });
   };
 
-  // Get bookings data
-  const bookings = user.bookingRequests || [];
+  // Get bookings data (from database)
+  const bookings = dbBookings;
   const filteredBookings = bookingFilter === 'all'
     ? bookings
     : bookings.filter(b => b.status === bookingFilter);
@@ -1910,7 +1938,12 @@ export default function CreatorDashboardPage() {
             </div>
 
             {/* Bookings List */}
-            {filteredBookings.length > 0 ? (
+            {loadingBookings ? (
+              <div className="py-12 text-center">
+                <RefreshCw size={24} className="text-white/30 animate-spin mx-auto mb-3" />
+                <p className="text-white/50 text-sm">Loading bookings...</p>
+              </div>
+            ) : filteredBookings.length > 0 ? (
               <div className="space-y-3">
                 {filteredBookings.map(booking => (
                   <div
@@ -1927,8 +1960,8 @@ export default function CreatorDashboardPage() {
                           <User size={18} className="text-purple-400" />
                         </div>
                         <div>
-                          <p className="text-white font-medium">{booking.clientName || 'Client'}</p>
-                          <p className="text-white/50 text-xs">{booking.clientPhone}</p>
+                          <p className="text-white font-medium">{booking.client?.users?.name || 'Client'}</p>
+                          <p className="text-white/50 text-xs">{booking.client?.users?.phone}</p>
                         </div>
                       </div>
                       <span className={`px-2 py-1 rounded-lg text-xs font-medium ${
@@ -1953,19 +1986,19 @@ export default function CreatorDashboardPage() {
                       </div>
                       <div className="flex items-center gap-2 text-white/60">
                         <MapPin size={14} />
-                        <span>{booking.locationType === 'incall' ? 'Incall' : 'Outcall'}</span>
+                        <span>{booking.location_type === 'incall' ? 'Incall' : 'Outcall'}</span>
                       </div>
                       <div className="flex items-center gap-2 text-green-400 font-medium">
                         <DollarSign size={14} />
-                        <span>{formatNaira(booking.totalPrice)}</span>
+                        <span>{formatNaira(booking.total_price)}</span>
                       </div>
                     </div>
 
-                    {booking.specialRequests && (
+                    {booking.special_requests && (
                       <div className="mt-3 pt-3 border-t border-white/10">
                         <p className="text-white/40 text-xs flex items-center gap-1">
                           <MessageSquare size={12} />
-                          {booking.specialRequests}
+                          {booking.special_requests}
                         </p>
                       </div>
                     )}
@@ -2085,7 +2118,7 @@ export default function CreatorDashboardPage() {
                     return (
                       <div key={earning.id} className="flex items-center justify-between py-2 border-b border-white/5 last:border-0">
                         <div>
-                          <p className="text-white font-medium">{booking?.clientName || 'Client'}</p>
+                          <p className="text-white font-medium">{booking?.client?.users?.name || 'Client'}</p>
                           <p className="text-white/40 text-xs">
                             {new Date(earning.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                           </p>
@@ -2892,8 +2925,8 @@ export default function CreatorDashboardPage() {
                 <User size={24} className="text-purple-400" />
               </div>
               <div>
-                <p className="text-white font-medium">{selectedBooking.clientName || 'Client'}</p>
-                <p className="text-white/50 text-sm">{selectedBooking.clientPhone}</p>
+                <p className="text-white font-medium">{selectedBooking.client?.users?.name || 'Client'}</p>
+                <p className="text-white/50 text-sm">{selectedBooking.client?.users?.phone}</p>
               </div>
             </div>
 
@@ -2913,7 +2946,7 @@ export default function CreatorDashboardPage() {
               </div>
               <div className="flex justify-between items-center py-2 border-b border-white/10">
                 <span className="text-white/60 flex items-center gap-2"><MapPin size={14} /> Type</span>
-                <span className="text-white font-medium">{selectedBooking.locationType === 'incall' ? 'Incall' : 'Outcall'}</span>
+                <span className="text-white font-medium">{selectedBooking.location_type === 'incall' ? 'Incall' : 'Outcall'}</span>
               </div>
               {selectedBooking.location && (
                 <div className="flex justify-between items-center py-2 border-b border-white/10">
@@ -2923,31 +2956,31 @@ export default function CreatorDashboardPage() {
               )}
               <div className="flex justify-between items-center py-2 border-b border-white/10">
                 <span className="text-white/60 flex items-center gap-2"><DollarSign size={14} /> Total</span>
-                <span className="text-green-400 font-bold">{formatNaira(selectedBooking.totalPrice)}</span>
+                <span className="text-green-400 font-bold">{formatNaira(selectedBooking.total_price)}</span>
               </div>
-              {selectedBooking.depositAmount && (
+              {selectedBooking.deposit_amount && (
                 <div className="flex justify-between items-center py-2 border-b border-white/10">
                   <span className="text-white/60">Deposit Paid</span>
-                  <span className="text-white font-medium">{formatNaira(selectedBooking.depositAmount)}</span>
+                  <span className="text-white font-medium">{formatNaira(selectedBooking.deposit_amount)}</span>
                 </div>
               )}
             </div>
 
             {/* Special Requests */}
-            {selectedBooking.specialRequests && (
+            {selectedBooking.special_requests && (
               <div className="p-3 bg-white/5 rounded-xl">
                 <p className="text-white/50 text-xs mb-1 flex items-center gap-1">
                   <MessageSquare size={12} /> Special Requests
                 </p>
-                <p className="text-white text-sm">{selectedBooking.specialRequests}</p>
+                <p className="text-white text-sm">{selectedBooking.special_requests}</p>
               </div>
             )}
 
             {/* Client Code */}
-            {selectedBooking.clientCode && selectedBooking.status === 'confirmed' && (
+            {selectedBooking.client_code && selectedBooking.status === 'confirmed' && (
               <div className="p-4 bg-purple-500/10 border border-purple-500/30 rounded-xl text-center">
                 <p className="text-purple-300 text-xs mb-1">Verification Code</p>
-                <p className="text-2xl font-mono font-bold text-white tracking-wider">{selectedBooking.clientCode}</p>
+                <p className="text-2xl font-mono font-bold text-white tracking-wider">{selectedBooking.client_code}</p>
                 <p className="text-purple-300/60 text-xs mt-1">Client will show this code at meetup</p>
               </div>
             )}

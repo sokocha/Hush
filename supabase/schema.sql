@@ -360,25 +360,22 @@ CREATE POLICY "Anyone can view creator boundaries" ON creator_boundaries
 CREATE POLICY "Creators can manage their boundaries" ON creator_boundaries
   FOR ALL USING (auth.uid() = creator_id);
 
--- Bookings policies
-CREATE POLICY "Users can view their own bookings" ON bookings
-  FOR SELECT USING (auth.uid() = client_id OR auth.uid() = creator_id);
+-- Bookings policies (permissive - app uses custom OTP auth, not Supabase auth)
+CREATE POLICY "Allow all select on bookings" ON bookings
+  FOR SELECT USING (true);
 
-CREATE POLICY "Clients can create bookings" ON bookings
-  FOR INSERT WITH CHECK (auth.uid() = client_id);
+CREATE POLICY "Allow all insert on bookings" ON bookings
+  FOR INSERT WITH CHECK (true);
 
-CREATE POLICY "Users can update their own bookings" ON bookings
-  FOR UPDATE USING (auth.uid() = client_id OR auth.uid() = creator_id);
+CREATE POLICY "Allow all update on bookings" ON bookings
+  FOR UPDATE USING (true);
 
--- Booking extras policies
-CREATE POLICY "Users can view booking extras" ON booking_extras
-  FOR SELECT USING (
-    EXISTS (
-      SELECT 1 FROM bookings
-      WHERE bookings.id = booking_extras.booking_id
-      AND (bookings.client_id = auth.uid() OR bookings.creator_id = auth.uid())
-    )
-  );
+-- Booking extras policies (permissive)
+CREATE POLICY "Allow all select on booking_extras" ON booking_extras
+  FOR SELECT USING (true);
+
+CREATE POLICY "Allow all insert on booking_extras" ON booking_extras
+  FOR INSERT WITH CHECK (true);
 
 -- Creator earnings policies
 CREATE POLICY "Creators can view their own earnings" ON creator_earnings
