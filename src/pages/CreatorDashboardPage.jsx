@@ -8,7 +8,7 @@ import {
   Ban, Sparkles, Award, X, Plus, Image, Trash2, Lock, Unlock,
   GripVertical, RotateCcw, CalendarDays, Wallet, ClipboardList,
   CheckCheck, XCircle, User, MessageSquare, RefreshCw, PartyPopper,
-  ShieldCheck, BadgeCheck, Pause, Play
+  ShieldCheck, BadgeCheck, Pause, Play, Aperture
 } from 'lucide-react';
 import { PLATFORM_CONFIG } from '../data/models';
 import { useAuth } from '../context/AuthContext';
@@ -1016,8 +1016,10 @@ export default function CreatorDashboardPage() {
   const handleVideoCallScheduled = ({ date, time }) => {
     setShowVideoCallSchedule(false);
     setVerificationCallScheduled(true);
+    const scheduledAt = new Date();
+    scheduledAt.setHours(parseInt(time?.split(':')[0] || 0, 10), parseInt(time?.split(':')[1] || 0, 10));
     updateUser({
-      verificationCallScheduled: { date, time },
+      verificationCallScheduledAt: scheduledAt.toISOString(),
       pendingVerification: true,
     });
     // Move to next step or complete onboarding
@@ -1031,7 +1033,7 @@ export default function CreatorDashboardPage() {
     const hasPhotos = (user?.photos?.length || 0) >= 3;
     const hasPricing = user?.pricing?.meetupIncall?.[1] > 0;
     const hasSchedule = user?.schedule?.monday?.active !== undefined;
-    const hasVerification = user?.isVerified || user?.isVideoVerified || verificationCallScheduled || user?.verificationCallScheduled;
+    const hasVerification = user?.isVerified || user?.isVideoVerified || verificationCallScheduled || user?.verificationCallScheduledAt;
 
     if (hasPhotos && hasPricing && hasSchedule && hasVerification) {
       setShowConfetti(true);
@@ -1322,7 +1324,7 @@ export default function CreatorDashboardPage() {
       icon: Video,
       action: () => { setShowVideoCallSchedule(true); },
       actionText: 'Schedule Call',
-      isComplete: user?.isVerified || user?.isVideoVerified || verificationCallScheduled || user?.verificationCallScheduled,
+      isComplete: user?.isVerified || user?.isVideoVerified || verificationCallScheduled || user?.verificationCallScheduledAt,
     },
   ];
 
@@ -1392,6 +1394,11 @@ export default function CreatorDashboardPage() {
                 {user.isVideoVerified && (
                   <span className="p-1 bg-blue-500/20 rounded-full">
                     <Video size={14} className="text-blue-400" />
+                  </span>
+                )}
+                {user.isStudioVerified && (
+                  <span className="p-1 bg-cyan-500/20 rounded-full">
+                    <Aperture size={14} className="text-cyan-400" />
                   </span>
                 )}
               </div>
@@ -1665,6 +1672,39 @@ export default function CreatorDashboardPage() {
                     {user.pendingVerification ? 'Pending Verification' : 'Active'}
                   </span>
                 </div>
+                {user.bio && (
+                  <div className="pt-2 border-t border-white/10">
+                    <span className="text-white/50 text-sm block mb-1">Bio</span>
+                    <p className="text-white/80 text-sm leading-relaxed">{user.bio}</p>
+                  </div>
+                )}
+                {(user.bodyType || user.skinTone || user.age || user.height) && (
+                  <div className="pt-2 border-t border-white/10">
+                    <span className="text-white/50 text-sm block mb-2">Physical Details</span>
+                    <div className="flex flex-wrap gap-2">
+                      {user.bodyType && (
+                        <span className="px-2.5 py-1 bg-white/5 border border-white/10 rounded-lg text-white/70 text-xs">
+                          {user.bodyType}
+                        </span>
+                      )}
+                      {user.skinTone && (
+                        <span className="px-2.5 py-1 bg-white/5 border border-white/10 rounded-lg text-white/70 text-xs">
+                          {user.skinTone}
+                        </span>
+                      )}
+                      {user.age && (
+                        <span className="px-2.5 py-1 bg-white/5 border border-white/10 rounded-lg text-white/70 text-xs">
+                          Age: {user.age}
+                        </span>
+                      )}
+                      {user.height && (
+                        <span className="px-2.5 py-1 bg-white/5 border border-white/10 rounded-lg text-white/70 text-xs">
+                          {user.height}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1695,6 +1735,24 @@ export default function CreatorDashboardPage() {
                 <p className="text-white/40 text-sm">No services set. Tap Edit to add services.</p>
               )}
             </div>
+
+            {/* Extras (Add-on Services) */}
+            {user.extras?.length > 0 && (
+              <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                <h3 className="text-white font-semibold mb-3 flex items-center gap-2">
+                  <Plus size={18} className="text-green-400" />
+                  Extras
+                </h3>
+                <div className="space-y-2">
+                  {user.extras.map(extra => (
+                    <div key={extra.id} className="flex items-center justify-between py-1.5 px-3 bg-green-500/10 border border-green-500/20 rounded-lg">
+                      <span className="text-green-300 text-sm">{extra.name}</span>
+                      <span className="text-green-400 text-sm font-medium">{formatNaira(extra.price)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Boundaries */}
             {user.boundaries?.length > 0 && (
@@ -1814,7 +1872,15 @@ export default function CreatorDashboardPage() {
                             <p className="text-white font-medium">{booking.client?.users?.name || 'Client'}</p>
                             {getClientTierLabel(booking.client)}
                           </div>
-                          <p className="text-white/50 text-xs">{booking.client?.users?.phone}</p>
+                          <p className="text-white/50 text-xs">
+                            {booking.client?.users?.phone}
+                            {booking.client?.is_trusted_member && (
+                              <span className="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 bg-green-500/20 border border-green-500/30 rounded text-green-300 text-[10px] font-medium">
+                                <ShieldCheck size={9} />
+                                Trusted{booking.client?.successful_meetups > 0 ? ` (${booking.client.successful_meetups} meetups)` : ''}
+                              </span>
+                            )}
+                          </p>
                         </div>
                       </div>
                       <span className={`px-2 py-1 rounded-lg text-xs font-medium ${
@@ -1822,6 +1888,8 @@ export default function CreatorDashboardPage() {
                         booking.status === 'confirmed' ? 'bg-blue-500/20 text-blue-300' :
                         booking.status === 'completed' ? 'bg-green-500/20 text-green-300' :
                         booking.status === 'declined' ? 'bg-red-500/20 text-red-300' :
+                        booking.status === 'no_show' ? 'bg-orange-500/20 text-orange-300' :
+                        booking.status === 'rescheduled' ? 'bg-indigo-500/20 text-indigo-300' :
                         'bg-white/10 text-white/50'
                       }`}>
                         {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
@@ -2189,23 +2257,23 @@ export default function CreatorDashboardPage() {
               description="Complete a live video call with our team to verify your identity"
               status={
                 user.isVideoVerified ? 'completed' :
-                user.verificationDenied ? 'denied' :
-                user.verificationUnderReview ? 'under_review' :
-                (verificationCallScheduled || user.verificationCallScheduled) ? 'scheduled' :
+                user.verificationStatus === 'denied' ? 'denied' :
+                user.verificationStatus === 'under_review' ? 'under_review' :
+                (verificationCallScheduled || user.verificationCallScheduledAt) ? 'scheduled' :
                 'pending'
               }
               action={
                 user.isVideoVerified ? null :
-                user.verificationDenied ? 'Reschedule Call' :
-                (verificationCallScheduled || user.verificationCallScheduled) ? 'Reschedule' :
+                user.verificationStatus === 'denied' ? 'Reschedule Call' :
+                (verificationCallScheduled || user.verificationCallScheduledAt) ? 'Reschedule' :
                 'Schedule Call'
               }
               onAction={() => setShowVideoCallSchedule(true)}
-              scheduledInfo={user.verificationCallScheduled || (verificationCallScheduled ? { date: 'Today', time: 'Soon' } : null)}
+              scheduledInfo={user.verificationCallScheduledAt ? { date: new Date(user.verificationCallScheduledAt).toLocaleDateString(), time: new Date(user.verificationCallScheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) } : (verificationCallScheduled ? { date: 'Today', time: 'Soon' } : null)}
               statusMessage={
-                user.verificationDenied ? 'Your verification was not approved. Please reschedule a call.' :
-                user.verificationUnderReview ? 'Your verification is being reviewed. We\'ll notify you soon.' :
-                (verificationCallScheduled || user.verificationCallScheduled) ? 'We\'ll call you at the scheduled time.' :
+                user.verificationStatus === 'denied' ? 'Your verification was not approved. Please reschedule a call.' :
+                user.verificationStatus === 'under_review' ? 'Your verification is being reviewed. We\'ll notify you soon.' :
+                (verificationCallScheduled || user.verificationCallScheduledAt) ? 'We\'ll call you at the scheduled time.' :
                 null
               }
             />
@@ -2220,7 +2288,7 @@ export default function CreatorDashboardPage() {
             />
 
             {/* Show success message when all steps are complete or waiting */}
-            {creatorPhotos.length >= 3 && (verificationCallScheduled || user.verificationCallScheduled) && !user.isVideoVerified && (
+            {creatorPhotos.length >= 3 && (verificationCallScheduled || user.verificationCallScheduledAt) && !user.isVideoVerified && (
               <div className="mt-4 p-4 bg-blue-500/10 border border-blue-500/30 rounded-xl">
                 <div className="flex items-start gap-3">
                   <Clock size={20} className="text-blue-400 flex-shrink-0 mt-0.5" />
@@ -2829,14 +2897,40 @@ export default function CreatorDashboardPage() {
             <h4 className="text-purple-300 font-medium mb-3">Pricing Summary</h4>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
+                <span className="text-white/60">Contact Unlock</span>
+                <span className="text-white font-medium">{formatNaira(pricingData.unlockContact)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-white/60">Photos Unlock</span>
+                <span className="text-white font-medium">{formatNaira(pricingData.unlockPhotos)}</span>
+              </div>
+              <div className="flex justify-between pt-1 border-t border-white/10">
                 <span className="text-white/60">Incall (1hr)</span>
                 <span className="text-white font-medium">{formatNaira(pricingData.meetupIncall1)}</span>
               </div>
+              <div className="flex justify-between">
+                <span className="text-white/60">Incall (2hr)</span>
+                <span className="text-white font-medium">{formatNaira(pricingData.meetupIncall2)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-white/60">Incall (Overnight)</span>
+                <span className="text-white font-medium">{formatNaira(pricingData.meetupIncallOvernight)}</span>
+              </div>
               {pricingData.enableOutcall && (
-                <div className="flex justify-between">
-                  <span className="text-white/60">Outcall (1hr)</span>
-                  <span className="text-white font-medium">{formatNaira(pricingData.meetupOutcall1)}</span>
-                </div>
+                <>
+                  <div className="flex justify-between pt-1 border-t border-white/10">
+                    <span className="text-white/60">Outcall (1hr)</span>
+                    <span className="text-white font-medium">{formatNaira(pricingData.meetupOutcall1)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-white/60">Outcall (2hr)</span>
+                    <span className="text-white font-medium">{formatNaira(pricingData.meetupOutcall2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-white/60">Outcall (Overnight)</span>
+                    <span className="text-white font-medium">{formatNaira(pricingData.meetupOutcallOvernight)}</span>
+                  </div>
+                </>
               )}
             </div>
           </div>
@@ -2959,6 +3053,23 @@ export default function CreatorDashboardPage() {
               )}
             </div>
 
+            {/* Booking Extras */}
+            {selectedBooking.booking_extras?.length > 0 && (
+              <div className="p-3 bg-white/5 rounded-xl">
+                <p className="text-white/50 text-xs mb-2 flex items-center gap-1">
+                  <Plus size={12} /> Extras Selected
+                </p>
+                <div className="space-y-1.5">
+                  {selectedBooking.booking_extras.map((extra, idx) => (
+                    <div key={extra.id || idx} className="flex items-center justify-between">
+                      <span className="text-white text-sm">{extra.name || extra.extras?.name}</span>
+                      <span className="text-green-400 text-sm font-medium">{formatNaira(extra.price || extra.price_at_booking)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Special Requests */}
             {selectedBooking.special_requests && (
               <div className="p-3 bg-white/5 rounded-xl">
@@ -2984,6 +3095,8 @@ export default function CreatorDashboardPage() {
               selectedBooking.status === 'confirmed' ? 'bg-blue-500/20 border border-blue-500/30' :
               selectedBooking.status === 'completed' ? 'bg-green-500/20 border border-green-500/30' :
               selectedBooking.status === 'declined' ? 'bg-red-500/20 border border-red-500/30' :
+              selectedBooking.status === 'no_show' ? 'bg-orange-500/20 border border-orange-500/30' :
+              selectedBooking.status === 'rescheduled' ? 'bg-indigo-500/20 border border-indigo-500/30' :
               'bg-white/10 border border-white/20'
             }`}>
               <span className={`text-sm font-medium ${
@@ -2991,6 +3104,8 @@ export default function CreatorDashboardPage() {
                 selectedBooking.status === 'confirmed' ? 'text-blue-300' :
                 selectedBooking.status === 'completed' ? 'text-green-300' :
                 selectedBooking.status === 'declined' ? 'text-red-300' :
+                selectedBooking.status === 'no_show' ? 'text-orange-300' :
+                selectedBooking.status === 'rescheduled' ? 'text-indigo-300' :
                 'text-white/60'
               }`}>
                 Status: {selectedBooking.status.charAt(0).toUpperCase() + selectedBooking.status.slice(1)}

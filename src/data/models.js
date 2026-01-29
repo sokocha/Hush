@@ -96,11 +96,14 @@ export const getModelsList = () => {
 };
 
 // Helper to get all unique extras across all models
+// Returns common extras as fallback since MODELS is empty and DB extras load async
 export const getAllExtras = () => {
   const extrasSet = new Set();
   Object.values(MODELS).forEach(model => {
     model.extras.forEach(extra => extrasSet.add(extra.name));
   });
+  // Include common extras so the filter section is never empty
+  ['Massage', 'Roleplay', 'Toys', 'Duo', 'Overnight cuddles', 'Dinner date', 'Travel companion'].forEach(e => extrasSet.add(e));
   return Array.from(extrasSet).sort();
 };
 

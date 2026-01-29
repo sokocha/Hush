@@ -184,7 +184,7 @@ const ModelCard = ({ model, isFavorite, onToggleFavorite, showMatchBadge = false
         <div className="flex items-center gap-2 text-xs text-white/40 mb-3">
           <span className="flex items-center gap-1">
             <MapPin size={12} />
-            {model.areas.slice(0, 2).join(", ")}
+            {model.location}{model.areas.length > 0 ? ` · ${model.areas.slice(0, 2).join(", ")}` : ''}
           </span>
           <span>•</span>
           <span>{model.verifiedMeetups} meetups</span>

@@ -296,6 +296,16 @@ const StatusTimeline = ({ status }) => {
       if (stepKey === 'requested') return 'completed';
       return 'cancelled';
     }
+    if (status === 'no_show') {
+      if (stepKey === 'requested' || stepKey === 'confirmed') return 'completed';
+      if (stepKey === 'meetup') return 'cancelled';
+      return 'cancelled';
+    }
+    if (status === 'rescheduled') {
+      if (stepKey === 'requested') return 'completed';
+      if (stepKey === 'confirmed') return 'current';
+      return 'pending';
+    }
     if (status === 'pending') {
       if (stepKey === 'requested') return 'current';
       return 'pending';
@@ -446,6 +456,7 @@ const MeetupCard = ({ meetup, onCancel, onReview }) => {
     declined: { bg: 'bg-red-500/10', border: 'border-red-500/30', text: 'text-red-300', label: 'Declined by Model' },
     rescheduled: { bg: 'bg-blue-500/10', border: 'border-blue-500/30', text: 'text-blue-300', label: 'Reschedule Requested' },
     completed: { bg: 'bg-green-500/10', border: 'border-green-500/30', text: 'text-green-300', label: 'Completed' },
+    no_show: { bg: 'bg-orange-500/10', border: 'border-orange-500/30', text: 'text-orange-300', label: 'No Show' },
     cancelled: { bg: 'bg-gray-500/10', border: 'border-gray-500/30', text: 'text-gray-400', label: 'Cancelled' },
   };
   const status = statusColors[meetup.status] || statusColors.pending;
@@ -503,6 +514,9 @@ const MeetupCard = ({ meetup, onCancel, onReview }) => {
                 {status.label}
               </span>
             </div>
+            {meetup.status === 'declined' && meetup.status_note && (
+              <p className="text-red-300/70 text-xs mt-1">Reason: {meetup.status_note}</p>
+            )}
           </div>
         </div>
         {(meetup.status === 'pending' || meetup.status === 'confirmed') && !showCancelConfirm && (
@@ -522,7 +536,7 @@ const MeetupCard = ({ meetup, onCancel, onReview }) => {
         </div>
         <div className="flex items-center gap-2 text-white/60">
           <Clock size={14} />
-          <span>{meetup.time}</span>
+          <span>{meetup.time}{meetup.duration ? ` (${meetup.duration})` : ''}</span>
         </div>
         <div className="flex items-center gap-2 text-white/60">
           <MapPin size={14} />
@@ -541,6 +555,22 @@ const MeetupCard = ({ meetup, onCancel, onReview }) => {
             Special Requests:
           </p>
           <p className="text-white/70 text-xs">{meetup.specialRequests}</p>
+        </div>
+      )}
+
+      {meetup.booking_extras && meetup.booking_extras.length > 0 && (
+        <div className="bg-black/20 rounded-lg p-2 mb-3">
+          <p className="text-white/40 text-xs mb-1 flex items-center gap-1">
+            <Gift size={12} />
+            Selected Extras:
+          </p>
+          <div className="flex flex-wrap gap-1 mt-1">
+            {meetup.booking_extras.map((extra, i) => (
+              <span key={i} className="text-xs bg-pink-500/15 text-pink-300 px-2 py-0.5 rounded-full">
+                {extra}
+              </span>
+            ))}
+          </div>
         </div>
       )}
 
@@ -981,6 +1011,13 @@ export default function ClientDashboardPage() {
                 subValue={memberSince}
                 color="purple"
               />
+              <StatCard
+                icon={TrendingUp}
+                label="Success Rate"
+                value={`${successRate}%`}
+                subValue={`${user.successfulMeetups || 0} completed`}
+                color="blue"
+              />
             </div>
 
             {/* Profile Summary */}
@@ -1003,6 +1040,12 @@ export default function ClientDashboardPage() {
                   <span className="text-white/50 text-sm">Display Name</span>
                   <span className="text-white font-medium">{user.name || 'Not set'}</span>
                 </div>
+                {user.username && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-white/50 text-sm">Username</span>
+                    <span className="text-white/70 font-medium">@{user.username}</span>
+                  </div>
+                )}
                 <div className="flex items-center justify-between">
                   <span className="text-white/50 text-sm">Phone</span>
                   <span className="text-white font-medium">+234{user.phone}</span>
@@ -1025,7 +1068,13 @@ export default function ClientDashboardPage() {
             </div>
 
             {/* Recent Transactions */}
-            {transactions.length > 0 && (
+            {loadingTransactions && (
+              <div className="flex items-center justify-center py-6">
+                <RefreshCw size={20} className="text-pink-400 animate-spin" />
+                <span className="text-white/50 ml-3 text-sm">Loading activity...</span>
+              </div>
+            )}
+            {!loadingTransactions && transactions.length > 0 && (
               <div>
                 <h3 className="text-white font-semibold mb-3 flex items-center gap-2">
                   <History size={18} className="text-pink-400" />
@@ -1108,8 +1157,14 @@ export default function ClientDashboardPage() {
 
         {activeTab === 'meetups' && (
           <div className="space-y-6">
+            {loadingMeetups && (
+              <div className="flex items-center justify-center py-10">
+                <RefreshCw size={24} className="text-pink-400 animate-spin" />
+                <span className="text-white/50 ml-3 text-sm">Loading meetups...</span>
+              </div>
+            )}
             {/* Upcoming Meetups */}
-            <div>
+            {!loadingMeetups && <div>
               <h2 className="text-white font-semibold mb-4 flex items-center gap-2">
                 <Calendar size={18} className="text-pink-400" />
                 Upcoming Meetups ({upcomingMeetups.length})
@@ -1138,10 +1193,10 @@ export default function ClientDashboardPage() {
                   </Link>
                 </div>
               )}
-            </div>
+            </div>}
 
             {/* Past Meetups */}
-            {pastMeetups.length > 0 && (
+            {!loadingMeetups && pastMeetups.length > 0 && (
               <div>
                 <h2 className="text-white font-semibold mb-4 flex items-center gap-2">
                   <History size={18} className="text-white/50" />

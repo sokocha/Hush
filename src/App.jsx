@@ -506,7 +506,7 @@ const TrustDepositModal = ({ isOpen, onClose, onDepositPaid }) => {
           <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3">
             <p className="text-blue-200 text-sm">
               <Info size={14} className="inline mr-1" />
-              Use your registered phone number ({MOCK_CLIENT.phone}) as payment reference
+              Use your registered phone number ({clientState.phone || 'your number'}) as payment reference
             </p>
           </div>
 
@@ -1433,7 +1433,7 @@ const VideoVerificationModal = ({ isOpen, onClose, modelConfig }) => {
         <div className="flex items-center gap-2 text-white/70"><CheckCircle size={14} className="text-green-400" />Live video call with our verification team</div>
         <div className="flex items-center gap-2 text-white/70"><CheckCircle size={14} className="text-green-400" />Face matches profile photos exactly</div>
         <div className="flex items-center gap-2 text-white/70"><CheckCircle size={14} className="text-green-400" />100% anti-catfish guarantee</div>
-        <div className="flex items-center gap-2 text-white/70"><CheckCircle size={14} className="text-green-400" />Last verified: {modelConfig.profile.verifiedDate}</div>
+        {modelConfig.profile.verifiedDate && <div className="flex items-center gap-2 text-white/70"><CheckCircle size={14} className="text-green-400" />Last verified: {modelConfig.profile.verifiedDate}</div>}
       </div>
       <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-3">
         <p className="text-green-300 text-sm flex items-center gap-2">
@@ -1455,7 +1455,7 @@ const PhotoVerificationModal = ({ isOpen, onClose, modelConfig }) => {
       <div className="bg-cyan-500/10 border border-cyan-500/30 rounded-xl p-4 text-center">
         <Aperture size={32} className="text-cyan-400 mx-auto mb-2" />
         <p className="text-white font-medium">Anti-Catfish Photo System</p>
-        <p className="text-cyan-300/70 text-sm mt-1">Photos by {modelConfig.photos.studioName}</p>
+        {modelConfig.photos.studioName && <p className="text-cyan-300/70 text-sm mt-1">Photos by {modelConfig.photos.studioName}</p>}
       </div>
 
       {/* How it works */}
@@ -1498,7 +1498,7 @@ const PhotoVerificationModal = ({ isOpen, onClose, modelConfig }) => {
       <div className="space-y-2 text-sm">
         <div className="flex items-center gap-2 text-white/70"><CheckCircle size={14} className="text-green-400" />Identity verified at capture</div>
         <div className="flex items-center gap-2 text-white/70"><CheckCircle size={14} className="text-green-400" />Watermarked with {PLATFORM_CONFIG.name}</div>
-        <div className="flex items-center gap-2 text-white/70"><CheckCircle size={14} className="text-green-400" />Taken: {modelConfig.photos.captureDate}</div>
+        {modelConfig.photos.captureDate && <div className="flex items-center gap-2 text-white/70"><CheckCircle size={14} className="text-green-400" />Taken: {modelConfig.photos.captureDate}</div>}
       </div>
 
       <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-3">
@@ -1683,8 +1683,15 @@ export default function App() {
         bio: creator.bio || '',
         isVerified: creator.is_verified || creator.is_video_verified,
         isStudioVerified: creator.is_studio_verified,
+        isOnline: dbData.last_seen_at ? (Date.now() - new Date(dbData.last_seen_at).getTime() < 15 * 60 * 1000) : false,
+        isAvailable: creator.is_available !== false,
         location: creator.location || 'Lagos',
         areas: creator.creator_areas?.map(a => a.area) || [],
+        bodyType: creator.body_type || null,
+        skinTone: creator.skin_tone || null,
+        age: creator.age || null,
+        height: creator.height || null,
+        services: creator.services || [],
       },
       stats: {
         rating: parseFloat(creator.rating) || 4.8,
@@ -1959,9 +1966,15 @@ export default function App() {
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-2 mb-3">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-500/20 border border-green-500/30 text-green-300 text-sm">
-              <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" /> Available
-            </span>
+            {profile.isAvailable !== false ? (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-500/20 border border-green-500/30 text-green-300 text-sm">
+                <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" /> Available
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-300 text-sm">
+                <Clock size={12} /> On Break
+              </span>
+            )}
             <Link
               to={`/explore/${profile.location.toLowerCase()}`}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 border border-white/10 text-white/70 text-sm hover:bg-white/20 hover:border-white/20 hover:text-white transition-all cursor-pointer"
@@ -1994,7 +2007,7 @@ export default function App() {
               <div className="flex items-center justify-center gap-1"><Heart size={12} className="text-pink-400 fill-pink-400" /><span className="text-pink-400 font-bold">{favoriteCount}</span></div>
               <p className="text-white/40 text-xs">Favorites</p>
             </div>
-            <div className="text-center border-l border-white/10"><p className={`font-bold ${stats.lastSeen === 'Online' ? 'text-green-400' : 'text-white'}`}>{stats.lastSeen}</p><p className="text-white/40 text-xs">Last Seen</p></div>
+            <div className="text-center border-l border-white/10"><p className="text-white font-bold">{stats.profileViews || 0}</p><p className="text-white/40 text-xs">Views</p></div>
           </div>
 
           {/* Review Highlights */}
@@ -2012,6 +2025,56 @@ export default function App() {
             </div>
           )}
         </div>
+
+        {/* ABOUT / BIO */}
+        {profile.bio && (
+          <div className="mb-6">
+            <h3 className="text-white/60 text-sm font-medium flex items-center gap-2 mb-3"><Info size={14} className="text-pink-400" />About</h3>
+            <div className="bg-white/5 rounded-xl border border-white/10 p-4">
+              <p className="text-white/80 text-sm leading-relaxed">{profile.bio}</p>
+            </div>
+          </div>
+        )}
+
+        {/* SERVICES & DETAILS */}
+        {(profile.services?.length > 0 || profile.areas?.length > 0 || profile.bodyType || profile.age) && (
+          <div className="mb-6">
+            <h3 className="text-white/60 text-sm font-medium flex items-center gap-2 mb-3"><Sparkles size={14} className="text-purple-400" />Details</h3>
+            <div className="bg-white/5 rounded-xl border border-white/10 p-4 space-y-3">
+              {/* Services */}
+              {profile.services?.length > 0 && (
+                <div>
+                  <p className="text-white/50 text-xs mb-1.5">Services</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {profile.services.map((s, i) => (
+                      <span key={i} className="px-2.5 py-1 bg-pink-500/15 border border-pink-500/20 rounded-full text-pink-300 text-xs">{s}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {/* Areas */}
+              {profile.areas?.length > 0 && (
+                <div>
+                  <p className="text-white/50 text-xs mb-1.5">Areas</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {profile.areas.map((a, i) => (
+                      <span key={i} className="px-2.5 py-1 bg-blue-500/15 border border-blue-500/20 rounded-full text-blue-300 text-xs flex items-center gap-1"><MapPin size={10} />{a}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {/* Attributes */}
+              {(profile.bodyType || profile.skinTone || profile.age || profile.height) && (
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  {profile.bodyType && <div className="flex justify-between"><span className="text-white/50">Build</span><span className="text-white">{profile.bodyType}</span></div>}
+                  {profile.skinTone && <div className="flex justify-between"><span className="text-white/50">Complexion</span><span className="text-white">{profile.skinTone}</span></div>}
+                  {profile.age && <div className="flex justify-between"><span className="text-white/50">Age</span><span className="text-white">{profile.age}</span></div>}
+                  {profile.height && <div className="flex justify-between"><span className="text-white/50">Height</span><span className="text-white">{profile.height}</span></div>}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* 2. PHOTOS - Clickable gallery */}
         <div className="mb-6">
@@ -2151,7 +2214,7 @@ export default function App() {
               )}
             </div>
           )}
-          <p className="text-white/30 text-[10px] text-center mt-2">Photos by {photos.studioName} • Tap any photo to view full-screen</p>
+          <p className="text-white/30 text-[10px] text-center mt-2">{photos.studioName ? `Photos by ${photos.studioName} • ` : ''}Tap any photo to view full-screen</p>
         </div>
 
         {/* 3. RATES */}
@@ -2294,20 +2357,27 @@ export default function App() {
         {/* 5. REVIEWS */}
         <div className="mb-6">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-white/60 text-sm font-medium flex items-center gap-2"><ThumbsUp size={14} className="text-green-400" />Reviews</h3>
-            <Link to={`/reviews/${currentUsername}`} className="text-pink-400 text-xs hover:text-pink-300 transition-colors">View all</Link>
+            <h3 className="text-white/60 text-sm font-medium flex items-center gap-2"><ThumbsUp size={14} className="text-green-400" />Reviews ({stats.reviews})</h3>
+            {CONFIG.reviews.length > 0 && <Link to={`/reviews/${currentUsername}`} className="text-pink-400 text-xs hover:text-pink-300 transition-colors">View all</Link>}
           </div>
-          <div className="space-y-2">
-            {CONFIG.reviews.slice(0, 2).map((r, i) => (
-              <div key={i} className="p-3 bg-white/5 rounded-xl border border-white/10">
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex gap-0.5">{[...Array(5)].map((_, j) => <Star key={j} size={12} className={j < r.rating ? "text-yellow-400 fill-yellow-400" : "text-white/20"} />)}</div>
-                  {r.verified && <span className="text-xs text-green-400"><CheckCircle size={10} className="inline" /> Verified</span>}
+          {CONFIG.reviews.length > 0 ? (
+            <div className="space-y-2">
+              {CONFIG.reviews.slice(0, 2).map((r, i) => (
+                <div key={i} className="p-3 bg-white/5 rounded-xl border border-white/10">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex gap-0.5">{[...Array(5)].map((_, j) => <Star key={j} size={12} className={j < r.rating ? "text-yellow-400 fill-yellow-400" : "text-white/20"} />)}</div>
+                    {r.verified && <span className="text-xs text-green-400"><CheckCircle size={10} className="inline" /> Verified</span>}
+                  </div>
+                  <p className="text-white/70 text-sm">"{r.text}"</p>
                 </div>
-                <p className="text-white/70 text-sm">"{r.text}"</p>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="p-4 bg-white/5 rounded-xl border border-white/10 text-center">
+              <ThumbsUp size={24} className="text-white/20 mx-auto mb-2" />
+              <p className="text-white/40 text-sm">{stats.reviews > 0 ? `${stats.reviews} reviews` : 'No reviews yet'}</p>
+            </div>
+          )}
         </div>
 
 
