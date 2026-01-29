@@ -228,20 +228,6 @@ const PhotoGalleryModal = ({ isOpen, onClose, photos, initialIndex = 0, photosUn
                   alt={`Photo ${currentIndex + 1}`}
                   className="max-w-full max-h-full object-contain rounded-lg"
                 />
-                {/* Diagonal watermark — oversized grid so rotation covers entire photo */}
-                <div className="absolute inset-0 pointer-events-none overflow-hidden select-none" aria-hidden="true">
-                  <div className="absolute" style={{ top: '-50%', left: '-50%', width: '200%', height: '200%', transform: 'rotate(-30deg)' }}>
-                    <div className="w-full h-full flex flex-col justify-center gap-12">
-                      {[...Array(15)].map((_, row) => (
-                        <div key={row} className="flex gap-16 justify-center">
-                          {[...Array(8)].map((_, col) => (
-                            <span key={col} className="text-white/10 text-lg font-bold tracking-widest uppercase whitespace-nowrap">HUSH @{modelConfig?.profile?.username}</span>
-                          ))}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
               </div>
             ) : (
               <div className="w-full max-w-2xl aspect-[3/4] bg-gradient-to-br from-pink-500/20 to-purple-500/20 rounded-2xl flex items-center justify-center">
@@ -265,6 +251,23 @@ const PhotoGalleryModal = ({ isOpen, onClose, photos, initialIndex = 0, photosUn
           />
         ))}
       </div>
+
+      {/* Full-screen diagonal watermark — covers entire viewport */}
+      {!isLocked && (
+        <div className="fixed inset-0 pointer-events-none overflow-hidden select-none z-20" aria-hidden="true">
+          <div className="absolute" style={{ top: '-50%', left: '-50%', width: '200%', height: '200%', transform: 'rotate(-30deg)' }}>
+            <div className="w-full h-full flex flex-col justify-center gap-10">
+              {[...Array(20)].map((_, row) => (
+                <div key={row} className="flex gap-12 justify-center">
+                  {[...Array(10)].map((_, col) => (
+                    <span key={col} className="text-white/10 text-base font-bold tracking-widest uppercase whitespace-nowrap">HUSH @{modelConfig?.profile?.username}</span>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
