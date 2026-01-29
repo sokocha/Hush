@@ -625,10 +625,6 @@ export default function CreatorDashboardPage() {
   // Check if this is a new registration coming from auth page
   const isNewRegistration = location.state?.newRegistration;
 
-  // Onboarding state - show setup flow for new registrations or incomplete profiles
-  // Initialize to true if coming from new registration to avoid flash of dashboard
-  const [showOnboarding, setShowOnboarding] = useState(isNewRegistration || false);
-  const [onboardingStep, setOnboardingStep] = useState(0);
   const [showPhotoMilestone, setShowPhotoMilestone] = useState(false);
   const [showVideoCallSchedule, setShowVideoCallSchedule] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
@@ -1051,10 +1047,7 @@ export default function CreatorDashboardPage() {
       verificationCallScheduledAt: scheduledAt.toISOString(),
       pendingVerification: true,
     });
-    // Move to next step or complete onboarding
-    if (showOnboarding) {
-      checkOnboardingComplete();
-    }
+    checkOnboardingComplete();
   };
 
   // Check if all onboarding steps are complete and show confetti
@@ -1764,12 +1757,21 @@ export default function CreatorDashboardPage() {
             )}
 
             {/* Boundaries */}
-            {user.boundaries?.length > 0 && (
-              <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-                <h3 className="text-white font-semibold mb-3 flex items-center gap-2">
+            <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-white font-semibold flex items-center gap-2">
                   <Ban size={18} className="text-red-400" />
                   Boundaries
                 </h3>
+                <button
+                  onClick={handleOpenBoundariesModal}
+                  className="text-pink-400 text-sm flex items-center gap-1 hover:text-pink-300"
+                >
+                  <Edit3 size={14} />
+                  Edit
+                </button>
+              </div>
+              {user.boundaries?.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
                   {user.boundaries.map(boundary => (
                     <span key={boundary} className="px-3 py-1.5 bg-red-500/10 border border-red-500/30 rounded-lg text-red-300 text-xs">
@@ -1777,8 +1779,10 @@ export default function CreatorDashboardPage() {
                     </span>
                   ))}
                 </div>
-              </div>
-            )}
+              ) : (
+                <p className="text-white/40 text-sm">No boundaries set. Tap Edit to add your limits.</p>
+              )}
+            </div>
 
             {/* Recent Reviews */}
             {dbReviews.length > 0 && (
@@ -2633,6 +2637,20 @@ export default function CreatorDashboardPage() {
           </div>
 
           <div className="space-y-2">
+            <label className="text-white/70 text-sm">Location</label>
+            <select
+              value={editData.location || ''}
+              onChange={(e) => setEditData(prev => ({ ...prev, location: e.target.value }))}
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-purple-500 focus:outline-none"
+            >
+              <option value="" className="bg-gray-900">Select location</option>
+              <option value="Lagos" className="bg-gray-900">Lagos</option>
+              <option value="Abuja" className="bg-gray-900">Abuja</option>
+              <option value="Port Harcourt" className="bg-gray-900">Port Harcourt</option>
+            </select>
+          </div>
+
+          <div className="space-y-2">
             <label className="text-white/70 text-sm">Bio</label>
             <textarea
               value={editData.bio || ''}
@@ -2648,6 +2666,74 @@ export default function CreatorDashboardPage() {
             className="w-full py-4 bg-purple-500 hover:bg-purple-600 rounded-xl text-white font-semibold transition-all"
           >
             Save Changes
+          </button>
+        </div>
+      </Modal>
+
+      {/* Boundaries Editing Modal */}
+      <Modal
+        isOpen={showBoundariesModal}
+        onClose={() => setShowBoundariesModal(false)}
+        title="🚫 Edit Boundaries"
+      >
+        <div className="space-y-4">
+          <p className="text-white/60 text-sm">Set limits that clients should know about.</p>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newBoundaryInput}
+              onChange={(e) => setNewBoundaryInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && newBoundaryInput.trim()) {
+                  setEditingBoundaries(prev => [...prev, newBoundaryInput.trim()]);
+                  setNewBoundaryInput('');
+                }
+              }}
+              placeholder="e.g. No overnight"
+              className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:border-red-500 focus:outline-none"
+            />
+            <button
+              onClick={() => {
+                if (newBoundaryInput.trim()) {
+                  setEditingBoundaries(prev => [...prev, newBoundaryInput.trim()]);
+                  setNewBoundaryInput('');
+                }
+              }}
+              className="px-4 py-3 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 rounded-xl text-red-300 font-medium transition-colors"
+            >
+              <Plus size={18} />
+            </button>
+          </div>
+          {editingBoundaries.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {editingBoundaries.map((b, i) => (
+                <span key={i} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 border border-red-500/30 rounded-lg text-red-300 text-sm">
+                  {b}
+                  <button onClick={() => setEditingBoundaries(prev => prev.filter((_, idx) => idx !== i))} className="hover:text-white">
+                    <X size={14} />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+          <button
+            onClick={async () => {
+              // Sync boundaries: remove old, add new
+              const current = user.boundaries || [];
+              const toRemove = current.filter(b => !editingBoundaries.includes(b));
+              const toAdd = editingBoundaries.filter(b => !current.includes(b));
+              for (const b of toRemove) {
+                await creatorService.removeCreatorBoundary(user.id, b);
+              }
+              for (const b of toAdd) {
+                await creatorService.addCreatorBoundary(user.id, b);
+              }
+              updateUser({ boundaries: editingBoundaries }, false);
+              setShowBoundariesModal(false);
+            }}
+            className="w-full py-4 bg-red-500 hover:bg-red-600 rounded-xl text-white font-semibold transition-all"
+          >
+            Save Boundaries
           </button>
         </div>
       </Modal>
