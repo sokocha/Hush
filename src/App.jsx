@@ -252,21 +252,16 @@ const PhotoGalleryModal = ({ isOpen, onClose, photos, initialIndex = 0, photosUn
         ))}
       </div>
 
-      {/* Full-screen diagonal watermark — covers entire viewport */}
+      {/* Full-screen diagonal watermark — repeating SVG pattern covers entire viewport */}
       {!isLocked && (
-        <div className="fixed inset-0 pointer-events-none overflow-hidden select-none z-20" aria-hidden="true">
-          <div className="absolute" style={{ top: '-50%', left: '-50%', width: '200%', height: '200%', transform: 'rotate(-30deg)' }}>
-            <div className="w-full h-full flex flex-col justify-center gap-10">
-              {[...Array(20)].map((_, row) => (
-                <div key={row} className="flex gap-12 justify-center">
-                  {[...Array(10)].map((_, col) => (
-                    <span key={col} className="text-white/10 text-base font-bold tracking-widest uppercase whitespace-nowrap">HUSH @{modelConfig?.profile?.username}</span>
-                  ))}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+        <div
+          className="fixed inset-0 pointer-events-none select-none z-20"
+          aria-hidden="true"
+          style={{
+            backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='400' height='120'><text transform='rotate(-30 200 60)' x='200' y='70' font-size='18' font-weight='bold' fill='rgba(255,255,255,0.08)' text-anchor='middle' font-family='system-ui,sans-serif' letter-spacing='3'>HUSH @${modelConfig?.profile?.username || ''}</text></svg>`)}")`,
+            backgroundRepeat: 'repeat',
+          }}
+        />
       )}
     </div>
   );
@@ -2150,20 +2145,15 @@ export default function App() {
 
                   {isVisible ? (
                     <div className="absolute inset-0 flex flex-col items-center justify-center">
-                      {/* Diagonal watermark — oversized so rotation covers entire thumbnail */}
-                      <div className="absolute inset-0 pointer-events-none overflow-hidden select-none" aria-hidden="true">
-                        <div className="absolute" style={{ top: '-50%', left: '-50%', width: '200%', height: '200%', transform: 'rotate(-30deg)' }}>
-                          <div className="w-full h-full flex flex-col justify-center gap-4">
-                            {[...Array(6)].map((_, row) => (
-                              <div key={row} className="flex gap-6 justify-center">
-                                {[...Array(4)].map((_, col) => (
-                                  <span key={col} className="text-white/10 text-[8px] font-bold tracking-widest uppercase whitespace-nowrap">HUSH @{profile.username}</span>
-                                ))}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
+                      {/* Diagonal watermark — repeating SVG pattern */}
+                      <div
+                        className="absolute inset-0 pointer-events-none select-none"
+                        aria-hidden="true"
+                        style={{
+                          backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='200' height='60'><text transform='rotate(-30 100 30)' x='100' y='35' font-size='9' font-weight='bold' fill='rgba(255,255,255,0.08)' text-anchor='middle' font-family='system-ui,sans-serif' letter-spacing='2'>HUSH @${profile.username}</text></svg>`)}")`,
+                          backgroundRepeat: 'repeat',
+                        }}
+                      />
                       <div className="absolute bottom-0 left-0 right-0 bg-black/40 p-1">
                         <p className="text-white/50 text-[7px] text-center truncate">{PLATFORM_CONFIG.name} • @{profile.username}</p>
                       </div>
