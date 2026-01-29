@@ -871,28 +871,56 @@ export default function CreatorDashboardPage() {
     }
   };
 
-  const handleTogglePreview = (photoId) => {
+  const handleTogglePreview = async (photoId) => {
     const currentPhotos = user.photos || [];
+    const photo = currentPhotos.find(p => p.id === photoId);
+    if (!photo) return;
+
+    const newPreviewStatus = !photo.isPreview;
+
+    // Update local state immediately for responsiveness
     const updatedPhotos = currentPhotos.map(p => ({
       ...p,
-      isPreview: p.id === photoId ? !p.isPreview : p.isPreview,
+      isPreview: p.id === photoId ? newPreviewStatus : p.isPreview,
     }));
-    updateUser({ photos: updatedPhotos });
+    updateUser({ photos: updatedPhotos }, false);
+
+    // Sync to database
+    try {
+      await storageService.setPhotoPreview(photoId, newPreviewStatus);
+      console.log('[CreatorDashboard] Photo preview status updated in database');
+    } catch (error) {
+      console.error('[CreatorDashboard] Failed to update photo preview in database:', error);
+    }
   };
 
-  const handleSetProfilePhoto = (photoId) => {
+  const handleSetProfilePhoto = async (photoId) => {
     const currentPhotos = user.photos || [];
-    // Remove profile status from all photos and set it on the selected one
+
+    // Update local state immediately - set selected as profile, first preview photo logic
     const updatedPhotos = currentPhotos.map(p => ({
       ...p,
       isProfilePhoto: p.id === photoId,
+      // The profile photo should also be a preview photo
+      isPreview: p.id === photoId ? true : p.isPreview,
     }));
-    updateUser({ photos: updatedPhotos });
+    updateUser({ photos: updatedPhotos }, false);
+
+    // Sync to database - mark as preview (profile photos are always previews)
+    try {
+      // First, ensure the selected photo is marked as preview
+      await storageService.setPhotoPreview(photoId, true);
+      console.log('[CreatorDashboard] Profile photo updated in database');
+    } catch (error) {
+      console.error('[CreatorDashboard] Failed to update profile photo in database:', error);
+    }
   };
 
-  const handleDeletePhoto = (photoId) => {
+  const handleDeletePhoto = async (photoId) => {
     const currentPhotos = user.photos || [];
     const photoToDelete = currentPhotos.find(p => p.id === photoId);
+    if (!photoToDelete) return;
+
     let updatedPhotos = currentPhotos.filter(p => p.id !== photoId);
 
     // If deleting the profile photo, set the first remaining photo as profile
@@ -903,15 +931,52 @@ export default function CreatorDashboardPage() {
       }));
     }
 
-    updateUser({ photos: updatedPhotos });
+    // Update local state immediately
+    updateUser({ photos: updatedPhotos }, false);
     setShowDeletePhotoConfirm(null);
+
+    // Delete from database and storage
+    try {
+      const storagePath = photoToDelete.storagePath || photoToDelete.storage_path;
+      if (storagePath) {
+        await storageService.deleteCreatorPhoto(photoId, storagePath);
+        console.log('[CreatorDashboard] Photo deleted from database and storage');
+      } else {
+        // Just delete from database if no storage path
+        await creatorService.deleteCreatorPhoto(photoId);
+        console.log('[CreatorDashboard] Photo deleted from database');
+      }
+    } catch (error) {
+      console.error('[CreatorDashboard] Failed to delete photo:', error);
+    }
   };
 
-  const handleReorderPhotos = (fromIndex, toIndex) => {
+  const handleReorderPhotos = async (fromIndex, toIndex) => {
     const currentPhotos = [...(user.photos || [])];
     const [removed] = currentPhotos.splice(fromIndex, 1);
     currentPhotos.splice(toIndex, 0, removed);
-    updateUser({ photos: currentPhotos });
+
+    // Update display_order for all photos
+    const reorderedPhotos = currentPhotos.map((p, index) => ({
+      ...p,
+      displayOrder: index,
+      display_order: index,
+    }));
+
+    // Update local state immediately
+    updateUser({ photos: reorderedPhotos }, false);
+
+    // Sync to database
+    try {
+      const photoOrders = reorderedPhotos.map((p, index) => ({
+        id: p.id,
+        display_order: index,
+      }));
+      await storageService.reorderPhotos(photoOrders);
+      console.log('[CreatorDashboard] Photos reordered in database');
+    } catch (error) {
+      console.error('[CreatorDashboard] Failed to reorder photos in database:', error);
+    }
   };
 
   // Booking handlers
