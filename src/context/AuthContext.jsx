@@ -114,6 +114,7 @@ function transformUserData(dbUser) {
     username: dbUser.username,
     name: dbUser.name,
     userType: dbUser.user_type,
+    isSuperAdmin: dbUser.is_superadmin || false,
     isLoggedIn: true,
     registeredAt: dbUser.created_at,
     lastSeenAt: dbUser.last_seen_at,
@@ -155,6 +156,12 @@ function transformUserData(dbUser) {
       isStudioVerified: creator.is_studio_verified,
       pendingVerification: creator.pending_verification,
       isVisibleInExplore: creator.is_visible_in_explore,
+      verificationStatus: creator.verification_status || 'pending',
+      verificationCallScheduledAt: creator.verification_call_scheduled_at || null,
+      verificationDeniedReason: creator.verification_denied_reason || null,
+      verificationNotes: creator.verification_notes || null,
+      disputeMessage: creator.dispute_message || null,
+      disputeSubmittedAt: creator.dispute_submitted_at || null,
       pricing: creator.pricing || DEFAULT_CREATOR_STATE.pricing,
       schedule: creator.schedule || DEFAULT_CREATOR_STATE.schedule,
       areas: creator.creator_areas?.map((a) => a.area) || [],
@@ -633,9 +640,10 @@ export const AuthProvider = ({ children }) => {
   // Check if user is authenticated
   const isAuthenticated = !!user && user.isLoggedIn;
 
-  // Check user type
+  // Check user type and role
   const isClient = user?.userType === 'client';
   const isCreator = user?.userType === 'creator';
+  const isSuperAdmin = user?.isSuperAdmin || false;
 
   const value = {
     user,
@@ -644,6 +652,7 @@ export const AuthProvider = ({ children }) => {
     isAuthenticated,
     isClient,
     isCreator,
+    isSuperAdmin,
     // Auth methods
     requestOTP,
     verifyOTP,

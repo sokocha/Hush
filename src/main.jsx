@@ -7,6 +7,7 @@ import ExplorePage from './pages/ExplorePage.jsx'
 import ClientDashboardPage from './pages/ClientDashboardPage.jsx'
 import CreatorDashboardPage from './pages/CreatorDashboardPage.jsx'
 import CreatorOnboardingPage from './pages/CreatorOnboardingPage.jsx'
+import SuperAdminDashboardPage from './pages/SuperAdminDashboardPage.jsx'
 import ReviewsPage from './pages/ReviewsPage.jsx'
 import AuthPage from './pages/AuthPage.jsx'
 import './index.css'
@@ -105,6 +106,21 @@ const PublicRoute = ({ children }) => {
   return <PageWrapper>{children}</PageWrapper>;
 };
 
+// Superadmin route (requires auth + superadmin)
+const SuperAdminRoute = ({ children }) => {
+  const { isAuthenticated, isSuperAdmin, isLoading } = useAuth();
+
+  if (isLoading) {
+    return <SkeletonLoader />;
+  }
+
+  if (!isAuthenticated || !isSuperAdmin) {
+    return <Navigate to="/explore/all" replace />;
+  }
+
+  return <PageWrapper>{children}</PageWrapper>;
+};
+
 // Regular page wrapper for non-auth routes
 const RegularRoute = ({ children }) => (
   <PageWrapper>{children}</PageWrapper>
@@ -133,6 +149,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(
           <Route path="/dashboard" element={<ProtectedRoute><ClientDashboardPage /></ProtectedRoute>} />
           <Route path="/creator-onboarding" element={<ProtectedRoute><CreatorOnboardingPage /></ProtectedRoute>} />
           <Route path="/creator-dashboard" element={<ProtectedRoute><CreatorDashboardPage /></ProtectedRoute>} />
+
+          {/* Superadmin routes */}
+          <Route path="/admin" element={<SuperAdminRoute><SuperAdminDashboardPage /></SuperAdminRoute>} />
 
           {/* Catch all - redirect to explore */}
           <Route path="*" element={<Navigate to="/explore/all" replace />} />

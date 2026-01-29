@@ -156,6 +156,24 @@ CREATE TABLE IF NOT EXISTS favorites (
 CREATE INDEX idx_favorites_client ON favorites(client_id);
 CREATE INDEX idx_favorites_creator ON favorites(creator_id);
 
+-- ============================================
+-- SUPERADMIN & VERIFICATION LIFECYCLE
+-- ============================================
+
+-- Superadmin flag on users
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_superadmin BOOLEAN DEFAULT FALSE;
+
+-- Verification lifecycle columns on creators
+ALTER TABLE creators ADD COLUMN IF NOT EXISTS verification_status TEXT DEFAULT 'pending'
+  CHECK (verification_status IN ('pending', 'scheduled', 'under_review', 'approved', 'denied'));
+ALTER TABLE creators ADD COLUMN IF NOT EXISTS verification_call_scheduled_at TIMESTAMP WITH TIME ZONE;
+ALTER TABLE creators ADD COLUMN IF NOT EXISTS verification_denied_reason TEXT;
+ALTER TABLE creators ADD COLUMN IF NOT EXISTS verification_notes TEXT;
+ALTER TABLE creators ADD COLUMN IF NOT EXISTS dispute_message TEXT;
+ALTER TABLE creators ADD COLUMN IF NOT EXISTS dispute_submitted_at TIMESTAMP WITH TIME ZONE;
+
+CREATE INDEX IF NOT EXISTS idx_creators_verification_status ON creators(verification_status);
+
 -- Add favorite_count column to creators
 ALTER TABLE creators ADD COLUMN IF NOT EXISTS favorite_count INTEGER DEFAULT 0;
 

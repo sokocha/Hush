@@ -8,6 +8,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { PLATFORM_CONFIG } from '../data/models';
 import { creatorService } from '../services/creatorService';
+import { supabase } from '../lib/supabase';
 import { storageService } from '../services/storageService';
 
 // ═══════════════════════════════════════════════════════════
@@ -440,10 +441,20 @@ export default function CreatorOnboardingPage() {
   const handleScheduleVerification = async () => {
     if (!verificationDate || !verificationTime) return;
     setVerificationScheduled(true);
+    const scheduledAt = new Date(`${verificationDate}T${verificationTime}`).toISOString();
     await updateUser({
       verificationCallScheduled: { date: verificationDate, time: verificationTime },
+      verificationStatus: 'scheduled',
+      verificationCallScheduledAt: scheduledAt,
       pendingVerification: true,
     });
+    // Also write the verification_status and scheduled time to the database
+    try {
+      await supabase.from('creators').update({
+        verification_status: 'scheduled',
+        verification_call_scheduled_at: scheduledAt,
+      }).eq('id', user.id);
+    } catch (e) { /* non-critical */ }
     // Move to completion
     setCurrentStep(4);
     setShowConfetti(true);

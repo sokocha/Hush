@@ -413,6 +413,55 @@ export const creatorService = {
   },
 
   /**
+   * Submit a dispute after verification denial
+   */
+  async submitDispute(creatorId, message) {
+    try {
+      const { data, error } = await supabase
+        .from('creators')
+        .update({
+          dispute_message: message,
+          dispute_submitted_at: new Date().toISOString(),
+        })
+        .eq('id', creatorId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return { success: true, creator: data };
+    } catch (error) {
+      console.error('Error submitting dispute:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  /**
+   * Request re-verification (resets status to scheduled)
+   */
+  async requestReverification(creatorId, scheduledAt) {
+    try {
+      const { data, error } = await supabase
+        .from('creators')
+        .update({
+          verification_status: 'scheduled',
+          verification_call_scheduled_at: scheduledAt,
+          verification_denied_reason: null,
+          dispute_message: null,
+          dispute_submitted_at: null,
+        })
+        .eq('id', creatorId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return { success: true, creator: data };
+    } catch (error) {
+      console.error('Error requesting re-verification:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  /**
    * Toggle creator visibility in explore
    */
   async toggleExploreVisibility(creatorId, isVisible) {
