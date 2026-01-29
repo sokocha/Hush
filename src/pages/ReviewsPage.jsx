@@ -1,10 +1,11 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
   Star, ChevronLeft, CheckCircle, Filter,
   ThumbsUp, Calendar, User, Search, ChevronDown
 } from 'lucide-react';
 import { getModelByUsername, MODELS, PLATFORM_CONFIG } from '../data/models';
+import { supabase } from '../lib/supabase';
 
 const formatNaira = (amount) => `₦${amount.toLocaleString()}`;
 
@@ -161,14 +162,66 @@ export default function ReviewsPage() {
   const [ratingFilter, setRatingFilter] = useState("all");
   const [sortBy, setSortBy] = useState("recent");
   const [searchQuery, setSearchQuery] = useState("");
+  const [dbReviews, setDbReviews] = useState([]);
+  const [dbCreatorName, setDbCreatorName] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   // Get reviews based on whether we're viewing a specific model or all reviews
   const isAllReviews = !username || username === 'all';
   const modelData = !isAllReviews ? getModelByUsername(username) : null;
 
+  // Fetch reviews from database for DB creators
+  useEffect(() => {
+    if (isAllReviews || modelData) return; // Skip if viewing all or if found in MODELS
+
+    const fetchReviews = async () => {
+      setLoading(true);
+      try {
+        // First find the creator by username
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('id, name, username')
+          .eq('username', username)
+          .single();
+
+        if (userError || !userData) {
+          setLoading(false);
+          return;
+        }
+
+        setDbCreatorName(userData.name);
+
+        // Fetch reviews for this creator
+        const { data: reviews, error: reviewsError } = await supabase
+          .from('reviews')
+          .select('*')
+          .eq('creator_id', userData.id)
+          .order('created_at', { ascending: false });
+
+        if (!reviewsError && reviews) {
+          setDbReviews(reviews.map((r, i) => ({
+            rating: r.rating,
+            text: r.comment || r.text || '',
+            author: r.reviewer_name || 'Anonymous',
+            date: new Date(r.created_at).toLocaleDateString(),
+            verified: r.is_verified || false,
+            modelUsername: username,
+            modelName: userData.name,
+            id: `db-${r.id || i}`,
+          })));
+        }
+      } catch (err) {
+        console.error('[ReviewsPage] Error fetching reviews:', err);
+      }
+      setLoading(false);
+    };
+
+    fetchReviews();
+  }, [username, isAllReviews, modelData]);
+
   const allReviews = useMemo(() => {
     if (isAllReviews) {
-      return getAllReviews();
+      return [...getAllReviews(), ...dbReviews];
     }
     if (modelData) {
       return modelData.reviews.map((review, index) => ({
@@ -178,8 +231,9 @@ export default function ReviewsPage() {
         id: `${username}-${index}`,
       }));
     }
-    return [];
-  }, [isAllReviews, modelData, username]);
+    // DB creator reviews
+    return dbReviews;
+  }, [isAllReviews, modelData, username, dbReviews]);
 
   // Filter and sort reviews
   const filteredReviews = useMemo(() => {
@@ -217,8 +271,8 @@ export default function ReviewsPage() {
     return reviews;
   }, [allReviews, ratingFilter, sortBy, searchQuery]);
 
-  // Handle model not found
-  if (!isAllReviews && !modelData) {
+  // Handle model not found — only show if not loading and no DB reviews found either
+  if (!isAllReviews && !modelData && !loading && dbCreatorName === null && dbReviews.length === 0) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-pink-950 via-rose-950 to-fuchsia-950 flex items-center justify-center p-4">
         <div className="text-center">
@@ -251,7 +305,7 @@ export default function ReviewsPage() {
           </Link>
           <div className="flex-1">
             <h1 className="text-2xl font-bold text-white">
-              {isAllReviews ? "All Reviews" : `Reviews for ${modelData?.profile.name}`}
+              {isAllReviews ? "All Reviews" : `Reviews for ${modelData?.profile.name || dbCreatorName || username}`}
             </h1>
             <p className="text-white/50 text-sm">
               {filteredReviews.length} review{filteredReviews.length !== 1 ? 's' : ''}

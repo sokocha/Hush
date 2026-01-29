@@ -105,7 +105,8 @@ export const useAuth = () => {
 /**
  * Transform Supabase user data to local state format
  */
-function transformUserData(dbUser) {
+// Exported for testing
+export function transformUserData(dbUser) {
   if (!dbUser) return null;
 
   const baseUser = {

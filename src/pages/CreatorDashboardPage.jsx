@@ -6,9 +6,9 @@ import {
   Settings, LogOut, Edit3, ChevronLeft, ChevronRight,
   MapPin, Target, TrendingUp, Eye, Phone,
   Ban, Sparkles, Award, X, Plus, Image, Trash2, Lock, Unlock,
-  GripVertical, RotateCcw, CalendarDays, Wallet, ClipboardList,
+  RotateCcw, CalendarDays, Wallet, ClipboardList,
   CheckCheck, XCircle, User, MessageSquare, RefreshCw, PartyPopper,
-  ShieldCheck, BadgeCheck, Pause, Play
+  ShieldCheck, BadgeCheck, Pause, Play, Aperture
 } from 'lucide-react';
 import { PLATFORM_CONFIG } from '../data/models';
 import { useAuth } from '../context/AuthContext';
@@ -418,11 +418,9 @@ const CameraCapture = ({ onCapture, onClose }) => {
 };
 
 // Photo Grid Item Component
-const PhotoGridItem = ({ photo, index, onTogglePreview, onSetProfilePhoto, onDelete, isDragging, isProfilePhoto }) => (
+const PhotoGridItem = ({ photo, index, onTogglePreview, onSetProfilePhoto, onDelete, isProfilePhoto, onReorder }) => (
   <div
-    className={`relative aspect-[3/4] rounded-xl overflow-hidden group ${
-      isDragging ? 'ring-2 ring-purple-500' : ''
-    } ${isProfilePhoto ? 'ring-2 ring-pink-500' : ''}`}
+    className={`relative aspect-[3/4] rounded-xl overflow-hidden group ${isProfilePhoto ? 'ring-2 ring-pink-500' : ''}`}
   >
     <img
       src={photo.url}
@@ -493,9 +491,24 @@ const PhotoGridItem = ({ photo, index, onTogglePreview, onSetProfilePhoto, onDel
       </button>
     </div>
 
-    {/* Drag Handle */}
-    <div className="absolute bottom-2 left-1/2 -translate-x-1/2 p-1 rounded bg-black/40 text-white/60">
-      <GripVertical size={16} />
+    {/* Reorder Buttons */}
+    <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
+      {index > 0 && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onReorder(index, index - 1); }}
+          className="p-1 rounded bg-black/60 text-white/70 hover:text-white hover:bg-black/80 transition-colors"
+          title="Move left"
+        >
+          <ChevronLeft size={14} />
+        </button>
+      )}
+      <button
+        onClick={(e) => { e.stopPropagation(); onReorder(index, index + 1); }}
+        className="p-1 rounded bg-black/60 text-white/70 hover:text-white hover:bg-black/80 transition-colors"
+        title="Move right"
+      >
+        <ChevronRight size={14} />
+      </button>
     </div>
   </div>
 );
@@ -612,10 +625,6 @@ export default function CreatorDashboardPage() {
   // Check if this is a new registration coming from auth page
   const isNewRegistration = location.state?.newRegistration;
 
-  // Onboarding state - show setup flow for new registrations or incomplete profiles
-  // Initialize to true if coming from new registration to avoid flash of dashboard
-  const [showOnboarding, setShowOnboarding] = useState(isNewRegistration || false);
-  const [onboardingStep, setOnboardingStep] = useState(0);
   const [showPhotoMilestone, setShowPhotoMilestone] = useState(false);
   const [showVideoCallSchedule, setShowVideoCallSchedule] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
@@ -660,6 +669,11 @@ export default function CreatorDashboardPage() {
   const [showEditAreasModal, setShowEditAreasModal] = useState(false);
   const [editingAreas, setEditingAreas] = useState([]);
   const [newAreaInput, setNewAreaInput] = useState('');
+
+  // Boundaries editing state
+  const [showBoundariesModal, setShowBoundariesModal] = useState(false);
+  const [editingBoundaries, setEditingBoundaries] = useState([]);
+  const [newBoundaryInput, setNewBoundaryInput] = useState('');
 
   // Pricing form state
   const [pricingData, setPricingData] = useState({
@@ -831,6 +845,7 @@ export default function CreatorDashboardPage() {
     setEditData({
       name: user.name || '',
       tagline: user.tagline || '',
+      location: user.location || '',
       bio: user.bio || '',
     });
     setShowEditProfileModal(true);
@@ -839,6 +854,13 @@ export default function CreatorDashboardPage() {
   const handleSaveProfile = () => {
     updateUser(editData);
     setShowEditProfileModal(false);
+  };
+
+  // Boundaries handlers
+  const handleOpenBoundariesModal = () => {
+    setEditingBoundaries(user.boundaries || []);
+    setNewBoundaryInput('');
+    setShowBoundariesModal(true);
   };
 
   // Service areas handlers
@@ -1005,25 +1027,24 @@ export default function CreatorDashboardPage() {
     }
   };
 
-  // Handle photo milestone continue
+  // Handle photo milestone continue — navigate to pricing setup
   const handlePhotoMilestoneContinue = () => {
     setShowPhotoMilestone(false);
-    setShowOnboarding(true);
-    setOnboardingStep(2); // Move to pricing step
+    setActiveTab('settings');
+    handleOpenPricing();
   };
 
   // Handle video call scheduled
   const handleVideoCallScheduled = ({ date, time }) => {
     setShowVideoCallSchedule(false);
     setVerificationCallScheduled(true);
+    const scheduledAt = new Date();
+    scheduledAt.setHours(parseInt(time?.split(':')[0] || 0, 10), parseInt(time?.split(':')[1] || 0, 10));
     updateUser({
-      verificationCallScheduled: { date, time },
+      verificationCallScheduledAt: scheduledAt.toISOString(),
       pendingVerification: true,
     });
-    // Move to next step or complete onboarding
-    if (showOnboarding) {
-      checkOnboardingComplete();
-    }
+    checkOnboardingComplete();
   };
 
   // Check if all onboarding steps are complete and show confetti
@@ -1031,13 +1052,12 @@ export default function CreatorDashboardPage() {
     const hasPhotos = (user?.photos?.length || 0) >= 3;
     const hasPricing = user?.pricing?.meetupIncall?.[1] > 0;
     const hasSchedule = user?.schedule?.monday?.active !== undefined;
-    const hasVerification = user?.isVerified || user?.isVideoVerified || verificationCallScheduled || user?.verificationCallScheduled;
+    const hasVerification = user?.isVerified || user?.isVideoVerified || verificationCallScheduled || user?.verificationCallScheduledAt;
 
     if (hasPhotos && hasPricing && hasSchedule && hasVerification) {
       setShowConfetti(true);
       setTimeout(() => {
         setShowConfetti(false);
-        setShowOnboarding(false);
       }, 4000);
     }
   };
@@ -1240,8 +1260,18 @@ export default function CreatorDashboardPage() {
   // Get earnings data (from database, with local fallback)
   const earnings = dbEarnings.length > 0 ? dbEarnings : (user.earnings || []);
   const totalEarnings = earnings.reduce((sum, e) => sum + parseFloat(e.amount || 0), 0);
+  const now = new Date();
   const thisMonthEarnings = earnings
-    .filter(e => new Date(e.created_at || e.date).getMonth() === new Date().getMonth())
+    .filter(e => new Date(e.created_at || e.date).getMonth() === now.getMonth() && new Date(e.created_at || e.date).getFullYear() === now.getFullYear())
+    .reduce((sum, e) => sum + parseFloat(e.amount || 0), 0);
+  const todayEarnings = earnings
+    .filter(e => new Date(e.created_at || e.date).toDateString() === now.toDateString())
+    .reduce((sum, e) => sum + parseFloat(e.amount || 0), 0);
+  const thisWeekStart = new Date(now);
+  thisWeekStart.setDate(now.getDate() - now.getDay());
+  thisWeekStart.setHours(0, 0, 0, 0);
+  const thisWeekEarnings = earnings
+    .filter(e => new Date(e.created_at || e.date) >= thisWeekStart)
     .reduce((sum, e) => sum + parseFloat(e.amount || 0), 0);
 
   // Get photos data
@@ -1280,53 +1310,6 @@ export default function CreatorDashboardPage() {
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
-  // Onboarding steps
-  const onboardingSteps = [
-    {
-      title: 'Welcome to Hush!',
-      description: 'Congratulations on creating your creator account! Let\'s complete your profile so clients can find and book you.',
-      icon: Crown,
-      action: null,
-    },
-    {
-      title: 'Add Your Photos',
-      description: `You need at least 3 photos to complete your profile. You have ${user?.photos?.length || 0} of 3 photos.`,
-      icon: Camera,
-      action: () => {
-        console.log('[Onboarding] Take Photo button clicked, setting showCameraCapture to true');
-        setShowCameraCapture(true);
-      },
-      actionText: (user?.photos?.length || 0) >= 3 ? 'Add More Photos' : `Take Photo (${user?.photos?.length || 0}/3)`,
-      isComplete: (user?.photos?.length || 0) >= 3,
-      showPhotoProgress: true,
-    },
-    {
-      title: 'Set Your Pricing',
-      description: 'Set your rates for meetups, photo unlocks, and contact unlocks. You can change these anytime.',
-      icon: DollarSign,
-      action: () => { handleOpenPricing(); },
-      actionText: 'Set Pricing',
-      isComplete: hasPricingSet,
-    },
-    {
-      title: 'Set Your Schedule',
-      description: 'Let clients know when you\'re available for bookings.',
-      icon: Calendar,
-      action: () => { setActiveTab('availability'); setShowOnboarding(false); },
-      actionText: 'Set Schedule',
-      isComplete: user?.schedule?.monday?.active !== undefined,
-    },
-    {
-      title: 'Schedule Verification Call',
-      description: 'Schedule a quick video call with our team to verify your identity and appear in search results.',
-      icon: Video,
-      action: () => { setShowVideoCallSchedule(true); },
-      actionText: 'Schedule Call',
-      isComplete: user?.isVerified || user?.isVideoVerified || verificationCallScheduled || user?.verificationCallScheduled,
-    },
-  ];
-
-  const currentOnboardingStep = onboardingSteps[onboardingStep];
 
   // Incomplete profile banner (shown inline in dashboard, no longer a blocking overlay)
   const showIncompleteProfileBanner = !isProfileComplete && user && isCreator;
@@ -1394,6 +1377,11 @@ export default function CreatorDashboardPage() {
                     <Video size={14} className="text-blue-400" />
                   </span>
                 )}
+                {user.isStudioVerified && (
+                  <span className="p-1 bg-cyan-500/20 rounded-full">
+                    <Aperture size={14} className="text-cyan-400" />
+                  </span>
+                )}
               </div>
               <p className="text-white/60 text-sm mb-2">{user.tagline || 'Add a tagline...'}</p>
               <div className="flex items-center gap-3 text-xs text-white/40">
@@ -1403,6 +1391,11 @@ export default function CreatorDashboardPage() {
                 </span>
                 <span>•</span>
                 <span>Joined {memberSince}</span>
+                <span>•</span>
+                <span className="flex items-center gap-1">
+                  <Phone size={12} />
+                  {user.phone}
+                </span>
               </div>
             </div>
           </div>
@@ -1665,6 +1658,51 @@ export default function CreatorDashboardPage() {
                     {user.pendingVerification ? 'Pending Verification' : 'Active'}
                   </span>
                 </div>
+                {user.verificationNotes && (
+                  <div className="pt-2 border-t border-white/10">
+                    <span className="text-white/50 text-sm block mb-1">Admin Notes</span>
+                    <p className="text-blue-300/80 text-sm">{user.verificationNotes}</p>
+                  </div>
+                )}
+                {user.disputeSubmittedAt && (
+                  <div className="pt-2 border-t border-white/10">
+                    <span className="text-white/50 text-sm block mb-1">Dispute Submitted</span>
+                    <p className="text-amber-300/80 text-sm">{new Date(user.disputeSubmittedAt).toLocaleDateString()}</p>
+                  </div>
+                )}
+                {user.bio && (
+                  <div className="pt-2 border-t border-white/10">
+                    <span className="text-white/50 text-sm block mb-1">Bio</span>
+                    <p className="text-white/80 text-sm leading-relaxed">{user.bio}</p>
+                  </div>
+                )}
+                {(user.bodyType || user.skinTone || user.age || user.height) && (
+                  <div className="pt-2 border-t border-white/10">
+                    <span className="text-white/50 text-sm block mb-2">Physical Details</span>
+                    <div className="flex flex-wrap gap-2">
+                      {user.bodyType && (
+                        <span className="px-2.5 py-1 bg-white/5 border border-white/10 rounded-lg text-white/70 text-xs">
+                          {user.bodyType}
+                        </span>
+                      )}
+                      {user.skinTone && (
+                        <span className="px-2.5 py-1 bg-white/5 border border-white/10 rounded-lg text-white/70 text-xs">
+                          {user.skinTone}
+                        </span>
+                      )}
+                      {user.age && (
+                        <span className="px-2.5 py-1 bg-white/5 border border-white/10 rounded-lg text-white/70 text-xs">
+                          Age: {user.age}
+                        </span>
+                      )}
+                      {user.height && (
+                        <span className="px-2.5 py-1 bg-white/5 border border-white/10 rounded-lg text-white/70 text-xs">
+                          {user.height}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1696,13 +1734,40 @@ export default function CreatorDashboardPage() {
               )}
             </div>
 
-            {/* Boundaries */}
-            {user.boundaries?.length > 0 && (
+            {/* Extras (Add-on Services) */}
+            {user.extras?.length > 0 && (
               <div className="bg-white/5 border border-white/10 rounded-xl p-4">
                 <h3 className="text-white font-semibold mb-3 flex items-center gap-2">
+                  <Plus size={18} className="text-green-400" />
+                  Extras
+                </h3>
+                <div className="space-y-2">
+                  {user.extras.map(extra => (
+                    <div key={extra.id} className="flex items-center justify-between py-1.5 px-3 bg-green-500/10 border border-green-500/20 rounded-lg">
+                      <span className="text-green-300 text-sm">{extra.name}</span>
+                      <span className="text-green-400 text-sm font-medium">{formatNaira(extra.price)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Boundaries */}
+            <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-white font-semibold flex items-center gap-2">
                   <Ban size={18} className="text-red-400" />
                   Boundaries
                 </h3>
+                <button
+                  onClick={handleOpenBoundariesModal}
+                  className="text-pink-400 text-sm flex items-center gap-1 hover:text-pink-300"
+                >
+                  <Edit3 size={14} />
+                  Edit
+                </button>
+              </div>
+              {user.boundaries?.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
                   {user.boundaries.map(boundary => (
                     <span key={boundary} className="px-3 py-1.5 bg-red-500/10 border border-red-500/30 rounded-lg text-red-300 text-xs">
@@ -1710,8 +1775,10 @@ export default function CreatorDashboardPage() {
                     </span>
                   ))}
                 </div>
-              </div>
-            )}
+              ) : (
+                <p className="text-white/40 text-sm">No boundaries set. Tap Edit to add your limits.</p>
+              )}
+            </div>
 
             {/* Recent Reviews */}
             {dbReviews.length > 0 && (
@@ -1771,6 +1838,8 @@ export default function CreatorDashboardPage() {
                 { id: 'confirmed', label: 'Confirmed' },
                 { id: 'completed', label: 'Completed' },
                 { id: 'declined', label: 'Declined' },
+                { id: 'no_show', label: 'No-Show' },
+                { id: 'rescheduled', label: 'Rescheduled' },
                 { id: 'cancelled', label: 'Cancelled' },
               ].map(filter => (
                 <button
@@ -1814,7 +1883,15 @@ export default function CreatorDashboardPage() {
                             <p className="text-white font-medium">{booking.client?.users?.name || 'Client'}</p>
                             {getClientTierLabel(booking.client)}
                           </div>
-                          <p className="text-white/50 text-xs">{booking.client?.users?.phone}</p>
+                          <p className="text-white/50 text-xs">
+                            {booking.client?.users?.phone}
+                            {booking.client?.is_trusted_member && (
+                              <span className="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 bg-green-500/20 border border-green-500/30 rounded text-green-300 text-[10px] font-medium">
+                                <ShieldCheck size={9} />
+                                Trusted{booking.client?.successful_meetups > 0 ? ` (${booking.client.successful_meetups} meetups)` : ''}
+                              </span>
+                            )}
+                          </p>
                         </div>
                       </div>
                       <span className={`px-2 py-1 rounded-lg text-xs font-medium ${
@@ -1822,6 +1899,8 @@ export default function CreatorDashboardPage() {
                         booking.status === 'confirmed' ? 'bg-blue-500/20 text-blue-300' :
                         booking.status === 'completed' ? 'bg-green-500/20 text-green-300' :
                         booking.status === 'declined' ? 'bg-red-500/20 text-red-300' :
+                        booking.status === 'no_show' ? 'bg-orange-500/20 text-orange-300' :
+                        booking.status === 'rescheduled' ? 'bg-indigo-500/20 text-indigo-300' :
                         'bg-white/10 text-white/50'
                       }`}>
                         {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
@@ -1927,14 +2006,18 @@ export default function CreatorDashboardPage() {
                 </div>
 
                 {/* Stats row */}
-                <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/10">
+                <div className="grid grid-cols-3 gap-3 pt-4 border-t border-white/10">
                   <div className="text-center">
-                    <p className="text-white/50 text-xs">This Month</p>
-                    <p className="text-2xl font-bold text-green-400">{formatNaira(thisMonthEarnings)}</p>
+                    <p className="text-white/50 text-xs">Today</p>
+                    <p className="text-lg font-bold text-green-400">{formatNaira(todayEarnings)}</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-white/50 text-xs">Completed Meetups</p>
-                    <p className="text-2xl font-bold text-white">{completedBookings.length}</p>
+                    <p className="text-white/50 text-xs">This Week</p>
+                    <p className="text-lg font-bold text-green-400">{formatNaira(thisWeekEarnings)}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-white/50 text-xs">This Month</p>
+                    <p className="text-lg font-bold text-green-400">{formatNaira(thisMonthEarnings)}</p>
                   </div>
                 </div>
               </div>
@@ -2189,23 +2272,23 @@ export default function CreatorDashboardPage() {
               description="Complete a live video call with our team to verify your identity"
               status={
                 user.isVideoVerified ? 'completed' :
-                user.verificationDenied ? 'denied' :
-                user.verificationUnderReview ? 'under_review' :
-                (verificationCallScheduled || user.verificationCallScheduled) ? 'scheduled' :
+                user.verificationStatus === 'denied' ? 'denied' :
+                user.verificationStatus === 'under_review' ? 'under_review' :
+                (verificationCallScheduled || user.verificationCallScheduledAt) ? 'scheduled' :
                 'pending'
               }
               action={
                 user.isVideoVerified ? null :
-                user.verificationDenied ? 'Reschedule Call' :
-                (verificationCallScheduled || user.verificationCallScheduled) ? 'Reschedule' :
+                user.verificationStatus === 'denied' ? 'Reschedule Call' :
+                (verificationCallScheduled || user.verificationCallScheduledAt) ? 'Reschedule' :
                 'Schedule Call'
               }
               onAction={() => setShowVideoCallSchedule(true)}
-              scheduledInfo={user.verificationCallScheduled || (verificationCallScheduled ? { date: 'Today', time: 'Soon' } : null)}
+              scheduledInfo={user.verificationCallScheduledAt ? { date: new Date(user.verificationCallScheduledAt).toLocaleDateString(), time: new Date(user.verificationCallScheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) } : (verificationCallScheduled ? { date: 'Today', time: 'Soon' } : null)}
               statusMessage={
-                user.verificationDenied ? 'Your verification was not approved. Please reschedule a call.' :
-                user.verificationUnderReview ? 'Your verification is being reviewed. We\'ll notify you soon.' :
-                (verificationCallScheduled || user.verificationCallScheduled) ? 'We\'ll call you at the scheduled time.' :
+                user.verificationStatus === 'denied' ? 'Your verification was not approved. Please reschedule a call.' :
+                user.verificationStatus === 'under_review' ? 'Your verification is being reviewed. We\'ll notify you soon.' :
+                (verificationCallScheduled || user.verificationCallScheduledAt) ? 'We\'ll call you at the scheduled time.' :
                 null
               }
             />
@@ -2220,7 +2303,7 @@ export default function CreatorDashboardPage() {
             />
 
             {/* Show success message when all steps are complete or waiting */}
-            {creatorPhotos.length >= 3 && (verificationCallScheduled || user.verificationCallScheduled) && !user.isVideoVerified && (
+            {creatorPhotos.length >= 3 && (verificationCallScheduled || user.verificationCallScheduledAt) && !user.isVideoVerified && (
               <div className="mt-4 p-4 bg-blue-500/10 border border-blue-500/30 rounded-xl">
                 <div className="flex items-start gap-3">
                   <Clock size={20} className="text-blue-400 flex-shrink-0 mt-0.5" />
@@ -2329,6 +2412,7 @@ export default function CreatorDashboardPage() {
                     onSetProfilePhoto={handleSetProfilePhoto}
                     onDelete={(id) => setShowDeletePhotoConfirm(id)}
                     isProfilePhoto={photo.isProfilePhoto}
+                    onReorder={handleReorderPhotos}
                   />
                 ))}
               </div>
@@ -2549,6 +2633,20 @@ export default function CreatorDashboardPage() {
           </div>
 
           <div className="space-y-2">
+            <label className="text-white/70 text-sm">Location</label>
+            <select
+              value={editData.location || ''}
+              onChange={(e) => setEditData(prev => ({ ...prev, location: e.target.value }))}
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-purple-500 focus:outline-none"
+            >
+              <option value="" className="bg-gray-900">Select location</option>
+              <option value="Lagos" className="bg-gray-900">Lagos</option>
+              <option value="Abuja" className="bg-gray-900">Abuja</option>
+              <option value="Port Harcourt" className="bg-gray-900">Port Harcourt</option>
+            </select>
+          </div>
+
+          <div className="space-y-2">
             <label className="text-white/70 text-sm">Bio</label>
             <textarea
               value={editData.bio || ''}
@@ -2564,6 +2662,74 @@ export default function CreatorDashboardPage() {
             className="w-full py-4 bg-purple-500 hover:bg-purple-600 rounded-xl text-white font-semibold transition-all"
           >
             Save Changes
+          </button>
+        </div>
+      </Modal>
+
+      {/* Boundaries Editing Modal */}
+      <Modal
+        isOpen={showBoundariesModal}
+        onClose={() => setShowBoundariesModal(false)}
+        title="🚫 Edit Boundaries"
+      >
+        <div className="space-y-4">
+          <p className="text-white/60 text-sm">Set limits that clients should know about.</p>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newBoundaryInput}
+              onChange={(e) => setNewBoundaryInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && newBoundaryInput.trim()) {
+                  setEditingBoundaries(prev => [...prev, newBoundaryInput.trim()]);
+                  setNewBoundaryInput('');
+                }
+              }}
+              placeholder="e.g. No overnight"
+              className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:border-red-500 focus:outline-none"
+            />
+            <button
+              onClick={() => {
+                if (newBoundaryInput.trim()) {
+                  setEditingBoundaries(prev => [...prev, newBoundaryInput.trim()]);
+                  setNewBoundaryInput('');
+                }
+              }}
+              className="px-4 py-3 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 rounded-xl text-red-300 font-medium transition-colors"
+            >
+              <Plus size={18} />
+            </button>
+          </div>
+          {editingBoundaries.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {editingBoundaries.map((b, i) => (
+                <span key={i} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 border border-red-500/30 rounded-lg text-red-300 text-sm">
+                  {b}
+                  <button onClick={() => setEditingBoundaries(prev => prev.filter((_, idx) => idx !== i))} className="hover:text-white">
+                    <X size={14} />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+          <button
+            onClick={async () => {
+              // Sync boundaries: remove old, add new
+              const current = user.boundaries || [];
+              const toRemove = current.filter(b => !editingBoundaries.includes(b));
+              const toAdd = editingBoundaries.filter(b => !current.includes(b));
+              for (const b of toRemove) {
+                await creatorService.removeCreatorBoundary(user.id, b);
+              }
+              for (const b of toAdd) {
+                await creatorService.addCreatorBoundary(user.id, b);
+              }
+              updateUser({ boundaries: editingBoundaries }, false);
+              setShowBoundariesModal(false);
+            }}
+            className="w-full py-4 bg-red-500 hover:bg-red-600 rounded-xl text-white font-semibold transition-all"
+          >
+            Save Boundaries
           </button>
         </div>
       </Modal>
@@ -2829,14 +2995,40 @@ export default function CreatorDashboardPage() {
             <h4 className="text-purple-300 font-medium mb-3">Pricing Summary</h4>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
+                <span className="text-white/60">Contact Unlock</span>
+                <span className="text-white font-medium">{formatNaira(pricingData.unlockContact)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-white/60">Photos Unlock</span>
+                <span className="text-white font-medium">{formatNaira(pricingData.unlockPhotos)}</span>
+              </div>
+              <div className="flex justify-between pt-1 border-t border-white/10">
                 <span className="text-white/60">Incall (1hr)</span>
                 <span className="text-white font-medium">{formatNaira(pricingData.meetupIncall1)}</span>
               </div>
+              <div className="flex justify-between">
+                <span className="text-white/60">Incall (2hr)</span>
+                <span className="text-white font-medium">{formatNaira(pricingData.meetupIncall2)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-white/60">Incall (Overnight)</span>
+                <span className="text-white font-medium">{formatNaira(pricingData.meetupIncallOvernight)}</span>
+              </div>
               {pricingData.enableOutcall && (
-                <div className="flex justify-between">
-                  <span className="text-white/60">Outcall (1hr)</span>
-                  <span className="text-white font-medium">{formatNaira(pricingData.meetupOutcall1)}</span>
-                </div>
+                <>
+                  <div className="flex justify-between pt-1 border-t border-white/10">
+                    <span className="text-white/60">Outcall (1hr)</span>
+                    <span className="text-white font-medium">{formatNaira(pricingData.meetupOutcall1)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-white/60">Outcall (2hr)</span>
+                    <span className="text-white font-medium">{formatNaira(pricingData.meetupOutcall2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-white/60">Outcall (Overnight)</span>
+                    <span className="text-white font-medium">{formatNaira(pricingData.meetupOutcallOvernight)}</span>
+                  </div>
+                </>
               )}
             </div>
           </div>
@@ -2920,6 +3112,12 @@ export default function CreatorDashboardPage() {
                   {getClientTierLabel(selectedBooking.client)}
                 </div>
                 <p className="text-white/50 text-sm">{selectedBooking.client?.users?.phone}</p>
+                {selectedBooking.client?.is_trusted_member && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-500/20 border border-green-500/30 rounded text-green-300 text-xs font-medium mt-1">
+                    <ShieldCheck size={10} />
+                    Trusted Member{selectedBooking.client?.successful_meetups > 0 ? ` \u2022 ${selectedBooking.client.successful_meetups} meetups` : ''}
+                  </span>
+                )}
               </div>
             </div>
 
@@ -2959,6 +3157,23 @@ export default function CreatorDashboardPage() {
               )}
             </div>
 
+            {/* Booking Extras */}
+            {selectedBooking.booking_extras?.length > 0 && (
+              <div className="p-3 bg-white/5 rounded-xl">
+                <p className="text-white/50 text-xs mb-2 flex items-center gap-1">
+                  <Plus size={12} /> Extras Selected
+                </p>
+                <div className="space-y-1.5">
+                  {selectedBooking.booking_extras.map((extra, idx) => (
+                    <div key={extra.id || idx} className="flex items-center justify-between">
+                      <span className="text-white text-sm">{extra.name || extra.extras?.name}</span>
+                      <span className="text-green-400 text-sm font-medium">{formatNaira(extra.price || extra.price_at_booking)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Special Requests */}
             {selectedBooking.special_requests && (
               <div className="p-3 bg-white/5 rounded-xl">
@@ -2969,12 +3184,48 @@ export default function CreatorDashboardPage() {
               </div>
             )}
 
-            {/* Client Code */}
-            {selectedBooking.client_code && selectedBooking.status === 'confirmed' && (
-              <div className="p-4 bg-purple-500/10 border border-purple-500/30 rounded-xl text-center">
-                <p className="text-purple-300 text-xs mb-1">Verification Code</p>
-                <p className="text-2xl font-mono font-bold text-white tracking-wider">{selectedBooking.client_code}</p>
-                <p className="text-purple-300/60 text-xs mt-1">Client will show this code at meetup</p>
+            {/* Verification Codes */}
+            {selectedBooking.status === 'confirmed' && (
+              <div className="space-y-3">
+                {selectedBooking.creator_code && (
+                  <div className="p-4 bg-green-500/10 border border-green-500/30 rounded-xl text-center">
+                    <p className="text-green-300 text-xs mb-1">Your Code (show to client)</p>
+                    <p className="text-2xl font-mono font-bold text-white tracking-wider">{selectedBooking.creator_code}</p>
+                  </div>
+                )}
+                {selectedBooking.client_code && (
+                  <div className="p-4 bg-purple-500/10 border border-purple-500/30 rounded-xl text-center">
+                    <p className="text-purple-300 text-xs mb-1">Client's Code (they show you)</p>
+                    <p className="text-2xl font-mono font-bold text-white tracking-wider">{selectedBooking.client_code}</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Client Code Verification */}
+            {selectedBooking.status === 'confirmed' && (
+              <div className="p-3 bg-white/5 border border-white/10 rounded-xl">
+                <p className="text-white/50 text-xs mb-2">Verify client's code at meetup</p>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Enter client's code"
+                    maxLength={6}
+                    className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white font-mono text-center tracking-wider placeholder-white/30 focus:border-purple-500 focus:outline-none"
+                    onKeyDown={async (e) => {
+                      if (e.key === 'Enter' && e.target.value.length > 0) {
+                        const result = await bookingService.verifyClientCode(selectedBooking.id, e.target.value);
+                        if (result.success) {
+                          e.target.style.borderColor = '#22c55e';
+                          e.target.value = 'Verified!';
+                        } else {
+                          e.target.style.borderColor = '#ef4444';
+                          setTimeout(() => { e.target.style.borderColor = ''; e.target.value = ''; }, 1500);
+                        }
+                      }
+                    }}
+                  />
+                </div>
               </div>
             )}
 
@@ -2984,6 +3235,8 @@ export default function CreatorDashboardPage() {
               selectedBooking.status === 'confirmed' ? 'bg-blue-500/20 border border-blue-500/30' :
               selectedBooking.status === 'completed' ? 'bg-green-500/20 border border-green-500/30' :
               selectedBooking.status === 'declined' ? 'bg-red-500/20 border border-red-500/30' :
+              selectedBooking.status === 'no_show' ? 'bg-orange-500/20 border border-orange-500/30' :
+              selectedBooking.status === 'rescheduled' ? 'bg-indigo-500/20 border border-indigo-500/30' :
               'bg-white/10 border border-white/20'
             }`}>
               <span className={`text-sm font-medium ${
@@ -2991,11 +3244,28 @@ export default function CreatorDashboardPage() {
                 selectedBooking.status === 'confirmed' ? 'text-blue-300' :
                 selectedBooking.status === 'completed' ? 'text-green-300' :
                 selectedBooking.status === 'declined' ? 'text-red-300' :
+                selectedBooking.status === 'no_show' ? 'text-orange-300' :
+                selectedBooking.status === 'rescheduled' ? 'text-indigo-300' :
                 'text-white/60'
               }`}>
                 Status: {selectedBooking.status.charAt(0).toUpperCase() + selectedBooking.status.slice(1)}
               </span>
             </div>
+
+            {/* Booking Metadata */}
+            {(selectedBooking.created_at || selectedBooking.status_note || selectedBooking.status_updated_at) && (
+              <div className="space-y-1.5 text-xs text-white/40">
+                {selectedBooking.created_at && (
+                  <p>Requested: {new Date(selectedBooking.created_at).toLocaleString()}</p>
+                )}
+                {selectedBooking.status_updated_at && (
+                  <p>Last updated: {new Date(selectedBooking.status_updated_at).toLocaleString()}</p>
+                )}
+                {selectedBooking.status_note && (
+                  <p className="text-white/60">Note: {selectedBooking.status_note}</p>
+                )}
+              </div>
+            )}
 
             {/* Actions */}
             {selectedBooking.status === 'pending' && (
@@ -3021,20 +3291,48 @@ export default function CreatorDashboardPage() {
             )}
 
             {selectedBooking.status === 'confirmed' && (
-              <div className="flex gap-3">
-                <button
-                  onClick={() => handleCancelBooking(selectedBooking.id)}
-                  className="flex-1 py-3 bg-white/10 hover:bg-white/20 rounded-xl text-white/70 font-medium transition-colors"
-                >
-                  Cancel Booking
-                </button>
-                <button
-                  onClick={() => handleCompleteBooking(selectedBooking)}
-                  className="flex-1 py-3 bg-green-500 hover:bg-green-600 rounded-xl text-white font-semibold transition-all flex items-center justify-center gap-2"
-                >
-                  <CheckCheck size={18} />
-                  Mark Complete
-                </button>
+              <div className="space-y-2">
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => handleCancelBooking(selectedBooking.id)}
+                    className="flex-1 py-3 bg-white/10 hover:bg-white/20 rounded-xl text-white/70 font-medium transition-colors"
+                  >
+                    Cancel Booking
+                  </button>
+                  <button
+                    onClick={() => handleCompleteBooking(selectedBooking)}
+                    className="flex-1 py-3 bg-green-500 hover:bg-green-600 rounded-xl text-white font-semibold transition-all flex items-center justify-center gap-2"
+                  >
+                    <CheckCheck size={18} />
+                    Mark Complete
+                  </button>
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={async () => {
+                      await bookingService.markNoShow(selectedBooking.id);
+                      setShowBookingModal(false);
+                      setSelectedBooking(null);
+                      fetchBookings();
+                    }}
+                    className="flex-1 py-3 bg-orange-500/20 hover:bg-orange-500/30 border border-orange-500/30 rounded-xl text-orange-300 font-medium transition-colors flex items-center justify-center gap-2 text-sm"
+                  >
+                    <XCircle size={16} />
+                    No-Show
+                  </button>
+                  <button
+                    onClick={async () => {
+                      await bookingService.rescheduleBooking(selectedBooking.id);
+                      setShowBookingModal(false);
+                      setSelectedBooking(null);
+                      fetchBookings();
+                    }}
+                    className="flex-1 py-3 bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/30 rounded-xl text-indigo-300 font-medium transition-colors flex items-center justify-center gap-2 text-sm"
+                  >
+                    <RotateCcw size={16} />
+                    Reschedule
+                  </button>
+                </div>
               </div>
             )}
           </div>
