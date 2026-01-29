@@ -114,23 +114,26 @@ const OTPInput = ({ value, onChange, length = 6 }) => {
   );
 };
 
-// Step indicator
-const StepIndicator = ({ currentStep, totalSteps }) => (
-  <div className="flex items-center justify-center gap-2 mb-6">
-    {[...Array(totalSteps)].map((_, i) => (
-      <div
-        key={i}
-        className={`h-1.5 rounded-full transition-all ${
-          i < currentStep
-            ? 'w-8 bg-pink-500'
-            : i === currentStep
-            ? 'w-8 bg-pink-500/50'
-            : 'w-4 bg-white/20'
-        }`}
-      />
-    ))}
-  </div>
-);
+// Labeled progress bar with step names
+const StepIndicator = ({ currentStep, totalSteps, stepLabels }) => {
+  const progress = ((currentStep + 1) / totalSteps) * 100;
+  const label = stepLabels?.[currentStep] || '';
+
+  return (
+    <div className="mb-6 space-y-2">
+      <div className="flex items-center justify-between">
+        <p className="text-white/50 text-xs">Step {currentStep + 1} of {totalSteps}</p>
+        {label && <p className="text-purple-300 text-xs font-medium">{label}</p>}
+      </div>
+      <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+        <div
+          className="h-full bg-gradient-to-r from-pink-500 to-purple-500 rounded-full transition-all duration-500 ease-out"
+          style={{ width: `${progress}%` }}
+        />
+      </div>
+    </div>
+  );
+};
 
 // Age verification gate
 const AgeVerificationStep = ({ onConfirm, onExit }) => (
@@ -937,8 +940,149 @@ const ClientBioStep = ({ data, setData, onSubmit, onBack, isLoading }) => {
 // CREATOR PROFILE STEPS
 // ═══════════════════════════════════════════════════════════
 
-// Creator Step 1: Basic Info
-const CreatorBasicInfoStep = ({ data, setData, onSubmit, onBack, hasDraft, onClearDraft }) => {
+// Creator Step 1a: Identity (Name + Username with real-time availability check)
+const CreatorIdentityStep = ({ data, setData, onSubmit, onBack, hasDraft, onClearDraft, checkUsername }) => {
+  const [errors, setErrors] = useState({});
+  const [usernameChecking, setUsernameChecking] = useState(false);
+  const [usernameAvailable, setUsernameAvailable] = useState(null);
+
+  const validateUsername = (username) => {
+    if (!username) return false;
+    return /^[a-z0-9_]{3,20}$/.test(username);
+  };
+
+  const checkUsernameAvailability = async (username) => {
+    if (!validateUsername(username)) {
+      setUsernameAvailable(null);
+      return;
+    }
+    setUsernameChecking(true);
+    if (checkUsername) {
+      const result = await checkUsername(username);
+      setUsernameAvailable(result.success ? result.available : null);
+      setUsernameChecking(false);
+    } else {
+      setTimeout(() => {
+        const reserved = ['admin', 'hush', 'support', 'help', 'system'];
+        setUsernameAvailable(!reserved.includes(username.toLowerCase()));
+        setUsernameChecking(false);
+      }, 300);
+    }
+  };
+
+  const handleUsernameChange = (value) => {
+    const sanitized = value.toLowerCase().replace(/[^a-z0-9_]/g, '');
+    setData(prev => ({ ...prev, username: sanitized }));
+    checkUsernameAvailability(sanitized);
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const newErrors = {};
+    if (data.name.trim().length < 2) newErrors.name = 'Name is required';
+    if (!validateUsername(data.username)) {
+      newErrors.username = 'Username must be 3-20 characters (letters, numbers, underscores only)';
+    } else if (usernameAvailable === false) {
+      newErrors.username = 'This username is already taken';
+    }
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+    setErrors({});
+    onSubmit();
+  };
+
+  const isFormValid = data.name.trim().length >= 2 && validateUsername(data.username) && usernameAvailable !== false;
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <button type="button" onClick={onBack} className="flex items-center gap-2 text-white/60 hover:text-white transition-colors">
+        <ArrowLeft size={18} /> Back
+      </button>
+
+      <div className="text-center mb-6">
+        <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-purple-500/20 flex items-center justify-center">
+          <Crown size={32} className="text-purple-400" />
+        </div>
+        <h2 className="text-2xl font-bold text-white mb-2">Choose your identity</h2>
+        <p className="text-white/60 text-sm">Pick a name and username for your profile</p>
+      </div>
+
+      {hasDraft && (
+        <div className="p-3 bg-purple-500/15 border border-purple-500/30 rounded-xl flex items-center justify-between">
+          <div>
+            <p className="text-purple-300 text-sm font-medium">Welcome back</p>
+            <p className="text-white/50 text-xs">Your previous progress was saved.</p>
+          </div>
+          <button type="button" onClick={onClearDraft} className="text-white/40 hover:text-white/70 text-xs underline transition-colors">Start fresh</button>
+        </div>
+      )}
+
+      <div className="space-y-4">
+        {/* Display Name */}
+        <div className="space-y-2">
+          <label className="text-white/70 text-sm">Display Name</label>
+          <input
+            type="text"
+            placeholder="e.g. Destiny"
+            value={data.name}
+            onChange={(e) => setData(prev => ({ ...prev, name: e.target.value }))}
+            className={`w-full bg-white/5 border rounded-xl px-4 py-3 text-white placeholder-white/40 focus:border-purple-500 focus:outline-none ${
+              errors.name ? 'border-red-500' : 'border-white/10'
+            }`}
+          />
+          {errors.name && <p className="text-red-400 text-sm">{errors.name}</p>}
+          <p className="text-white/40 text-xs">This is what clients will see on your profile.</p>
+        </div>
+
+        {/* Username with real-time availability check */}
+        <div className="space-y-2">
+          <label className="text-white/70 text-sm">Username</label>
+          <div className="relative">
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40">@</span>
+            <input
+              type="text"
+              placeholder="destiny_x"
+              value={data.username}
+              onChange={(e) => handleUsernameChange(e.target.value)}
+              className={`w-full bg-white/5 border rounded-xl pl-8 pr-10 py-3 text-white placeholder-white/40 focus:outline-none ${
+                errors.username ? 'border-red-500' : usernameAvailable === true ? 'border-green-500' : 'border-white/10 focus:border-purple-500'
+              }`}
+              maxLength={20}
+            />
+            {usernameChecking && (
+              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                <div className="w-5 h-5 border-2 border-white/30 border-t-purple-500 rounded-full animate-spin" />
+              </div>
+            )}
+            {!usernameChecking && usernameAvailable === true && (
+              <CheckCircle size={20} className="absolute right-3 top-1/2 -translate-y-1/2 text-green-500" />
+            )}
+            {!usernameChecking && usernameAvailable === false && (
+              <X size={20} className="absolute right-3 top-1/2 -translate-y-1/2 text-red-500" />
+            )}
+          </div>
+          {errors.username && <p className="text-red-400 text-sm">{errors.username}</p>}
+          <p className="text-white/40 text-xs">This cannot be changed later. Letters, numbers, and underscores only.</p>
+        </div>
+      </div>
+
+      <button
+        type="submit"
+        disabled={!isFormValid}
+        className={`w-full py-4 rounded-xl text-white font-semibold transition-all ${
+          isFormValid ? 'bg-purple-500 hover:bg-purple-600' : 'bg-white/20 cursor-not-allowed'
+        }`}
+      >
+        Continue
+      </button>
+    </form>
+  );
+};
+
+// Creator Step 1b: Location & Tagline
+const CreatorLocationStep = ({ data, setData, onSubmit, onBack }) => {
   const [errors, setErrors] = useState({});
   const [selectedLocation, setSelectedLocation] = useState(data.location || '');
 
@@ -961,12 +1105,8 @@ const CreatorBasicInfoStep = ({ data, setData, onSubmit, onBack, hasDraft, onCle
   const handleSubmit = (e) => {
     e.preventDefault();
     const newErrors = {};
-    if (data.name.trim().length < 2) newErrors.name = 'Name is required';
-    if (data.username.trim().length < 3) newErrors.username = 'Username must be at least 3 characters';
-    if (!/^[a-z0-9_]+$/.test(data.username)) newErrors.username = 'Only lowercase letters, numbers, and underscores';
     if (!data.location) newErrors.location = 'Please select your location';
     if (data.areas.length === 0) newErrors.areas = 'Please select at least one area';
-
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
@@ -977,82 +1117,31 @@ const CreatorBasicInfoStep = ({ data, setData, onSubmit, onBack, hasDraft, onCle
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <button
-        type="button"
-        onClick={onBack}
-        className="flex items-center gap-2 text-white/60 hover:text-white transition-colors"
-      >
-        <ArrowLeft size={18} />
-        Back
+      <button type="button" onClick={onBack} className="flex items-center gap-2 text-white/60 hover:text-white transition-colors">
+        <ArrowLeft size={18} /> Back
       </button>
 
       <div className="text-center mb-6">
         <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-purple-500/20 flex items-center justify-center">
-          <Crown size={32} className="text-purple-400" />
+          <MapPin size={32} className="text-purple-400" />
         </div>
-        <h2 className="text-2xl font-bold text-white mb-2">Create your profile</h2>
-        <p className="text-white/60 text-sm">
-          Let's set up your creator account
-        </p>
+        <h2 className="text-2xl font-bold text-white mb-2">Where are you based?</h2>
+        <p className="text-white/60 text-sm">Set your location and a tagline for your profile</p>
       </div>
 
-      {hasDraft && (
-        <div className="p-3 bg-purple-500/15 border border-purple-500/30 rounded-xl flex items-center justify-between">
-          <div>
-            <p className="text-purple-300 text-sm font-medium">Welcome back</p>
-            <p className="text-white/50 text-xs">Your previous progress was saved.</p>
-          </div>
-          <button
-            type="button"
-            onClick={onClearDraft}
-            className="text-white/40 hover:text-white/70 text-xs underline transition-colors"
-          >
-            Start fresh
-          </button>
-        </div>
-      )}
-
       <div className="space-y-4">
-        {/* Display Name */}
-        <div className="space-y-2">
-          <label className="text-white/70 text-sm">Display Name</label>
-          <input
-            type="text"
-            placeholder="e.g. Destiny"
-            value={data.name}
-            onChange={(e) => setData(prev => ({ ...prev, name: e.target.value }))}
-            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/40 focus:border-purple-500 focus:outline-none"
-          />
-          {errors.name && <p className="text-red-400 text-sm">{errors.name}</p>}
-        </div>
-
-        {/* Username */}
-        <div className="space-y-2">
-          <label className="text-white/70 text-sm">Username</label>
-          <div className="flex items-center">
-            <span className="px-4 py-3 bg-white/10 border border-white/10 border-r-0 rounded-l-xl text-white/50">@</span>
-            <input
-              type="text"
-              placeholder="destiny_x"
-              value={data.username}
-              onChange={(e) => setData(prev => ({ ...prev, username: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '') }))}
-              className="flex-1 bg-white/5 border border-white/10 rounded-r-xl px-4 py-3 text-white placeholder-white/40 focus:border-purple-500 focus:outline-none"
-            />
-          </div>
-          {errors.username && <p className="text-red-400 text-sm">{errors.username}</p>}
-        </div>
-
         {/* Tagline */}
         <div className="space-y-2">
-          <label className="text-white/70 text-sm">Tagline</label>
+          <label className="text-white/70 text-sm">Tagline <span className="text-white/40">(optional)</span></label>
           <input
             type="text"
-            placeholder="e.g. Your favorite girl 💋"
+            placeholder="e.g. Your favorite girl"
             value={data.tagline || ''}
             onChange={(e) => setData(prev => ({ ...prev, tagline: e.target.value }))}
             maxLength={50}
             className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/40 focus:border-purple-500 focus:outline-none"
           />
+          <p className="text-white/40 text-xs">A short intro shown on your card.</p>
         </div>
 
         {/* Location */}
@@ -1112,8 +1201,8 @@ const CreatorBasicInfoStep = ({ data, setData, onSubmit, onBack, hasDraft, onCle
   );
 };
 
-// Creator Step 2: Physical Attributes
-const CreatorPhysicalStep = ({ data, setData, onSubmit, onBack }) => {
+// Creator Step 2: Physical Attributes (skippable)
+const CreatorPhysicalStep = ({ data, setData, onSubmit, onBack, onSkip }) => {
   const [errors, setErrors] = useState({});
 
   const handleSubmit = () => {
@@ -1246,6 +1335,16 @@ const CreatorPhysicalStep = ({ data, setData, onSubmit, onBack }) => {
       >
         Continue
       </button>
+
+      {onSkip && (
+        <button
+          type="button"
+          onClick={onSkip}
+          className="w-full py-2 text-white/40 hover:text-white/60 text-sm transition-colors"
+        >
+          Skip for now
+        </button>
+      )}
     </div>
   );
 };
@@ -1457,7 +1556,7 @@ export default function AuthPage() {
     getUserByPhone,
   } = useAuth();
 
-  // Step: age, select, login-phone, login-otp, phone, otp, profile1, profile2, profile3
+  // Step: age, select, login-phone, login-otp, phone, otp, profile1a, profile1b, profile1, profile2, profile3
   const [step, setStep] = useState('age');
   const [userType, setUserType] = useState(null);
   const [isLoginFlow, setIsLoginFlow] = useState(false);
@@ -1643,7 +1742,7 @@ export default function AuthPage() {
       if (result.success) {
         if (result.isNewUser) {
           // Continue to profile creation
-          setStep('profile1');
+          setStep(userType === 'creator' ? 'profile1a' : 'profile1');
         } else {
           // User already exists - redirect
           if (result.user?.user_type === 'creator') {
@@ -1659,7 +1758,7 @@ export default function AuthPage() {
       // Mock mode - Edge Functions not deployed yet
       setTimeout(() => {
         setIsLoading(false);
-        setStep('profile1');
+        setStep(userType === 'creator' ? 'profile1a' : 'profile1');
       }, 1000);
     }
   };
@@ -1721,12 +1820,22 @@ export default function AuthPage() {
     try { localStorage.removeItem(CREATOR_DRAFT_KEY); setHasDraft(false); } catch (e) { /* ignore */ }
   };
 
-  const handleCreatorProfile1Submit = () => {
+  const handleCreatorProfile1aSubmit = () => {
+    saveCreatorDraft(creatorData);
+    setStep('profile1b');
+  };
+
+  const handleCreatorProfile1bSubmit = () => {
     saveCreatorDraft(creatorData);
     setStep('profile2');
   };
 
   const handleCreatorProfile2Submit = () => {
+    saveCreatorDraft(creatorData);
+    setStep('profile3');
+  };
+
+  const handleCreatorProfile2Skip = () => {
     saveCreatorDraft(creatorData);
     setStep('profile3');
   };
@@ -1765,15 +1874,29 @@ export default function AuthPage() {
     }
   };
 
-  // Calculate steps
-  const totalSteps = userType === 'creator' ? 6 : 5; // age, phone, otp, profile1, profile2, profile3
+  // Calculate steps and labels for the progress bar
+  const CREATOR_STEP_LABELS = ['Phone', 'Verify', 'Identity', 'Location', 'Details', 'Services'];
+  const CLIENT_STEP_LABELS = ['Phone', 'Verify', 'Profile', 'Preferences', 'Bio'];
+  const totalSteps = userType === 'creator' ? 6 : 5;
+  const stepLabels = userType === 'creator' ? CREATOR_STEP_LABELS : CLIENT_STEP_LABELS;
   const getStepNumber = () => {
+    if (userType === 'creator') {
+      switch (step) {
+        case 'phone': return 0;
+        case 'otp': return 1;
+        case 'profile1a': return 2;
+        case 'profile1b': return 3;
+        case 'profile2': return 4;
+        case 'profile3': return 5;
+        default: return 0;
+      }
+    }
     switch (step) {
-      case 'phone': return 1;
-      case 'otp': return 2;
-      case 'profile1': return 3;
-      case 'profile2': return 4;
-      case 'profile3': return 5;
+      case 'phone': return 0;
+      case 'otp': return 1;
+      case 'profile1': return 2;
+      case 'profile2': return 3;
+      case 'profile3': return 4;
       default: return 0;
     }
   };
@@ -1796,7 +1919,7 @@ export default function AuthPage() {
 
           {/* Step indicator */}
           {step !== 'age' && step !== 'select' && !step.startsWith('login') && (
-            <StepIndicator currentStep={getStepNumber()} totalSteps={totalSteps} />
+            <StepIndicator currentStep={getStepNumber()} totalSteps={totalSteps} stepLabels={stepLabels} />
           )}
 
           {/* Content */}
@@ -1903,14 +2026,24 @@ export default function AuthPage() {
             )}
 
             {/* Creator profile steps */}
-            {step === 'profile1' && userType === 'creator' && (
-              <CreatorBasicInfoStep
+            {step === 'profile1a' && userType === 'creator' && (
+              <CreatorIdentityStep
                 data={creatorData}
                 setData={setCreatorData}
-                onSubmit={handleCreatorProfile1Submit}
+                onSubmit={handleCreatorProfile1aSubmit}
                 onBack={() => setStep('otp')}
                 hasDraft={hasDraft}
                 onClearDraft={handleClearDraft}
+                checkUsername={checkUsername}
+              />
+            )}
+
+            {step === 'profile1b' && userType === 'creator' && (
+              <CreatorLocationStep
+                data={creatorData}
+                setData={setCreatorData}
+                onSubmit={handleCreatorProfile1bSubmit}
+                onBack={() => setStep('profile1a')}
               />
             )}
 
@@ -1919,7 +2052,8 @@ export default function AuthPage() {
                 data={creatorData}
                 setData={setCreatorData}
                 onSubmit={handleCreatorProfile2Submit}
-                onBack={() => setStep('profile1')}
+                onBack={() => setStep('profile1b')}
+                onSkip={handleCreatorProfile2Skip}
               />
             )}
 
