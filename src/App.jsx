@@ -160,6 +160,9 @@ const PhotoGalleryModal = ({ isOpen, onClose, photos, initialIndex = 0, photosUn
   if (!isOpen) return null;
 
   const isLocked = !photosUnlocked && currentIndex >= previewCount;
+  const currentPhotoUrl = currentIndex < previewCount
+    ? photos?.previewImages?.[currentIndex]
+    : photos?.lockedImages?.[currentIndex - previewCount];
 
   const handleTouchStart = (e) => setTouchStart(e.touches[0].clientX);
   const handleTouchEnd = (e) => {
@@ -216,6 +219,12 @@ const PhotoGalleryModal = ({ isOpen, onClose, photos, initialIndex = 0, photosUn
                 Unlock All Photos — {formatNaira(modelConfig?.pricing?.unlockPhotos || 0)}
               </button>
             </div>
+          ) : currentPhotoUrl ? (
+            <img
+              src={currentPhotoUrl}
+              alt={`Photo ${currentIndex + 1}`}
+              className="max-w-full max-h-full object-contain rounded-2xl"
+            />
           ) : (
             <div className="w-full max-w-2xl aspect-[3/4] bg-gradient-to-br from-pink-500/20 to-purple-500/20 rounded-2xl flex items-center justify-center">
               <span className="text-6xl">📸</span>
