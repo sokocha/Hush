@@ -119,7 +119,7 @@ const ModelCard = ({ model, isFavorite, onToggleFavorite, showMatchBadge = false
         <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/20 pointer-events-none" />
 
         {/* Status badges — capped to key signals only */}
-        <div className="absolute top-3 left-3 flex flex-col gap-1.5">
+        <div className="absolute top-3 left-3 flex flex-col items-start gap-1.5">
           {showMatchBadge && model.matchPercentage > 0 && (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gradient-to-r from-pink-500 to-purple-500 text-white text-xs font-medium">
               <Sparkles size={10} />
