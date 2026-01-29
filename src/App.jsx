@@ -1560,8 +1560,13 @@ export default function App() {
   const [contactUnlocked, setContactUnlocked] = useState(false);
   const [photosUnlocked, setPhotosUnlocked] = useState(false);
 
+  // State for database creator data (declared early so creatorId can reference it)
+  const [dbCreator, setDbCreator] = useState(null);
+  const [creatorLoading, setCreatorLoading] = useState(false);
+  const [creatorNotFound, setCreatorNotFound] = useState(false);
+
   // Restore unlock state from database when viewing a real creator
-  const creatorId = CONFIG?.creatorId;
+  const creatorId = dbCreator?.creators?.id || null;
   useEffect(() => {
     if (!isAuthenticated || !user?.id || !creatorId) return;
     let cancelled = false;
@@ -1635,11 +1640,6 @@ export default function App() {
   // Load model data based on URL param or default
   const currentUsername = username || DEFAULT_USERNAME;
   const mockModelData = getModelByUsername(currentUsername);
-
-  // State for database creator data
-  const [dbCreator, setDbCreator] = useState(null);
-  const [creatorLoading, setCreatorLoading] = useState(false);
-  const [creatorNotFound, setCreatorNotFound] = useState(false);
 
   // Fetch creator from database if not in mock data
   useEffect(() => {
