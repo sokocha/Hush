@@ -451,7 +451,7 @@ export default function ExplorePage() {
   // Filter by extras
   if (selectedExtras.length > 0) {
     filteredModels = filteredModels.filter(m =>
-      selectedExtras.every(extra => m.extras.includes(extra))
+      selectedExtras.every(extra => m.extras.some(e => e.name === extra || e === extra))
     );
   }
 

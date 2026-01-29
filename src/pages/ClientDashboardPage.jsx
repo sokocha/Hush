@@ -664,7 +664,7 @@ export default function ClientDashboardPage() {
   const meetups = dbMeetups.length > 0
     ? dbMeetups
     : localMeetups;
-  const upcomingMeetups = meetups.filter(m => m.status === 'pending' || m.status === 'confirmed');
+  const upcomingMeetups = meetups.filter(m => m.status === 'pending' || m.status === 'confirmed' || m.status === 'rescheduled');
   const pastMeetups = meetups.filter(m => m.status === 'completed' || m.status === 'cancelled' || m.status === 'declined');
 
   const tabs = [

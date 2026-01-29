@@ -14,6 +14,7 @@ import { PLATFORM_CONFIG, getModelByUsername, MODELS } from './data/models';
 import useFavorites, { useFavoriteCount } from './hooks/useFavorites';
 import { useAuth } from './context/AuthContext';
 import { creatorService } from './services/creatorService';
+import { userService } from './services/userService';
 import { storageService } from './services/storageService';
 
 // ═══════════════════════════════════════════════════════════
@@ -700,7 +701,7 @@ const P2PPaymentStep = ({ amount, serviceName, onBack, onConfirm, creatorPayment
 // MEETUP MODAL (with Trust Deposit check + P2P payment)
 // ═══════════════════════════════════════════════════════════
 
-const MeetupModal = ({ isOpen, onClose, clientState, onNeedsTrustDeposit, modelConfig, onMeetupBooked }) => {
+const MeetupModal = ({ isOpen, onClose, clientState, onNeedsTrustDeposit, modelConfig, onMeetupBooked, onDeductBalance }) => {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const todayDate = new Date().toISOString().split('T')[0];
@@ -759,6 +760,9 @@ const MeetupModal = ({ isOpen, onClose, clientState, onNeedsTrustDeposit, modelC
   const availableTimeSlots = getAvailableTimeSlots();
   const isDateUnavailable = formData.date && availableTimeSlots.length === 0;
 
+  const depositAmount = Math.round(getMeetupPrice() * 0.5);
+  const hasEnoughBalance = (clientState?.depositBalance || 0) >= depositAmount;
+
   const handleStartBooking = () => {
     // Check if client has any verification tier (required to initiate meetups)
     if (!clientState.tier) {
@@ -775,6 +779,11 @@ const MeetupModal = ({ isOpen, onClose, clientState, onNeedsTrustDeposit, modelC
     const creatorCode = generateCode('X');
     setCodes({ client: clientCode, creator: creatorCode });
 
+    // Deduct 50% deposit from client balance
+    if (onDeductBalance) {
+      onDeductBalance(depositAmount);
+    }
+
     // Save the meetup booking immediately when confirmed
     if (onMeetupBooked) {
       onMeetupBooked({
@@ -788,7 +797,7 @@ const MeetupModal = ({ isOpen, onClose, clientState, onNeedsTrustDeposit, modelC
         duration: formData.duration,
         specialRequests: formData.specialRequests,
         totalPrice: getMeetupPrice(),
-        depositAmount: Math.round(getMeetupPrice() * 0.5), // 50% deposit
+        depositAmount: depositAmount,
         clientCode: clientCode,
       });
     }
@@ -1002,13 +1011,21 @@ const MeetupModal = ({ isOpen, onClose, clientState, onNeedsTrustDeposit, modelC
               <span className="text-white/60 text-sm">{formData.locationType === 'incall' ? '🏠 Incall' : '🚗 Outcall'} • {formData.duration === 'overnight' ? 'Overnight' : formData.duration + 'hr'}</span>
               <span className="text-white font-bold text-lg">{formatNaira(getMeetupPrice())}</span>
             </div>
-            <p className="text-white/40 text-xs mt-2">Payment handled directly between you and {modelConfig.profile.name}</p>
+            <p className="text-white/40 text-xs mt-2">50% deposit ({formatNaira(depositAmount)}) deducted from your balance</p>
           </div>
+
+          {clientState.tier && !hasEnoughBalance && (
+            <div className="rounded-xl p-3 bg-red-500/10 border border-red-500/30">
+              <p className="text-red-300 text-sm">
+                Insufficient balance. You need {formatNaira(depositAmount)} but have {formatNaira(clientState?.depositBalance || 0)}.
+              </p>
+            </div>
+          )}
 
           <button
             onClick={handleStartBooking}
-            disabled={!isFormValid}
-            className={`w-full py-4 rounded-xl font-semibold ${isFormValid ? 'bg-pink-500 hover:bg-pink-600 text-white' : 'bg-white/10 text-white/40 cursor-not-allowed'}`}
+            disabled={!isFormValid || (clientState.tier && !hasEnoughBalance)}
+            className={`w-full py-4 rounded-xl font-semibold ${isFormValid && (!clientState.tier || hasEnoughBalance) ? 'bg-pink-500 hover:bg-pink-600 text-white' : 'bg-white/10 text-white/40 cursor-not-allowed'}`}
           >
             {!clientState.tier ? 'Get Verified to Book' : 'Confirm Booking'}
           </button>
@@ -1575,6 +1592,48 @@ export default function App() {
   };
   const [contactUnlocked, setContactUnlocked] = useState(false);
   const [photosUnlocked, setPhotosUnlocked] = useState(false);
+
+  // Restore unlock state from database when viewing a real creator
+  const creatorId = CONFIG?.creatorId;
+  useEffect(() => {
+    if (!isAuthenticated || !user?.id || !creatorId) return;
+    let cancelled = false;
+    (async () => {
+      const [photos, contact] = await Promise.all([
+        userService.checkUnlock(user.id, creatorId, 'photos'),
+        userService.checkUnlock(user.id, creatorId, 'contact'),
+      ]);
+      if (cancelled) return;
+      if (photos.unlocked) setPhotosUnlocked(true);
+      if (contact.unlocked) setContactUnlocked(true);
+    })();
+    return () => { cancelled = true; };
+  }, [isAuthenticated, user?.id, creatorId]);
+
+  // Persist unlocks to database and update local state
+  const handleUnlockPhotos = async () => {
+    setPhotosUnlocked(true);
+    if (isAuthenticated && user?.id && creatorId) {
+      await userService.createUnlock(user.id, creatorId, 'photos', CONFIG.pricing.unlockPhotos);
+    }
+  };
+  const handleUnlockContact = async () => {
+    setContactUnlocked(true);
+    if (isAuthenticated && user?.id && creatorId) {
+      await userService.createUnlock(user.id, creatorId, 'contact', CONFIG.pricing.unlockContact);
+    }
+  };
+  const handleUnlockBundle = async () => {
+    setPhotosUnlocked(true);
+    setContactUnlocked(true);
+    if (isAuthenticated && user?.id && creatorId) {
+      await Promise.all([
+        userService.createUnlock(user.id, creatorId, 'photos', CONFIG.pricing.unlockPhotos),
+        userService.createUnlock(user.id, creatorId, 'contact', CONFIG.pricing.unlockContact),
+      ]);
+    }
+  };
+
   const [modal, setModal] = useState(null);
   const [photoGalleryIndex, setPhotoGalleryIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
@@ -1818,7 +1877,7 @@ export default function App() {
   };
 
   // Unlock both photos and contact with bundle discount - opens modal
-  const handleUnlockBundle = () => {
+  const openUnlockBundleModal = () => {
     if (!isAuthenticated) {
       navigate('/auth');
       return;
@@ -2070,7 +2129,7 @@ export default function App() {
                 <div className="space-y-3">
                   {/* Bundle option - most prominent when both locked */}
                   {!photosUnlocked && !contactUnlocked && (
-                    <button onClick={handleUnlockBundle} className="w-full p-3 bg-gradient-to-r from-pink-500/20 to-green-500/20 rounded-xl border border-amber-500/30 hover:border-amber-500/50 transition-all">
+                    <button onClick={openUnlockBundleModal} className="w-full p-3 bg-gradient-to-r from-pink-500/20 to-green-500/20 rounded-xl border border-amber-500/30 hover:border-amber-500/50 transition-all">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <Sparkles size={18} className="text-amber-400" />
@@ -2322,11 +2381,11 @@ export default function App() {
       {/* Modals */}
       <TrustDepositModal isOpen={modal === 'trustDeposit'} onClose={() => setModal(null)} onDepositPaid={handleTrustDepositPaid} />
       <InAppChatModal isOpen={modal === 'chat'} onClose={() => setModal(null)} onUpgrade={chatUpgrade} modelConfig={CONFIG} />
-      <UnlockContactModal isOpen={modal === 'unlockContact'} onClose={() => setModal(null)} onUnlock={() => { setContactUnlocked(true); setModal('contactRevealed'); }} clientState={clientState} onNeedsTrustDeposit={() => setModal('trustDeposit')} onDeductBalance={deductFromBalance} modelConfig={CONFIG} onSwitchToBundle={() => setModal('unlockBundle')} photosAlreadyUnlocked={photosUnlocked} />
+      <UnlockContactModal isOpen={modal === 'unlockContact'} onClose={() => setModal(null)} onUnlock={() => { handleUnlockContact(); setModal('contactRevealed'); }} clientState={clientState} onNeedsTrustDeposit={() => setModal('trustDeposit')} onDeductBalance={deductFromBalance} modelConfig={CONFIG} onSwitchToBundle={() => setModal('unlockBundle')} photosAlreadyUnlocked={photosUnlocked} />
       <ContactRevealedModal isOpen={modal === 'contactRevealed'} onClose={() => setModal(null)} modelConfig={CONFIG} />
-      <MeetupModal isOpen={modal === 'meetup'} onClose={() => setModal(null)} clientState={clientState} onNeedsTrustDeposit={() => setModal('trustDeposit')} modelConfig={CONFIG} onMeetupBooked={addMeetupBooking} />
-      <UnlockPhotosModal isOpen={modal === 'unlockPhotos'} onClose={() => setModal(null)} onUnlock={() => setPhotosUnlocked(true)} clientState={clientState} onDeductBalance={deductFromBalance} onNeedsTrustDeposit={() => setModal('trustDeposit')} modelConfig={CONFIG} onSwitchToBundle={() => setModal('unlockBundle')} contactAlreadyUnlocked={contactUnlocked} />
-      <UnlockBundleModal isOpen={modal === 'unlockBundle'} onClose={() => setModal(null)} onUnlock={() => { setPhotosUnlocked(true); setContactUnlocked(true); setModal('contactRevealed'); }} clientState={clientState} onNeedsTrustDeposit={() => setModal('trustDeposit')} onDeductBalance={deductFromBalance} modelConfig={CONFIG} />
+      <MeetupModal isOpen={modal === 'meetup'} onClose={() => setModal(null)} clientState={clientState} onNeedsTrustDeposit={() => setModal('trustDeposit')} modelConfig={CONFIG} onMeetupBooked={addMeetupBooking} onDeductBalance={deductFromBalance} />
+      <UnlockPhotosModal isOpen={modal === 'unlockPhotos'} onClose={() => setModal(null)} onUnlock={handleUnlockPhotos} clientState={clientState} onDeductBalance={deductFromBalance} onNeedsTrustDeposit={() => setModal('trustDeposit')} modelConfig={CONFIG} onSwitchToBundle={() => setModal('unlockBundle')} contactAlreadyUnlocked={contactUnlocked} />
+      <UnlockBundleModal isOpen={modal === 'unlockBundle'} onClose={() => setModal(null)} onUnlock={() => { handleUnlockBundle(); setModal('contactRevealed'); }} clientState={clientState} onNeedsTrustDeposit={() => setModal('trustDeposit')} onDeductBalance={deductFromBalance} modelConfig={CONFIG} />
       <AllReviewsModal isOpen={modal === 'allReviews'} onClose={() => setModal(null)} modelConfig={CONFIG} />
       <VideoVerificationModal isOpen={modal === 'videoVerify'} onClose={() => setModal(null)} modelConfig={CONFIG} />
       <PhotoVerificationModal isOpen={modal === 'photoVerify'} onClose={() => setModal(null)} modelConfig={CONFIG} />
