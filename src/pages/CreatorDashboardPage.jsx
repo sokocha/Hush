@@ -665,16 +665,13 @@ export default function CreatorDashboardPage() {
     return missing;
   };
 
-  // Show onboarding for new registrations or incomplete profiles
+  // Redirect new registrations and incomplete profiles to onboarding wizard
   useEffect(() => {
-    if (isNewRegistration || (!isProfileComplete && user && isCreator)) {
-      setShowOnboarding(true);
-      // Clear the navigation state so refresh doesn't re-trigger
-      if (isNewRegistration) {
-        navigate(location.pathname, { replace: true, state: {} });
-      }
+    if (isNewRegistration) {
+      navigate('/creator-onboarding', { replace: true, state: { newRegistration: true } });
+      return;
     }
-  }, [isNewRegistration, isProfileComplete, user, isCreator]);
+  }, [isNewRegistration]);
 
   // Fetch bookings and earnings from database
   const fetchBookings = useCallback(async () => {
@@ -1217,8 +1214,11 @@ export default function CreatorDashboardPage() {
 
   const currentOnboardingStep = onboardingSteps[onboardingStep];
 
-  // Show onboarding overlay for new registrations
-  if (showOnboarding) {
+  // Incomplete profile banner (shown inline in dashboard, no longer a blocking overlay)
+  const showIncompleteProfileBanner = !isProfileComplete && user && isCreator;
+
+  // Legacy: onboarding overlay removed - now handled by /creator-onboarding route
+  if (false && showOnboarding) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-pink-950 via-rose-950 to-fuchsia-950">
         {/* Background effects */}
@@ -1693,6 +1693,26 @@ export default function CreatorDashboardPage() {
             )}
           </div>
         </div>
+
+        {/* Incomplete profile banner - links to onboarding wizard */}
+        {showIncompleteProfileBanner && (
+          <div className="mb-4 p-4 bg-gradient-to-r from-purple-500/15 to-fuchsia-500/15 border border-purple-500/30 rounded-xl">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-white font-medium text-sm">Complete your profile</p>
+                <p className="text-white/50 text-xs mt-0.5">
+                  {!hasPhotos ? 'Add photos and set pricing to go live.' : 'Set your pricing to go live.'}
+                </p>
+              </div>
+              <button
+                onClick={() => navigate('/creator-onboarding')}
+                className="px-4 py-2 bg-purple-500 hover:bg-purple-600 rounded-lg text-white text-sm font-medium transition-colors"
+              >
+                Continue Setup
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Verification Banner - shows different states */}
         {(() => {

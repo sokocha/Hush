@@ -70,6 +70,8 @@ const COMMON_BOUNDARIES = [
   "No same-day bookings",
 ];
 
+const CREATOR_DRAFT_KEY = 'hush_creator_draft';
+
 const formatNaira = (amount) => `₦${amount.toLocaleString()}`;
 
 // OTP Input component
@@ -936,7 +938,7 @@ const ClientBioStep = ({ data, setData, onSubmit, onBack, isLoading }) => {
 // ═══════════════════════════════════════════════════════════
 
 // Creator Step 1: Basic Info
-const CreatorBasicInfoStep = ({ data, setData, onSubmit, onBack }) => {
+const CreatorBasicInfoStep = ({ data, setData, onSubmit, onBack, hasDraft, onClearDraft }) => {
   const [errors, setErrors] = useState({});
   const [selectedLocation, setSelectedLocation] = useState(data.location || '');
 
@@ -993,6 +995,22 @@ const CreatorBasicInfoStep = ({ data, setData, onSubmit, onBack }) => {
           Let's set up your creator account
         </p>
       </div>
+
+      {hasDraft && (
+        <div className="p-3 bg-purple-500/15 border border-purple-500/30 rounded-xl flex items-center justify-between">
+          <div>
+            <p className="text-purple-300 text-sm font-medium">Welcome back</p>
+            <p className="text-white/50 text-xs">Your previous progress was saved.</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClearDraft}
+            className="text-white/40 hover:text-white/70 text-xs underline transition-colors"
+          >
+            Start fresh
+          </button>
+        </div>
+      )}
 
       <div className="space-y-4">
         {/* Display Name */}
@@ -1096,6 +1114,28 @@ const CreatorBasicInfoStep = ({ data, setData, onSubmit, onBack }) => {
 
 // Creator Step 2: Physical Attributes
 const CreatorPhysicalStep = ({ data, setData, onSubmit, onBack }) => {
+  const [errors, setErrors] = useState({});
+
+  const handleSubmit = () => {
+    const newErrors = {};
+    if (!data.bodyType) newErrors.bodyType = 'Please select your body type';
+    if (!data.age) {
+      newErrors.age = 'Please enter your age';
+    } else {
+      const ageNum = parseInt(data.age, 10);
+      if (isNaN(ageNum) || ageNum < 18 || ageNum > 60) {
+        newErrors.age = 'Age must be between 18 and 60';
+      }
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+    setErrors({});
+    onSubmit();
+  };
+
   return (
     <div className="space-y-6">
       <button
@@ -1120,13 +1160,13 @@ const CreatorPhysicalStep = ({ data, setData, onSubmit, onBack }) => {
       <div className="space-y-5">
         {/* Body type */}
         <div className="space-y-2">
-          <label className="text-white/70 text-sm">Body Type</label>
+          <label className="text-white/70 text-sm">Body Type <span className="text-red-400">*</span></label>
           <div className="flex flex-wrap gap-2">
             {BODY_TYPES.map(type => (
               <button
                 key={type}
                 type="button"
-                onClick={() => setData(prev => ({ ...prev, bodyType: type }))}
+                onClick={() => { setData(prev => ({ ...prev, bodyType: type })); setErrors(prev => ({ ...prev, bodyType: undefined })); }}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                   data.bodyType === type
                     ? 'bg-purple-500 text-white'
@@ -1137,6 +1177,7 @@ const CreatorPhysicalStep = ({ data, setData, onSubmit, onBack }) => {
               </button>
             ))}
           </div>
+          {errors.bodyType && <p className="text-red-400 text-sm">{errors.bodyType}</p>}
         </div>
 
         {/* Skin tone */}
@@ -1183,21 +1224,24 @@ const CreatorPhysicalStep = ({ data, setData, onSubmit, onBack }) => {
 
         {/* Age */}
         <div className="space-y-2">
-          <label className="text-white/70 text-sm">Age</label>
+          <label className="text-white/70 text-sm">Age <span className="text-red-400">*</span></label>
           <input
             type="number"
             placeholder="e.g. 24"
             min="18"
             max="60"
             value={data.age || ''}
-            onChange={(e) => setData(prev => ({ ...prev, age: e.target.value }))}
-            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/40 focus:border-purple-500 focus:outline-none"
+            onChange={(e) => { setData(prev => ({ ...prev, age: e.target.value })); setErrors(prev => ({ ...prev, age: undefined })); }}
+            className={`w-full bg-white/5 border rounded-xl px-4 py-3 text-white placeholder-white/40 focus:border-purple-500 focus:outline-none ${
+              errors.age ? 'border-red-500/50' : 'border-white/10'
+            }`}
           />
+          {errors.age && <p className="text-red-400 text-sm">{errors.age}</p>}
         </div>
       </div>
 
       <button
-        onClick={onSubmit}
+        onClick={handleSubmit}
         className="w-full py-4 bg-purple-500 hover:bg-purple-600 rounded-xl text-white font-semibold transition-all"
       >
         Continue
@@ -1434,20 +1478,19 @@ export default function AuthPage() {
     bio: '',
   });
 
-  // Creator data
-  const [creatorData, setCreatorData] = useState({
-    name: '',
-    username: '',
-    tagline: '',
-    location: '',
-    areas: [],
-    bodyType: '',
-    skinTone: '',
-    height: '',
-    age: '',
-    services: [],
-    boundaries: [],
-    bio: '',
+  // Creator data - load from draft if available
+  const [creatorData, setCreatorData] = useState(() => {
+    try {
+      const draft = localStorage.getItem(CREATOR_DRAFT_KEY);
+      if (draft) {
+        const parsed = JSON.parse(draft);
+        return { name: '', username: '', tagline: '', location: '', areas: [], bodyType: '', skinTone: '', height: '', age: '', services: [], boundaries: [], bio: '', ...parsed };
+      }
+    } catch (e) { /* ignore parse errors */ }
+    return { name: '', username: '', tagline: '', location: '', areas: [], bodyType: '', skinTone: '', height: '', age: '', services: [], boundaries: [], bio: '' };
+  });
+  const [hasDraft, setHasDraft] = useState(() => {
+    try { return !!localStorage.getItem(CREATOR_DRAFT_KEY); } catch { return false; }
   });
 
   // Redirect if already authenticated
@@ -1472,6 +1515,15 @@ export default function AuthPage() {
     setUserType(type);
     setIsLoginFlow(false);
     setStep('phone');
+    // If creator with saved draft, show a note (draft data already loaded into creatorData state)
+    if (type === 'creator' && hasDraft) {
+      setAuthError(''); // clear any previous errors
+    }
+  };
+
+  const handleClearDraft = () => {
+    clearCreatorDraft();
+    setCreatorData({ name: '', username: '', tagline: '', location: '', areas: [], bodyType: '', skinTone: '', height: '', age: '', services: [], boundaries: [], bio: '' });
   };
 
   const handleLoginClick = () => {
@@ -1654,12 +1706,21 @@ export default function AuthPage() {
     }
   };
 
-  // Creator flow handlers
+  // Creator flow handlers - save drafts to localStorage between steps
+  const saveCreatorDraft = (data) => {
+    try { localStorage.setItem(CREATOR_DRAFT_KEY, JSON.stringify(data)); } catch (e) { /* ignore */ }
+  };
+  const clearCreatorDraft = () => {
+    try { localStorage.removeItem(CREATOR_DRAFT_KEY); setHasDraft(false); } catch (e) { /* ignore */ }
+  };
+
   const handleCreatorProfile1Submit = () => {
+    saveCreatorDraft(creatorData);
     setStep('profile2');
   };
 
   const handleCreatorProfile2Submit = () => {
+    saveCreatorDraft(creatorData);
     setStep('profile3');
   };
 
@@ -1688,9 +1749,9 @@ export default function AuthPage() {
     setIsLoading(false);
 
     if (result.success) {
-      // Navigate to creator dashboard with state indicating this is a new registration
-      // The dashboard will show the profile completion flow
-      navigate('/creator-dashboard', { state: { newRegistration: true } });
+      clearCreatorDraft();
+      // Navigate to creator onboarding wizard to complete profile setup
+      navigate('/creator-onboarding', { state: { newRegistration: true } });
     } else {
       setAuthError(result.error || 'Failed to create account');
     }
@@ -1840,6 +1901,8 @@ export default function AuthPage() {
                 setData={setCreatorData}
                 onSubmit={handleCreatorProfile1Submit}
                 onBack={() => setStep('otp')}
+                hasDraft={hasDraft}
+                onClearDraft={handleClearDraft}
               />
             )}
 
