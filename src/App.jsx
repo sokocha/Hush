@@ -228,14 +228,14 @@ const PhotoGalleryModal = ({ isOpen, onClose, photos, initialIndex = 0, photosUn
                   alt={`Photo ${currentIndex + 1}`}
                   className="max-w-full max-h-full object-contain rounded-lg"
                 />
-                {/* Diagonal watermark */}
+                {/* Diagonal watermark — oversized grid so rotation covers entire photo */}
                 <div className="absolute inset-0 pointer-events-none overflow-hidden select-none" aria-hidden="true">
-                  <div className="absolute inset-0 flex items-center justify-center" style={{ transform: 'rotate(-30deg)' }}>
-                    <div className="flex flex-col gap-16 items-center">
-                      {[...Array(5)].map((_, row) => (
-                        <div key={row} className="flex gap-20">
-                          {[...Array(4)].map((_, col) => (
-                            <span key={col} className="text-white/10 text-2xl font-bold tracking-widest uppercase whitespace-nowrap">HUSH @{modelConfig?.profile?.username}</span>
+                  <div className="absolute" style={{ top: '-50%', left: '-50%', width: '200%', height: '200%', transform: 'rotate(-30deg)' }}>
+                    <div className="w-full h-full flex flex-col justify-center gap-12">
+                      {[...Array(15)].map((_, row) => (
+                        <div key={row} className="flex gap-16 justify-center">
+                          {[...Array(8)].map((_, col) => (
+                            <span key={col} className="text-white/10 text-lg font-bold tracking-widest uppercase whitespace-nowrap">HUSH @{modelConfig?.profile?.username}</span>
                           ))}
                         </div>
                       ))}
@@ -2147,10 +2147,18 @@ export default function App() {
 
                   {isVisible ? (
                     <div className="absolute inset-0 flex flex-col items-center justify-center">
-                      {/* Diagonal watermark */}
+                      {/* Diagonal watermark — oversized so rotation covers entire thumbnail */}
                       <div className="absolute inset-0 pointer-events-none overflow-hidden select-none" aria-hidden="true">
-                        <div className="absolute inset-0 flex items-center justify-center" style={{ transform: 'rotate(-30deg)' }}>
-                          <span className="text-white/10 text-[9px] font-bold tracking-widest uppercase whitespace-nowrap">HUSH @{profile.username}</span>
+                        <div className="absolute" style={{ top: '-50%', left: '-50%', width: '200%', height: '200%', transform: 'rotate(-30deg)' }}>
+                          <div className="w-full h-full flex flex-col justify-center gap-4">
+                            {[...Array(6)].map((_, row) => (
+                              <div key={row} className="flex gap-6 justify-center">
+                                {[...Array(4)].map((_, col) => (
+                                  <span key={col} className="text-white/10 text-[8px] font-bold tracking-widest uppercase whitespace-nowrap">HUSH @{profile.username}</span>
+                                ))}
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       </div>
                       <div className="absolute bottom-0 left-0 right-0 bg-black/40 p-1">
