@@ -1578,24 +1578,6 @@ export default function App() {
   const [showVisitorPrompt, setShowVisitorPrompt] = useState(false);
   const [visitorPromptMessage, setVisitorPromptMessage] = useState('');
 
-  // Post-browse nudge: track profile views for registered-but-unverified users
-  useEffect(() => {
-    if (isAuthenticated && !clientState.tier && profile?.name) {
-      const key = 'hush_profile_views';
-      const views = parseInt(localStorage.getItem(key) || '0', 10) + 1;
-      localStorage.setItem(key, views.toString());
-      if (views === 3) {
-        const nudgeKey = 'hush_upgrade_nudge_shown';
-        if (!localStorage.getItem(nudgeKey)) {
-          localStorage.setItem(nudgeKey, 'true');
-          // Show nudge after a short delay so page renders first
-          setTimeout(() => setShowVisitorPrompt(true), 1500);
-          setVisitorPromptMessage(`You've browsed ${views} profiles. Get Verified to start booking.`);
-        }
-      }
-    }
-  }, [isAuthenticated, clientState.tier, profile?.name]);
-
   // Toast state
   const [toast, setToast] = useState({ visible: false, message: '', type: 'success' });
   const showToast = (message, type = 'success') => setToast({ visible: true, message, type });
@@ -1748,6 +1730,23 @@ export default function App() {
   const photos = CONFIG?.photos;
   const contact = CONFIG?.contact;
   const hasOutcall = pricing?.meetupOutcall !== null;
+
+  // Post-browse nudge: track profile views for registered-but-unverified users
+  useEffect(() => {
+    if (isAuthenticated && !clientState.tier && profile?.name) {
+      const key = 'hush_profile_views';
+      const views = parseInt(localStorage.getItem(key) || '0', 10) + 1;
+      localStorage.setItem(key, views.toString());
+      if (views === 3) {
+        const nudgeKey = 'hush_upgrade_nudge_shown';
+        if (!localStorage.getItem(nudgeKey)) {
+          localStorage.setItem(nudgeKey, 'true');
+          setTimeout(() => setShowVisitorPrompt(true), 1500);
+          setVisitorPromptMessage(`You've browsed ${views} profiles. Get Verified to start booking.`);
+        }
+      }
+    }
+  }, [isAuthenticated, clientState.tier, profile?.name]);
 
   const protectedAction = (action) => {
     // Not authenticated (visitor) → show registration prompt
