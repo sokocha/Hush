@@ -6,7 +6,7 @@ import {
   ChevronRight, ArrowLeft, Shield
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { supabase } from '../lib/supabase';
+import { creatorService } from '../services/creatorService';
 import { storageService } from '../services/storageService';
 
 // ═══════════════════════════════════════════════════════════
@@ -446,13 +446,15 @@ export default function CreatorOnboardingPage() {
       verificationCallScheduledAt: scheduledAt,
       pendingVerification: true,
     });
-    // Also write the verification_status and scheduled time to the database
+    // Persist verification scheduling to the database
     try {
-      await supabase.from('creators').update({
-        verification_status: 'scheduled',
-        verification_call_scheduled_at: scheduledAt,
-      }).eq('id', user.id);
-    } catch (_e) { /* non-critical */ }
+      const result = await creatorService.requestReverification(user.id, scheduledAt);
+      if (!result.success) {
+        console.error('[Onboarding] Failed to save verification schedule:', result.error);
+      }
+    } catch (err) {
+      console.error('[Onboarding] Error saving verification schedule:', err);
+    }
     // Move to completion
     setCurrentStep(4);
     setShowConfetti(true);

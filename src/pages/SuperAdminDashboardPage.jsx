@@ -290,8 +290,17 @@ export default function SuperAdminDashboardPage() {
       adminService.getVerificationQueue(activeTab),
       adminService.getDashboardStats(),
     ]);
-    if (queueResult.success) setCreators(queueResult.creators);
-    if (statsResult.success) setStats(statsResult.stats);
+    if (queueResult.success) {
+      setCreators(queueResult.creators);
+    } else {
+      console.error('[AdminDashboard] Queue fetch failed:', queueResult.error);
+      setCreators([]);
+    }
+    if (statsResult.success) {
+      setStats(statsResult.stats);
+    } else {
+      console.error('[AdminDashboard] Stats fetch failed:', statsResult.error);
+    }
     setLoading(false);
   }, [activeTab]);
 

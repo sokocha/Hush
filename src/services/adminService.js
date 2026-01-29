@@ -2,43 +2,62 @@ import { supabase } from '../lib/supabase';
 
 export const adminService = {
   /**
+   * Fetch all creators with related data. Filters and groups in JS
+   * to avoid PostgREST issues with OR filters + resource embedding.
+   */
+  async _fetchAllCreators() {
+    const { data, error } = await supabase
+      .from('creators')
+      .select(`
+        *,
+        users:id(id, name, username, phone, created_at),
+        creator_areas(area),
+        creator_photos(id, storage_path, is_preview, display_order)
+      `)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('[AdminService] Error fetching creators:', error);
+      throw error;
+    }
+    return data || [];
+  },
+
+  /**
+   * Get the effective verification status, treating NULL as 'pending'.
+   */
+  _getStatus(creator) {
+    return creator.verification_status || 'pending';
+  },
+
+  /**
    * Get creators filtered by verification status
    * @param {string} status - 'pending' | 'scheduled' | 'under_review' | 'approved' | 'denied' | 'all' | 'disputed'
    */
   async getVerificationQueue(status = 'pending') {
     try {
-      let query = supabase
-        .from('creators')
-        .select(`
-          *,
-          users:id(id, name, username, phone, created_at),
-          creator_areas(area),
-          creator_photos(id, storage_path, is_preview, display_order)
-        `);
+      const all = await this._fetchAllCreators();
 
-      if (status === 'disputed') {
-        // Show denied creators who have submitted a dispute
-        query = query.eq('verification_status', 'denied').not('dispute_message', 'is', null);
-      } else if (status === 'pending') {
-        // Match both explicit 'pending' and NULL (pre-migration rows)
-        query = query.or('verification_status.eq.pending,verification_status.is.null');
-      } else if (status !== 'all') {
-        query = query.eq('verification_status', status);
-      }
-
-      // Sort scheduled by call time, everything else by creation date
-      if (status === 'scheduled') {
-        query = query.order('verification_call_scheduled_at', { ascending: true });
+      let filtered;
+      if (status === 'all') {
+        filtered = all;
+      } else if (status === 'disputed') {
+        filtered = all.filter(c => this._getStatus(c) === 'denied' && c.dispute_message);
       } else {
-        query = query.order('created_at', { ascending: false });
+        filtered = all.filter(c => this._getStatus(c) === status);
       }
 
-      const { data, error } = await query;
-      if (error) throw error;
-      return { success: true, creators: data || [] };
+      // Sort scheduled by call time ascending, everything else by created_at descending
+      if (status === 'scheduled') {
+        filtered.sort((a, b) =>
+          new Date(a.verification_call_scheduled_at || 0) - new Date(b.verification_call_scheduled_at || 0)
+        );
+      }
+
+      return { success: true, creators: filtered };
     } catch (error) {
-      console.error('Error getting verification queue:', error);
-      return { success: false, error: error.message };
+      console.error('[AdminService] Error getting verification queue:', error);
+      return { success: false, error: error.message, creators: [] };
     }
   },
 
@@ -63,7 +82,7 @@ export const adminService = {
       if (error) throw error;
       return { success: true, creator: data };
     } catch (error) {
-      console.error('Error getting creator detail:', error);
+      console.error('[AdminService] Error getting creator detail:', error);
       return { success: false, error: error.message };
     }
   },
@@ -179,7 +198,7 @@ export const adminService = {
 
       return { success: true, stats };
     } catch (error) {
-      console.error('Error getting dashboard stats:', error);
+      console.error('[AdminService] Error getting dashboard stats:', error);
       return { success: false, error: error.message };
     }
   },
