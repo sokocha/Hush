@@ -526,9 +526,10 @@ export default function ClientDashboardPage() {
     setLoadingMeetups(true);
     try {
       const result = await bookingService.getClientBookings(user.id);
-      if (result.success) {
+      if (result.success && result.bookings?.length > 0) {
+        console.log('[ClientDashboard] Fetched', result.bookings.length, 'bookings from database');
         // Normalize database snake_case fields to camelCase for MeetupCard
-        const normalized = (result.bookings || []).map(b => ({
+        const normalized = result.bookings.map(b => ({
           ...b,
           creatorName: b.creator?.users?.name || 'Model',
           creatorUsername: b.creator?.users?.username,
@@ -539,9 +540,11 @@ export default function ClientDashboardPage() {
           depositAmount: b.deposit_amount,
         }));
         setDbMeetups(normalized);
+      } else {
+        console.warn('[ClientDashboard] DB fetch returned empty or failed:', result.error || 'no bookings');
       }
     } catch (err) {
-      console.error('Error fetching client bookings:', err);
+      console.error('[ClientDashboard] Error fetching client bookings:', err);
     } finally {
       setLoadingMeetups(false);
     }
@@ -641,8 +644,11 @@ export default function ClientDashboardPage() {
     ? Math.max(0, tierData.refund.meetups - user.successfulMeetups)
     : 0;
 
-  // Get meetups data (from database)
-  const meetups = dbMeetups;
+  // Get meetups data - merge database results with local state fallback
+  const localMeetups = user.meetups || [];
+  const meetups = dbMeetups.length > 0
+    ? dbMeetups
+    : localMeetups;
   const upcomingMeetups = meetups.filter(m => m.status === 'pending' || m.status === 'confirmed');
   const pastMeetups = meetups.filter(m => m.status === 'completed' || m.status === 'cancelled' || m.status === 'declined');
 

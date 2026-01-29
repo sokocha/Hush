@@ -16,6 +16,8 @@ export const bookingService = {
       const clientCode = generateCode();
       const creatorCode = generateCode();
 
+      console.log('[BookingService] Creating booking for client:', bookingData.clientId, 'creator:', bookingData.creatorId);
+
       const { data, error } = await supabase
         .from('bookings')
         .insert({
@@ -38,6 +40,8 @@ export const bookingService = {
 
       if (error) throw error;
 
+      console.log('[BookingService] Booking created successfully:', data.id);
+
       // Insert selected extras if any
       if (bookingData.extras && bookingData.extras.length > 0) {
         const extrasToInsert = bookingData.extras.map((extra) => ({
@@ -51,7 +55,7 @@ export const bookingService = {
 
       return { success: true, booking: data };
     } catch (error) {
-      console.error('Error creating booking:', error);
+      console.error('[BookingService] Error creating booking:', error.message, error.details || '', error.hint || '');
       return { success: false, error: error.message };
     }
   },
@@ -97,6 +101,7 @@ export const bookingService = {
    */
   async getClientBookings(clientId, status = null) {
     try {
+      // First try with joins for full data
       let query = supabase
         .from('bookings')
         .select(
@@ -124,10 +129,21 @@ export const bookingService = {
 
       const { data, error } = await query;
 
-      if (error) throw error;
+      if (error) {
+        console.warn('[BookingService] Join query failed, trying simple query:', error.message);
+        // Fallback: try without joins (in case RLS blocks joined tables)
+        const { data: simpleData, error: simpleError } = await supabase
+          .from('bookings')
+          .select('*')
+          .eq('client_id', clientId)
+          .order('created_at', { ascending: false });
+
+        if (simpleError) throw simpleError;
+        return { success: true, bookings: simpleData };
+      }
       return { success: true, bookings: data };
     } catch (error) {
-      console.error('Error getting client bookings:', error);
+      console.error('[BookingService] Error getting client bookings:', error.message);
       return { success: false, error: error.message };
     }
   },
@@ -137,6 +153,7 @@ export const bookingService = {
    */
   async getCreatorBookings(creatorId, status = null) {
     try {
+      // First try with joins for full data
       let query = supabase
         .from('bookings')
         .select(
@@ -164,10 +181,21 @@ export const bookingService = {
 
       const { data, error } = await query;
 
-      if (error) throw error;
+      if (error) {
+        console.warn('[BookingService] Creator join query failed, trying simple query:', error.message);
+        // Fallback: try without joins (in case RLS blocks joined tables)
+        const { data: simpleData, error: simpleError } = await supabase
+          .from('bookings')
+          .select('*')
+          .eq('creator_id', creatorId)
+          .order('created_at', { ascending: false });
+
+        if (simpleError) throw simpleError;
+        return { success: true, bookings: simpleData };
+      }
       return { success: true, bookings: data };
     } catch (error) {
-      console.error('Error getting creator bookings:', error);
+      console.error('[BookingService] Error getting creator bookings:', error.message);
       return { success: false, error: error.message };
     }
   },

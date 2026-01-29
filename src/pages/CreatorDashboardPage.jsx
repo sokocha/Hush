@@ -679,14 +679,16 @@ export default function CreatorDashboardPage() {
     if (!user?.id) return;
     setLoadingBookings(true);
     try {
+      console.log('[CreatorDashboard] Fetching bookings for creator:', user.id);
       const result = await bookingService.getCreatorBookings(user.id);
       if (result.success) {
+        console.log('[CreatorDashboard] Fetched', (result.bookings || []).length, 'bookings from database');
         setDbBookings(result.bookings || []);
       } else {
-        console.error('Failed to fetch bookings:', result.error);
+        console.error('[CreatorDashboard] Failed to fetch bookings:', result.error);
       }
     } catch (err) {
-      console.error('Error fetching bookings:', err);
+      console.error('[CreatorDashboard] Error fetching bookings:', err);
     } finally {
       setLoadingBookings(false);
     }
