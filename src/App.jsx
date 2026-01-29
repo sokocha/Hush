@@ -127,6 +127,24 @@ const Toast = ({ message, type = "success", isVisible, onHide }) => {
 };
 
 // ═══════════════════════════════════════════════════════════
+// DIAGONAL WATERMARK OVERLAY
+// ═══════════════════════════════════════════════════════════
+
+const DiagonalWatermark = ({ text }) => {
+  const escaped = text.replace(/&/g, '&amp;').replace(/'/g, '&apos;').replace(/</g, '&lt;');
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='250' height='100'><text x='125' y='55' text-anchor='middle' transform='rotate(-30 125 50)' style='font:600 13px system-ui,sans-serif;fill:rgba(255,255,255,0.13)'>${escaped}</text></svg>`;
+  return (
+    <div
+      className="absolute inset-0 pointer-events-none select-none"
+      style={{
+        backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(svg)}")`,
+        backgroundRepeat: 'repeat',
+      }}
+    />
+  );
+};
+
+// ═══════════════════════════════════════════════════════════
 // PHOTO GALLERY MODAL (Swipeable Full-Screen)
 // ═══════════════════════════════════════════════════════════
 
@@ -220,11 +238,14 @@ const PhotoGalleryModal = ({ isOpen, onClose, photos, initialIndex = 0, photosUn
               </button>
             </div>
           ) : currentPhotoUrl ? (
-            <img
-              src={currentPhotoUrl}
-              alt={`Photo ${currentIndex + 1}`}
-              className="max-w-full max-h-full object-contain rounded-2xl"
-            />
+            <div className="relative max-w-full max-h-full">
+              <img
+                src={currentPhotoUrl}
+                alt={`Photo ${currentIndex + 1}`}
+                className="max-w-full max-h-full object-contain rounded-2xl"
+              />
+              <DiagonalWatermark text={`${PLATFORM_CONFIG.name} • @${modelConfig?.profile?.username || ''}`} />
+            </div>
           ) : (
             <div className="w-full max-w-2xl aspect-[3/4] bg-gradient-to-br from-pink-500/20 to-purple-500/20 rounded-2xl flex items-center justify-center">
               <span className="text-6xl">📸</span>
@@ -2095,16 +2116,14 @@ export default function App() {
                   )}
 
                   {isVisible ? (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center">
-                      <div className="absolute bottom-0 left-0 right-0 bg-black/40 p-1">
-                        <p className="text-white/50 text-[7px] text-center truncate">{PLATFORM_CONFIG.name} • @{profile.username}</p>
-                      </div>
-                      {i === 0 && <div className="absolute top-2 left-2 bg-cyan-500/80 rounded-full p-1"><Aperture size={10} className="text-white" /></div>}
+                    <>
+                      <DiagonalWatermark text={`${PLATFORM_CONFIG.name} • @${profile.username}`} />
+                      {i === 0 && <div className="absolute top-2 left-2 bg-cyan-500/80 rounded-full p-1 z-10"><Aperture size={10} className="text-white" /></div>}
                       {/* Hover overlay */}
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100 z-10">
                         <Camera size={24} className="text-white" />
                       </div>
-                    </div>
+                    </>
                   ) : (
                     /* Locked photo - show blurred image with lock overlay */
                     <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/30">
