@@ -10,6 +10,7 @@ import useFavorites, { useFavoriteCount } from '../hooks/useFavorites';
 import { useAuth } from '../context/AuthContext';
 import { getTopMatches, addMatchPercentages } from '../utils/matchingAlgorithm';
 import { supabase } from '../lib/supabase';
+import { storageService } from '../services/storageService';
 
 // Get models from shared data store
 const HARDCODED_MODELS = getModelsList();
@@ -38,7 +39,7 @@ const transformCreatorToModel = (creator, user) => {
     startingPrice: creator.pricing?.meetupIncall?.[1] || 0,
     hasOutcall: !!creator.pricing?.meetupOutcall,
     extras: (creator.creator_extras || []).map(e => ({ name: e.name, price: e.price })),
-    profilePhotoUrl: profilePhoto?.storage_path || null,
+    profilePhotoUrl: profilePhoto?.storage_path ? storageService.getPhotoUrl(profilePhoto.storage_path) : null,
     isRegisteredCreator: true,
     // Attributes for matching
     bodyType: creator.body_type || null,
