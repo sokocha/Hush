@@ -251,6 +251,27 @@ export default function ExplorePage() {
   const [showRegisterPrompt, setShowRegisterPrompt] = useState(false);
   const [registerPromptMessage, setRegisterPromptMessage] = useState('');
 
+  // Platform stats for social proof (fetched from DB)
+  const [platformStats, setPlatformStats] = useState({ members: 0, bookings: 0 });
+
+  useEffect(() => {
+    const fetchPlatformStats = async () => {
+      try {
+        const [membersResult, bookingsResult] = await Promise.all([
+          supabase.from('users').select('id', { count: 'exact', head: true }).eq('user_type', 'client'),
+          supabase.from('bookings').select('id', { count: 'exact', head: true }),
+        ]);
+        setPlatformStats({
+          members: membersResult.count || 0,
+          bookings: bookingsResult.count || 0,
+        });
+      } catch (err) {
+        console.error('[ExplorePage] Error fetching platform stats:', err);
+      }
+    };
+    fetchPlatformStats();
+  }, []);
+
   const guardedToggleFavorite = (username) => {
     if (!isAuthenticated) {
       setRegisterPromptMessage(`Create a free account to save models to your favorites.`);
@@ -953,10 +974,18 @@ export default function ExplorePage() {
 
         {/* Social proof stats bar */}
         <div className="flex items-center justify-center gap-3 text-white/40 text-xs mb-4 flex-wrap">
-          <span className="flex items-center gap-1"><Users size={12} className="text-pink-400" />{allModels.length}+ verified models</span>
-          <span>·</span>
-          <span className="flex items-center gap-1"><TrendingUp size={12} className="text-green-400" />1,200+ members</span>
-          <span>·</span>
+          {platformStats.members > 0 && (
+            <>
+              <span className="flex items-center gap-1"><Users size={12} className="text-green-400" />{platformStats.members.toLocaleString()} members</span>
+              <span>·</span>
+            </>
+          )}
+          {platformStats.bookings > 0 && (
+            <>
+              <span className="flex items-center gap-1"><TrendingUp size={12} className="text-pink-400" />{platformStats.bookings.toLocaleString()} bookings</span>
+              <span>·</span>
+            </>
+          )}
           <span className="flex items-center gap-1"><Shield size={12} className="text-blue-400" />Deposit-protected</span>
         </div>
 
