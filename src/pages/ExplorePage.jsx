@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   MapPin, Star, CheckCircle, Shield, Filter,
   ChevronLeft, Search, Target, Video, Aperture,
@@ -240,6 +240,12 @@ export default function ExplorePage() {
 
   const { favorites, toggleFavorite, isFavorite } = useFavorites();
   const { isAuthenticated, isCreator, isClient, user } = useAuth();
+  const navigate = useNavigate();
+
+  const guardedToggleFavorite = (username) => {
+    if (!isAuthenticated) { navigate('/auth'); return; }
+    toggleFavorite(username);
+  };
 
   // State for database creators
   const [dbCreators, setDbCreators] = useState([]);
@@ -445,7 +451,7 @@ export default function ExplorePage() {
   // Filter by extras
   if (selectedExtras.length > 0) {
     filteredModels = filteredModels.filter(m =>
-      selectedExtras.every(extra => m.extras.includes(extra))
+      selectedExtras.every(extra => m.extras.some(e => e.name === extra || e === extra))
     );
   }
 
@@ -961,7 +967,7 @@ export default function ExplorePage() {
                   key={`foryou-${model.id}`}
                   model={model}
                   isFavorite={isFavorite(model.username)}
-                  onToggleFavorite={toggleFavorite}
+                  onToggleFavorite={guardedToggleFavorite}
                   showMatchBadge={true}
                 />
               ))}
@@ -982,7 +988,7 @@ export default function ExplorePage() {
                 key={model.id}
                 model={model}
                 isFavorite={isFavorite(model.username)}
-                onToggleFavorite={toggleFavorite}
+                onToggleFavorite={guardedToggleFavorite}
                 showMatchBadge={isClient && clientPreferences !== null}
               />
             ))}

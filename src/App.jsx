@@ -14,6 +14,7 @@ import { PLATFORM_CONFIG, getModelByUsername, MODELS } from './data/models';
 import useFavorites, { useFavoriteCount } from './hooks/useFavorites';
 import { useAuth } from './context/AuthContext';
 import { creatorService } from './services/creatorService';
+import { userService } from './services/userService';
 import { storageService } from './services/storageService';
 
 // ═══════════════════════════════════════════════════════════
@@ -306,7 +307,7 @@ const AgeVerification = ({ onVerify }) => (
 );
 
 // ═══════════════════════════════════════════════════════════
-// TRUST DEPOSIT MODAL (Platform holds refundable deposit with Tiers)
+// TRUST DEPOSIT MODAL (Platform holds store-credit deposit with Tiers)
 // ═══════════════════════════════════════════════════════════
 
 const TierBadge = ({ tier, size = "md" }) => {
@@ -431,19 +432,10 @@ const TrustDepositModal = ({ isOpen, onClose, onDepositPaid }) => {
                           <span key={i} className="text-xs bg-white/10 px-2 py-0.5 rounded-full text-white/60">{benefit}</span>
                         ))}
                       </div>
-                      {tier.refund ? (
-                        <p className="text-green-400 text-xs mt-2 flex items-center gap-1">
-                          <CheckCircle size={12} />
-                          Refundable after {tier.refund.meetups} meetups or {tier.refund.months} months
-                        </p>
-                      ) : tier.refundNote ? (
-                        <p className="text-amber-400 text-xs mt-2 flex items-center gap-1">
-                          <Info size={12} />
-                          {tier.refundNote}
-                        </p>
-                      ) : (
-                        <p className="text-white/40 text-xs mt-2">Non-refundable</p>
-                      )}
+                      <p className="text-green-400 text-xs mt-2 flex items-center gap-1">
+                        <CheckCircle size={12} />
+                        Deposit becomes store credit for unlocks &amp; bookings
+                      </p>
                     </div>
                     <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
                       isSelected ? `${colors.border} ${colors.bg}` : 'border-white/30'
@@ -582,19 +574,6 @@ const TrustDepositModal = ({ isOpen, onClose, onDepositPaid }) => {
             </div>
           </div>
 
-          {currentTier.refund && (
-            <div className="bg-blue-500/10 rounded-xl p-4 border border-blue-500/30 text-left">
-              <p className="text-blue-300 text-sm mb-2">Bonus: Get your deposit back!</p>
-              <div className="flex items-center gap-3">
-                <div className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
-                  <div className="h-full w-0 bg-blue-500 rounded-full" />
-                </div>
-                <span className="text-white/60 text-sm">0/{currentTier.refund.meetups}</span>
-              </div>
-              <p className="text-white/40 text-xs mt-2">Complete {currentTier.refund.meetups} meetups and get your {formatNaira(currentTier.deposit)} back (keep the credit too!)</p>
-            </div>
-          )}
-
           <button
             onClick={resetAndClose}
             className="w-full py-4 bg-pink-500 hover:bg-pink-600 rounded-xl text-white font-semibold"
@@ -700,7 +679,7 @@ const P2PPaymentStep = ({ amount, serviceName, onBack, onConfirm, creatorPayment
 // MEETUP MODAL (with Trust Deposit check + P2P payment)
 // ═══════════════════════════════════════════════════════════
 
-const MeetupModal = ({ isOpen, onClose, clientState, onNeedsTrustDeposit, modelConfig, onMeetupBooked }) => {
+const MeetupModal = ({ isOpen, onClose, clientState, onNeedsTrustDeposit, modelConfig, onMeetupBooked, onDeductBalance }) => {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const todayDate = new Date().toISOString().split('T')[0];
@@ -759,6 +738,9 @@ const MeetupModal = ({ isOpen, onClose, clientState, onNeedsTrustDeposit, modelC
   const availableTimeSlots = getAvailableTimeSlots();
   const isDateUnavailable = formData.date && availableTimeSlots.length === 0;
 
+  const depositAmount = Math.round(getMeetupPrice() * 0.5);
+  const hasEnoughBalance = (clientState?.depositBalance || 0) >= depositAmount;
+
   const handleStartBooking = () => {
     // Check if client has any verification tier (required to initiate meetups)
     if (!clientState.tier) {
@@ -775,6 +757,11 @@ const MeetupModal = ({ isOpen, onClose, clientState, onNeedsTrustDeposit, modelC
     const creatorCode = generateCode('X');
     setCodes({ client: clientCode, creator: creatorCode });
 
+    // Deduct 50% deposit from client balance
+    if (onDeductBalance) {
+      onDeductBalance(depositAmount);
+    }
+
     // Save the meetup booking immediately when confirmed
     if (onMeetupBooked) {
       onMeetupBooked({
@@ -788,7 +775,7 @@ const MeetupModal = ({ isOpen, onClose, clientState, onNeedsTrustDeposit, modelC
         duration: formData.duration,
         specialRequests: formData.specialRequests,
         totalPrice: getMeetupPrice(),
-        depositAmount: Math.round(getMeetupPrice() * 0.5), // 50% deposit
+        depositAmount: depositAmount,
         clientCode: clientCode,
       });
     }
@@ -835,18 +822,7 @@ const MeetupModal = ({ isOpen, onClose, clientState, onNeedsTrustDeposit, modelC
                     </span>
                   )}
                 </div>
-                {PLATFORM_CONFIG.verificationTiers[clientState.tier]?.refund && (
-                  <p className="text-white/50 text-xs">{clientState.successfulMeetups}/{PLATFORM_CONFIG.verificationTiers[clientState.tier].refund.meetups} to refund</p>
-                )}
               </div>
-              {PLATFORM_CONFIG.verificationTiers[clientState.tier]?.refund && (
-                <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-green-500 rounded-full transition-all"
-                    style={{ width: `${(clientState.successfulMeetups / PLATFORM_CONFIG.verificationTiers[clientState.tier].refund.meetups) * 100}%` }}
-                  />
-                </div>
-              )}
             </div>
           ) : (
             <div className="bg-gradient-to-r from-amber-500/10 to-pink-500/10 border border-amber-500/30 rounded-xl p-4">
@@ -1002,13 +978,21 @@ const MeetupModal = ({ isOpen, onClose, clientState, onNeedsTrustDeposit, modelC
               <span className="text-white/60 text-sm">{formData.locationType === 'incall' ? '🏠 Incall' : '🚗 Outcall'} • {formData.duration === 'overnight' ? 'Overnight' : formData.duration + 'hr'}</span>
               <span className="text-white font-bold text-lg">{formatNaira(getMeetupPrice())}</span>
             </div>
-            <p className="text-white/40 text-xs mt-2">Payment handled directly between you and {modelConfig.profile.name}</p>
+            <p className="text-white/40 text-xs mt-2">50% deposit ({formatNaira(depositAmount)}) deducted from your balance</p>
           </div>
+
+          {clientState.tier && !hasEnoughBalance && (
+            <div className="rounded-xl p-3 bg-red-500/10 border border-red-500/30">
+              <p className="text-red-300 text-sm">
+                Insufficient balance. You need {formatNaira(depositAmount)} but have {formatNaira(clientState?.depositBalance || 0)}.
+              </p>
+            </div>
+          )}
 
           <button
             onClick={handleStartBooking}
-            disabled={!isFormValid}
-            className={`w-full py-4 rounded-xl font-semibold ${isFormValid ? 'bg-pink-500 hover:bg-pink-600 text-white' : 'bg-white/10 text-white/40 cursor-not-allowed'}`}
+            disabled={!isFormValid || (clientState.tier && !hasEnoughBalance)}
+            className={`w-full py-4 rounded-xl font-semibold ${isFormValid && (!clientState.tier || hasEnoughBalance) ? 'bg-pink-500 hover:bg-pink-600 text-white' : 'bg-white/10 text-white/40 cursor-not-allowed'}`}
           >
             {!clientState.tier ? 'Get Verified to Book' : 'Confirm Booking'}
           </button>
@@ -1559,6 +1543,9 @@ export default function App() {
   const { username } = useParams();
   const navigate = useNavigate();
 
+  // Auth context — must be near top so other hooks can reference user/isAuthenticated
+  const { user, isAuthenticated, isCreator, isClient, updateUser, updateTier, deductBalance, addMeetupBooking } = useAuth();
+
   // Age verification - skip if authenticated OR if already verified this session
   const [ageVerified, setAgeVerified] = useState(() => {
     // If authenticated, they've already verified during registration
@@ -1575,6 +1562,12 @@ export default function App() {
   };
   const [contactUnlocked, setContactUnlocked] = useState(false);
   const [photosUnlocked, setPhotosUnlocked] = useState(false);
+
+  // State for database creator data
+  const [dbCreator, setDbCreator] = useState(null);
+  const [creatorLoading, setCreatorLoading] = useState(false);
+  const [creatorNotFound, setCreatorNotFound] = useState(false);
+
   const [modal, setModal] = useState(null);
   const [photoGalleryIndex, setPhotoGalleryIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
@@ -1584,9 +1577,6 @@ export default function App() {
   const [toast, setToast] = useState({ visible: false, message: '', type: 'success' });
   const showToast = (message, type = 'success') => setToast({ visible: true, message, type });
   const hideToast = useCallback(() => setToast(prev => ({ ...prev, visible: false })), []);
-
-  // Auth context
-  const { user, isAuthenticated, isCreator, isClient, updateUser, updateTier, deductBalance, addMeetupBooking } = useAuth();
 
   // Determine the correct dashboard link based on user type
   const dashboardLink = isCreator ? '/creator-dashboard' : '/dashboard';
@@ -1609,11 +1599,6 @@ export default function App() {
   // Load model data based on URL param or default
   const currentUsername = username || DEFAULT_USERNAME;
   const mockModelData = getModelByUsername(currentUsername);
-
-  // State for database creator data
-  const [dbCreator, setDbCreator] = useState(null);
-  const [creatorLoading, setCreatorLoading] = useState(false);
-  const [creatorNotFound, setCreatorNotFound] = useState(false);
 
   // Fetch creator from database if not in mock data
   useEffect(() => {
@@ -1638,6 +1623,47 @@ export default function App() {
 
     fetchCreator();
   }, [currentUsername, mockModelData]);
+
+  // Restore unlock state from database when viewing a real creator
+  const creatorId = dbCreator?.creators?.id || null;
+  useEffect(() => {
+    if (!isAuthenticated || !user?.id || !creatorId) return;
+    let cancelled = false;
+    (async () => {
+      const [photos, contact] = await Promise.all([
+        userService.checkUnlock(user.id, creatorId, 'photos'),
+        userService.checkUnlock(user.id, creatorId, 'contact'),
+      ]);
+      if (cancelled) return;
+      if (photos.unlocked) setPhotosUnlocked(true);
+      if (contact.unlocked) setContactUnlocked(true);
+    })();
+    return () => { cancelled = true; };
+  }, [isAuthenticated, user?.id, creatorId]);
+
+  // Persist unlocks to database and update local state
+  const handleUnlockPhotos = async () => {
+    setPhotosUnlocked(true);
+    if (isAuthenticated && user?.id && creatorId) {
+      await userService.createUnlock(user.id, creatorId, 'photos', CONFIG.pricing.unlockPhotos);
+    }
+  };
+  const handleUnlockContact = async () => {
+    setContactUnlocked(true);
+    if (isAuthenticated && user?.id && creatorId) {
+      await userService.createUnlock(user.id, creatorId, 'contact', CONFIG.pricing.unlockContact);
+    }
+  };
+  const handleUnlockBundle = async () => {
+    setPhotosUnlocked(true);
+    setContactUnlocked(true);
+    if (isAuthenticated && user?.id && creatorId) {
+      await Promise.all([
+        userService.createUnlock(user.id, creatorId, 'photos', CONFIG.pricing.unlockPhotos),
+        userService.createUnlock(user.id, creatorId, 'contact', CONFIG.pricing.unlockContact),
+      ]);
+    }
+  };
 
   // Transform database creator to CONFIG format
   const transformDbCreatorToConfig = (dbData) => {
@@ -1818,7 +1844,11 @@ export default function App() {
   };
 
   // Unlock both photos and contact with bundle discount - opens modal
-  const handleUnlockBundle = () => {
+  const openUnlockBundleModal = () => {
+    if (!isAuthenticated) {
+      navigate('/auth');
+      return;
+    }
     if (!clientState.tier) {
       setModal('trustDeposit');
       return;
@@ -1906,7 +1936,7 @@ export default function App() {
             {profile.isOnline && <div className="absolute bottom-1 right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-gray-900 animate-pulse-green" />}
             {/* Favorite button */}
             <button
-              onClick={() => toggleFavorite(currentUsername)}
+              onClick={() => isAuthenticated ? toggleFavorite(currentUsername) : navigate('/auth')}
               className={`absolute -top-1 -right-1 p-2 rounded-full transition-all shadow-lg ${
                 isFavorite(currentUsername)
                   ? 'bg-pink-500 text-white'
@@ -2011,7 +2041,7 @@ export default function App() {
               return (
                 <button
                   key={i}
-                  onClick={() => isVisible ? openPhotoGallery(i) : setModal('unlockPhotos')}
+                  onClick={() => isVisible ? openPhotoGallery(i) : (isAuthenticated ? setModal('unlockPhotos') : navigate('/auth'))}
                   className={`relative aspect-square rounded-xl overflow-hidden group transition-transform hover:scale-[1.02] active:scale-[0.98] ${
                     isVisible
                       ? 'bg-gradient-to-br from-pink-500/40 to-purple-500/40'
@@ -2057,7 +2087,7 @@ export default function App() {
                 /* Not verified - show CTA to get verified */
                 <div className="text-center">
                   <p className="text-white/70 text-sm mb-2">Get verified to unlock photos & contact</p>
-                  <button onClick={() => setModal('trustDeposit')} className="px-4 py-2 bg-pink-500 hover:bg-pink-600 rounded-full text-white font-medium text-sm transition-colors">
+                  <button onClick={() => isAuthenticated ? setModal('trustDeposit') : navigate('/auth')} className="px-4 py-2 bg-pink-500 hover:bg-pink-600 rounded-full text-white font-medium text-sm transition-colors">
                     Get Verified — {formatNaira(PLATFORM_CONFIG.verificationTiers.verified.deposit)}
                   </button>
                 </div>
@@ -2066,7 +2096,7 @@ export default function App() {
                 <div className="space-y-3">
                   {/* Bundle option - most prominent when both locked */}
                   {!photosUnlocked && !contactUnlocked && (
-                    <button onClick={handleUnlockBundle} className="w-full p-3 bg-gradient-to-r from-pink-500/20 to-green-500/20 rounded-xl border border-amber-500/30 hover:border-amber-500/50 transition-all">
+                    <button onClick={openUnlockBundleModal} className="w-full p-3 bg-gradient-to-r from-pink-500/20 to-green-500/20 rounded-xl border border-amber-500/30 hover:border-amber-500/50 transition-all">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <Sparkles size={18} className="text-amber-400" />
@@ -2092,7 +2122,7 @@ export default function App() {
                         <span className="text-pink-300 text-xs font-medium">Photos Unlocked</span>
                       </div>
                     ) : (
-                      <button onClick={() => setModal('unlockPhotos')} className="flex items-center justify-between p-2.5 rounded-lg bg-white/5 border border-white/10 hover:border-pink-500/30 hover:bg-pink-500/10 transition-all">
+                      <button onClick={() => isAuthenticated ? setModal('unlockPhotos') : navigate('/auth')} className="flex items-center justify-between p-2.5 rounded-lg bg-white/5 border border-white/10 hover:border-pink-500/30 hover:bg-pink-500/10 transition-all">
                         <div className="flex items-center gap-2">
                           <Camera size={16} className="text-pink-400" />
                           <span className="text-white text-xs">Photos</span>
@@ -2108,7 +2138,7 @@ export default function App() {
                         <span className="text-green-300 text-xs font-medium font-mono">+{contact.whatsapp}</span>
                       </button>
                     ) : (
-                      <button onClick={() => setModal('unlockContact')} className="flex items-center justify-between p-2.5 rounded-lg bg-white/5 border border-white/10 hover:border-green-500/30 hover:bg-green-500/10 transition-all">
+                      <button onClick={() => isAuthenticated ? setModal('unlockContact') : navigate('/auth')} className="flex items-center justify-between p-2.5 rounded-lg bg-white/5 border border-white/10 hover:border-green-500/30 hover:bg-green-500/10 transition-all">
                         <div className="flex items-center gap-2">
                           <Phone size={16} className="text-green-400" />
                           <span className="text-white text-xs">Phone</span>
@@ -2228,7 +2258,7 @@ export default function App() {
 
             {/* Get Verified CTA if not verified */}
             {!clientState.tier && (
-              <button onClick={() => setModal('trustDeposit')} className="w-full flex items-center gap-3 p-3 rounded-xl bg-blue-500/10 border border-blue-500/30 hover:border-blue-500/50 transition-colors">
+              <button onClick={() => isAuthenticated ? setModal('trustDeposit') : navigate('/auth')} className="w-full flex items-center gap-3 p-3 rounded-xl bg-blue-500/10 border border-blue-500/30 hover:border-blue-500/50 transition-colors">
                 <ShieldCheck size={18} className="text-blue-400" />
                 <span className="flex-1 text-left">
                   <span className="text-blue-300 font-medium text-sm">Get Verified</span>
@@ -2291,7 +2321,7 @@ export default function App() {
             <span className="flex items-center gap-1"><Key size={12} />Meetup Codes</span>
           </div>
           <p className="text-white/20 text-xs mb-3">{PLATFORM_CONFIG.name} • 18+ Only • Anti-Catfish Platform</p>
-          <button onClick={() => setModal('report')} className="text-white/30 text-xs hover:text-red-400 flex items-center gap-1 mx-auto"><AlertTriangle size={12} />Report</button>
+          <button onClick={() => isAuthenticated ? setModal('report') : navigate('/auth')} className="text-white/30 text-xs hover:text-red-400 flex items-center gap-1 mx-auto"><AlertTriangle size={12} />Report</button>
         </div>
       </div>
 
@@ -2318,11 +2348,11 @@ export default function App() {
       {/* Modals */}
       <TrustDepositModal isOpen={modal === 'trustDeposit'} onClose={() => setModal(null)} onDepositPaid={handleTrustDepositPaid} />
       <InAppChatModal isOpen={modal === 'chat'} onClose={() => setModal(null)} onUpgrade={chatUpgrade} modelConfig={CONFIG} />
-      <UnlockContactModal isOpen={modal === 'unlockContact'} onClose={() => setModal(null)} onUnlock={() => { setContactUnlocked(true); setModal('contactRevealed'); }} clientState={clientState} onNeedsTrustDeposit={() => setModal('trustDeposit')} onDeductBalance={deductFromBalance} modelConfig={CONFIG} onSwitchToBundle={() => setModal('unlockBundle')} photosAlreadyUnlocked={photosUnlocked} />
+      <UnlockContactModal isOpen={modal === 'unlockContact'} onClose={() => setModal(null)} onUnlock={() => { handleUnlockContact(); setModal('contactRevealed'); }} clientState={clientState} onNeedsTrustDeposit={() => setModal('trustDeposit')} onDeductBalance={deductFromBalance} modelConfig={CONFIG} onSwitchToBundle={() => setModal('unlockBundle')} photosAlreadyUnlocked={photosUnlocked} />
       <ContactRevealedModal isOpen={modal === 'contactRevealed'} onClose={() => setModal(null)} modelConfig={CONFIG} />
-      <MeetupModal isOpen={modal === 'meetup'} onClose={() => setModal(null)} clientState={clientState} onNeedsTrustDeposit={() => setModal('trustDeposit')} modelConfig={CONFIG} onMeetupBooked={addMeetupBooking} />
-      <UnlockPhotosModal isOpen={modal === 'unlockPhotos'} onClose={() => setModal(null)} onUnlock={() => setPhotosUnlocked(true)} clientState={clientState} onDeductBalance={deductFromBalance} onNeedsTrustDeposit={() => setModal('trustDeposit')} modelConfig={CONFIG} onSwitchToBundle={() => setModal('unlockBundle')} contactAlreadyUnlocked={contactUnlocked} />
-      <UnlockBundleModal isOpen={modal === 'unlockBundle'} onClose={() => setModal(null)} onUnlock={() => { setPhotosUnlocked(true); setContactUnlocked(true); setModal('contactRevealed'); }} clientState={clientState} onNeedsTrustDeposit={() => setModal('trustDeposit')} onDeductBalance={deductFromBalance} modelConfig={CONFIG} />
+      <MeetupModal isOpen={modal === 'meetup'} onClose={() => setModal(null)} clientState={clientState} onNeedsTrustDeposit={() => setModal('trustDeposit')} modelConfig={CONFIG} onMeetupBooked={addMeetupBooking} onDeductBalance={deductFromBalance} />
+      <UnlockPhotosModal isOpen={modal === 'unlockPhotos'} onClose={() => setModal(null)} onUnlock={handleUnlockPhotos} clientState={clientState} onDeductBalance={deductFromBalance} onNeedsTrustDeposit={() => setModal('trustDeposit')} modelConfig={CONFIG} onSwitchToBundle={() => setModal('unlockBundle')} contactAlreadyUnlocked={contactUnlocked} />
+      <UnlockBundleModal isOpen={modal === 'unlockBundle'} onClose={() => setModal(null)} onUnlock={() => { handleUnlockBundle(); setModal('contactRevealed'); }} clientState={clientState} onNeedsTrustDeposit={() => setModal('trustDeposit')} onDeductBalance={deductFromBalance} modelConfig={CONFIG} />
       <AllReviewsModal isOpen={modal === 'allReviews'} onClose={() => setModal(null)} modelConfig={CONFIG} />
       <VideoVerificationModal isOpen={modal === 'videoVerify'} onClose={() => setModal(null)} modelConfig={CONFIG} />
       <PhotoVerificationModal isOpen={modal === 'photoVerify'} onClose={() => setModal(null)} modelConfig={CONFIG} />

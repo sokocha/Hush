@@ -161,6 +161,8 @@ export const bookingService = {
           *,
           client:client_id(
             id,
+            tier,
+            has_paid_trust_deposit,
             is_trusted_member,
             successful_meetups,
             users:id(name, username, phone)

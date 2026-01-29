@@ -12,6 +12,7 @@ import { PLATFORM_CONFIG, getModelByUsername } from '../data/models';
 import { useAuth } from '../context/AuthContext';
 import { useFavorites } from '../hooks/useFavorites';
 import { bookingService } from '../services/bookingService';
+import { userService } from '../services/userService';
 import { supabase } from '../lib/supabase';
 
 // ═══════════════════════════════════════════════════════════
@@ -273,11 +274,6 @@ const TierSelectionCard = ({ tier, isSelected, onSelect, isCurrentTier, isLowerT
           <span key={i} className="text-xs bg-white/10 px-2 py-0.5 rounded-full text-white/60">{benefit}</span>
         ))}
       </div>
-      {tierData.refund && (
-        <p className="text-white/40 text-xs mt-2">
-          Refundable after {tierData.refund.meetups} meetups
-        </p>
-      )}
     </button>
   );
 };
@@ -356,8 +352,92 @@ const StatusTimeline = ({ status }) => {
   );
 };
 
+// Review Modal Component
+const ReviewModal = ({ isOpen, onClose, meetup, onSubmit }) => {
+  const [rating, setRating] = useState(0);
+  const [text, setText] = useState('');
+  const [submitted, setSubmitted] = useState(false);
+
+  if (!isOpen || !meetup) return null;
+
+  const handleSubmit = () => {
+    if (rating === 0) return;
+    onSubmit({ meetupId: meetup.id, creatorUsername: meetup.creatorUsername, rating, text });
+    setSubmitted(true);
+  };
+
+  const handleClose = () => {
+    onClose();
+    setRating(0);
+    setText('');
+    setSubmitted(false);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/90 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center" onClick={handleClose}>
+      <div className="bg-gray-900 border border-white/10 rounded-t-2xl sm:rounded-2xl w-full max-w-md max-h-[90vh] overflow-hidden flex flex-col animate-slideUp" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between p-4 border-b border-white/10 flex-shrink-0">
+          <h3 className="text-lg font-semibold text-white">Rate Your Meetup</h3>
+          <button onClick={handleClose} className="p-1 text-white/60 hover:text-white rounded-lg hover:bg-white/10 transition-colors"><X size={20} /></button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4">
+          {submitted ? (
+            <div className="text-center py-6">
+              <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-green-500/20 flex items-center justify-center">
+                <CheckCircle size={32} className="text-green-400" />
+              </div>
+              <h4 className="text-white font-semibold mb-1">Review Submitted</h4>
+              <p className="text-white/50 text-sm">Thanks for your feedback on {meetup.creatorName}.</p>
+              <button onClick={handleClose} className="mt-4 px-6 py-2 bg-white/10 hover:bg-white/20 rounded-xl text-white text-sm font-medium transition-colors">Done</button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="text-center">
+                <p className="text-white/60 text-sm mb-1">How was your meetup with</p>
+                <p className="text-white font-semibold text-lg">{meetup.creatorName}?</p>
+              </div>
+
+              {/* Star Rating */}
+              <div className="flex justify-center gap-2">
+                {[1, 2, 3, 4, 5].map(s => (
+                  <button key={s} onClick={() => setRating(s)} className="p-1 transition-transform hover:scale-110">
+                    <Star size={32} className={s <= rating ? 'text-yellow-400 fill-yellow-400' : 'text-white/20'} />
+                  </button>
+                ))}
+              </div>
+              {rating > 0 && (
+                <p className="text-center text-white/50 text-sm">
+                  {rating === 5 ? 'Amazing!' : rating === 4 ? 'Great' : rating === 3 ? 'Good' : rating === 2 ? 'Fair' : 'Poor'}
+                </p>
+              )}
+
+              {/* Review Text */}
+              <textarea
+                value={text}
+                onChange={e => setText(e.target.value)}
+                placeholder="Share your experience (optional)..."
+                maxLength={500}
+                rows={3}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:border-pink-500 focus:outline-none resize-none text-sm"
+              />
+
+              <button
+                onClick={handleSubmit}
+                disabled={rating === 0}
+                className={`w-full py-3 rounded-xl font-semibold transition-all ${rating > 0 ? 'bg-pink-500 hover:bg-pink-600 text-white' : 'bg-white/10 text-white/40 cursor-not-allowed'}`}
+              >
+                Submit Review
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // Meetup Card Component
-const MeetupCard = ({ meetup, onCancel }) => {
+const MeetupCard = ({ meetup, onCancel, onReview }) => {
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const modelData = getModelByUsername(meetup.creatorUsername);
   const statusColors = {
@@ -491,6 +571,15 @@ const MeetupCard = ({ meetup, onCancel }) => {
             );
           })()
         )}
+        {meetup.status === 'completed' && onReview && (
+          <button
+            onClick={() => onReview(meetup)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-yellow-500/10 border border-yellow-500/30 hover:border-yellow-500/50 rounded-lg text-yellow-300 text-xs font-medium transition-colors"
+          >
+            <Star size={12} />
+            Leave Review
+          </button>
+        )}
       </div>
     </div>
   );
@@ -519,6 +608,13 @@ export default function ClientDashboardPage() {
   const [depositStep, setDepositStep] = useState('select'); // select, payment, confirm
   const [dbMeetups, setDbMeetups] = useState([]);
   const [loadingMeetups, setLoadingMeetups] = useState(false);
+  const [reviewMeetup, setReviewMeetup] = useState(null);
+  const [showTopUpModal, setShowTopUpModal] = useState(false);
+  const [topUpStep, setTopUpStep] = useState('amount'); // amount, payment, confirm
+  const [topUpAmount, setTopUpAmount] = useState(null);
+  const TOP_UP_OPTIONS = [10000, 20000, 50000, 100000];
+  const [transactions, setTransactions] = useState([]);
+  const [loadingTransactions, setLoadingTransactions] = useState(false);
 
   // Fetch bookings from database and normalize field names
   const fetchClientBookings = useCallback(async () => {
@@ -568,6 +664,44 @@ export default function ClientDashboardPage() {
   useEffect(() => {
     fetchClientBookings();
   }, [fetchClientBookings]);
+
+  // Fetch transaction history (unlocks + booking deposits)
+  const fetchTransactions = useCallback(async () => {
+    if (!user?.id) return;
+    setLoadingTransactions(true);
+    try {
+      const result = await userService.getClientUnlocks(user.id);
+      const unlockTxns = (result.success && result.unlocks || []).map(u => ({
+        id: u.id,
+        type: u.unlock_type === 'photos' ? 'Unlock Photos' : 'Unlock Contact',
+        creatorName: u.creators?.users?.name || 'Model',
+        amount: u.price_paid,
+        date: u.created_at,
+      }));
+
+      // Merge booking deposits from fetched meetups
+      const bookingTxns = dbMeetups
+        .filter(m => m.depositAmount > 0)
+        .map(m => ({
+          id: m.id,
+          type: 'Booking Deposit',
+          creatorName: m.creatorName,
+          amount: m.depositAmount,
+          date: m.created_at,
+        }));
+
+      const all = [...unlockTxns, ...bookingTxns].sort((a, b) => new Date(b.date) - new Date(a.date));
+      setTransactions(all);
+    } catch (err) {
+      console.error('[ClientDashboard] Error fetching transactions:', err);
+    } finally {
+      setLoadingTransactions(false);
+    }
+  }, [user?.id, dbMeetups]);
+
+  useEffect(() => {
+    fetchTransactions();
+  }, [fetchTransactions]);
 
   const handleCancelMeetup = useCallback(async (meetupId) => {
     await authCancelMeetup(meetupId);
@@ -642,6 +776,53 @@ export default function ClientDashboardPage() {
     setDepositStep('select');
   };
 
+  const handleSubmitReview = async ({ meetupId, creatorUsername, rating, text }) => {
+    if (!user?.id) return;
+    try {
+      const { data: creatorUser } = await supabase
+        .from('users')
+        .select('id')
+        .eq('username', creatorUsername)
+        .single();
+
+      if (creatorUser) {
+        await supabase.from('reviews').insert({
+          client_id: user.id,
+          creator_id: creatorUser.id,
+          booking_id: meetupId,
+          rating,
+          comment: text || null,
+        });
+      }
+    } catch (err) {
+      console.error('[ClientDashboard] Error submitting review:', err);
+    }
+  };
+
+  const handleConfirmTopUp = async () => {
+    if (!topUpAmount || !user?.id) return;
+    const newBalance = (user.depositBalance || 0) + topUpAmount;
+    try {
+      const { error } = await supabase
+        .from('clients')
+        .update({ deposit_balance: newBalance })
+        .eq('id', user.id);
+
+      if (!error) {
+        updateUser({ depositBalance: newBalance }, false);
+      }
+    } catch (err) {
+      console.error('[ClientDashboard] Error topping up balance:', err);
+    }
+    setTopUpStep('confirm');
+  };
+
+  const closeTopUpModal = () => {
+    setShowTopUpModal(false);
+    setTopUpAmount(null);
+    setTopUpStep('amount');
+  };
+
   // Calculate stats
   const memberSince = user.registeredAt
     ? new Date(user.registeredAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
@@ -651,20 +832,12 @@ export default function ClientDashboardPage() {
     ? Math.round((user.successfulMeetups / (user.successfulMeetups + 1)) * 100)
     : 0;
 
-  // Calculate refund progress
-  const refundProgress = tierData?.refund
-    ? Math.min((user.successfulMeetups / tierData.refund.meetups) * 100, 100)
-    : 0;
-  const meetupsToRefund = tierData?.refund
-    ? Math.max(0, tierData.refund.meetups - user.successfulMeetups)
-    : 0;
-
   // Get meetups data - merge database results with local state fallback
   const localMeetups = user.meetups || [];
   const meetups = dbMeetups.length > 0
     ? dbMeetups
     : localMeetups;
-  const upcomingMeetups = meetups.filter(m => m.status === 'pending' || m.status === 'confirmed');
+  const upcomingMeetups = meetups.filter(m => m.status === 'pending' || m.status === 'confirmed' || m.status === 'rescheduled');
   const pastMeetups = meetups.filter(m => m.status === 'completed' || m.status === 'cancelled' || m.status === 'declined');
 
   const tabs = [
@@ -751,36 +924,18 @@ export default function ClientDashboardPage() {
                   <Wallet size={16} />
                   Deposit Balance
                 </span>
+                <button
+                  onClick={() => setShowTopUpModal(true)}
+                  className="flex items-center gap-1 px-3 py-1 bg-green-500/20 border border-green-500/30 hover:border-green-500/50 rounded-lg text-green-300 text-xs font-medium transition-colors"
+                >
+                  <Plus size={12} />
+                  Top Up
+                </button>
               </div>
               <p className="text-3xl font-bold text-white">{formatNaira(user.depositBalance || 0)}</p>
               <p className="text-white/40 text-xs mt-1">Trust deposit for unlocks & bookings</p>
             </div>
 
-            {/* Refund Progress */}
-            {tierData?.refund && (
-              <div className="bg-black/20 rounded-xl p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-white/60 text-sm">Deposit Refund Progress</span>
-                  <span className="text-white font-medium text-sm">{user.successfulMeetups}/{tierData.refund.meetups}</span>
-                </div>
-                <div className="h-2 bg-white/10 rounded-full overflow-hidden mb-2">
-                  <div
-                    className={`h-full ${tierColors.solid} transition-all duration-500`}
-                    style={{ width: `${refundProgress}%` }}
-                  />
-                </div>
-                {meetupsToRefund > 0 ? (
-                  <p className="text-white/40 text-xs">
-                    {meetupsToRefund} more successful meetup{meetupsToRefund > 1 ? 's' : ''} to get your {formatNaira(user.depositBalance || 0)} deposit back
-                  </p>
-                ) : (
-                  <p className="text-green-400 text-xs flex items-center gap-1">
-                    <CheckCircle size={12} />
-                    Eligible for deposit refund!
-                  </p>
-                )}
-              </div>
-            )}
           </div>
         )}
 
@@ -869,6 +1024,37 @@ export default function ClientDashboardPage() {
               </div>
             </div>
 
+            {/* Recent Transactions */}
+            {transactions.length > 0 && (
+              <div>
+                <h3 className="text-white font-semibold mb-3 flex items-center gap-2">
+                  <History size={18} className="text-pink-400" />
+                  Recent Activity
+                </h3>
+                <div className="bg-white/5 border border-white/10 rounded-xl divide-y divide-white/5">
+                  {transactions.slice(0, 5).map(txn => (
+                    <div key={txn.id} className="flex items-center justify-between p-3">
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-lg ${txn.type === 'Booking Deposit' ? 'bg-blue-500/20' : 'bg-purple-500/20'}`}>
+                          {txn.type === 'Booking Deposit'
+                            ? <Calendar size={14} className="text-blue-400" />
+                            : txn.type === 'Unlock Photos'
+                              ? <Eye size={14} className="text-purple-400" />
+                              : <Phone size={14} className="text-purple-400" />
+                          }
+                        </div>
+                        <div>
+                          <p className="text-white text-sm font-medium">{txn.type}</p>
+                          <p className="text-white/40 text-xs">{txn.creatorName} &bull; {new Date(txn.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
+                        </div>
+                      </div>
+                      <span className="text-red-300 text-sm font-medium">-{formatNaira(txn.amount)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Upcoming Meetups Preview */}
             {upcomingMeetups.length > 0 && (
               <div>
@@ -886,7 +1072,7 @@ export default function ClientDashboardPage() {
                 </div>
                 <div className="space-y-2">
                   {upcomingMeetups.slice(0, 2).map(meetup => (
-                    <MeetupCard key={meetup.id} meetup={meetup} onCancel={handleCancelMeetup} />
+                    <MeetupCard key={meetup.id} meetup={meetup} onCancel={handleCancelMeetup} onReview={setReviewMeetup} />
                   ))}
                 </div>
               </div>
@@ -931,7 +1117,7 @@ export default function ClientDashboardPage() {
               {upcomingMeetups.length > 0 ? (
                 <div className="space-y-3">
                   {upcomingMeetups.map(meetup => (
-                    <MeetupCard key={meetup.id} meetup={meetup} onCancel={handleCancelMeetup} />
+                    <MeetupCard key={meetup.id} meetup={meetup} onCancel={handleCancelMeetup} onReview={setReviewMeetup} />
                   ))}
                 </div>
               ) : (
@@ -963,7 +1149,7 @@ export default function ClientDashboardPage() {
                 </h2>
                 <div className="space-y-3">
                   {pastMeetups.map(meetup => (
-                    <MeetupCard key={meetup.id} meetup={meetup} onCancel={handleCancelMeetup} />
+                    <MeetupCard key={meetup.id} meetup={meetup} onCancel={handleCancelMeetup} onReview={setReviewMeetup} />
                   ))}
                 </div>
               </div>
@@ -1312,6 +1498,120 @@ export default function ClientDashboardPage() {
             </button>
           </div>
         </div>
+      </Modal>
+
+      {/* Review Modal */}
+      <ReviewModal
+        isOpen={!!reviewMeetup}
+        onClose={() => setReviewMeetup(null)}
+        meetup={reviewMeetup}
+        onSubmit={handleSubmitReview}
+      />
+
+      {/* Top Up Modal */}
+      <Modal
+        isOpen={showTopUpModal}
+        onClose={closeTopUpModal}
+        title={topUpStep === 'amount' ? "Top Up Balance" : topUpStep === 'payment' ? "Make Payment" : "Top Up Complete!"}
+      >
+        {topUpStep === 'amount' && (
+          <div className="space-y-4">
+            <p className="text-white/60 text-sm">Select an amount to add to your deposit balance.</p>
+            <div className="grid grid-cols-2 gap-3">
+              {TOP_UP_OPTIONS.map(amount => (
+                <button
+                  key={amount}
+                  onClick={() => setTopUpAmount(amount)}
+                  className={`p-4 rounded-xl border text-center transition-all ${
+                    topUpAmount === amount
+                      ? 'bg-green-500/20 border-green-500/50 ring-2 ring-green-500'
+                      : 'bg-white/5 border-white/10 hover:bg-white/10'
+                  }`}
+                >
+                  <p className="text-white font-bold text-lg">{formatNaira(amount)}</p>
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => topUpAmount && setTopUpStep('payment')}
+              disabled={!topUpAmount}
+              className={`w-full py-4 rounded-xl text-white font-semibold transition-all ${
+                topUpAmount ? 'bg-green-500 hover:bg-green-600' : 'bg-white/20 cursor-not-allowed'
+              }`}
+            >
+              Continue to Payment
+            </button>
+          </div>
+        )}
+
+        {topUpStep === 'payment' && (
+          <div className="space-y-4">
+            <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4 text-center">
+              <p className="text-white/60 text-sm">Amount to add</p>
+              <p className="text-2xl font-bold text-white">{formatNaira(topUpAmount)}</p>
+            </div>
+
+            <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+              <p className="text-white/70 text-sm font-medium mb-3">Transfer to:</p>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-white/50 text-sm">Bank</span>
+                  <span className="text-white font-medium">{PLATFORM_CONFIG.trustDepositAccount.provider}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-white/50 text-sm">Account Number</span>
+                  <span className="text-white font-mono font-medium">{PLATFORM_CONFIG.trustDepositAccount.number}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-white/50 text-sm">Account Name</span>
+                  <span className="text-white font-medium">{PLATFORM_CONFIG.trustDepositAccount.name}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3">
+              <p className="text-amber-300 text-sm flex items-center gap-2">
+                <AlertTriangle size={14} />
+                In demo mode, click below to simulate payment
+              </p>
+            </div>
+
+            <button
+              onClick={handleConfirmTopUp}
+              className="w-full py-4 bg-green-500 hover:bg-green-600 rounded-xl text-white font-semibold transition-all"
+            >
+              I've Made the Transfer
+            </button>
+
+            <button
+              onClick={() => setTopUpStep('amount')}
+              className="w-full py-3 bg-white/10 hover:bg-white/20 rounded-xl text-white font-medium transition-colors"
+            >
+              Go Back
+            </button>
+          </div>
+        )}
+
+        {topUpStep === 'confirm' && (
+          <div className="text-center py-6">
+            <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-green-500/20 flex items-center justify-center">
+              <CheckCircle size={40} className="text-green-400" />
+            </div>
+            <h3 className="text-xl font-bold text-white mb-2">Balance Updated!</h3>
+            <p className="text-white/60 text-sm mb-2">
+              {formatNaira(topUpAmount)} has been added to your balance.
+            </p>
+            <p className="text-white font-bold text-lg mb-6">
+              New Balance: {formatNaira(user.depositBalance || 0)}
+            </p>
+            <button
+              onClick={closeTopUpModal}
+              className="w-full py-4 bg-pink-500 hover:bg-pink-600 rounded-xl text-white font-semibold transition-all"
+            >
+              Done
+            </button>
+          </div>
+        )}
       </Modal>
     </div>
   );
