@@ -222,7 +222,7 @@ const PricingInput = ({ label, value, onChange, placeholder, hint, required = fa
 const CameraCapture = ({ onCapture, onClose }) => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
-  const [stream, setStream] = useState(null);
+  const streamRef = useRef(null);
   const [error, setError] = useState(null);
   const [facingMode, setFacingMode] = useState('environment'); // 'user' for front, 'environment' for back
   const [isCapturing, setIsCapturing] = useState(false);
@@ -230,11 +230,14 @@ const CameraCapture = ({ onCapture, onClose }) => {
 
   const startCamera = useCallback(async (facing) => {
     try {
+      console.log('[CameraCapture] Starting camera with facing:', facing);
       setIsVideoReady(false);
+      setError(null);
 
-      // Stop existing stream
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
+      // Stop existing stream via ref (always current)
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
       }
 
       const constraints = {
@@ -247,25 +250,28 @@ const CameraCapture = ({ onCapture, onClose }) => {
       };
 
       const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-      setStream(mediaStream);
+      streamRef.current = mediaStream;
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
       }
-      setError(null);
+      console.log('[CameraCapture] Camera started successfully');
     } catch (err) {
-      console.error('Camera error:', err);
+      console.error('[CameraCapture] Camera error:', err);
       setError('Unable to access camera. Please grant camera permission.');
     }
-  }, [stream]);
+  }, []);
 
   React.useEffect(() => {
     startCamera(facingMode);
     return () => {
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
+      // Cleanup using ref so we always have the current stream
+      if (streamRef.current) {
+        console.log('[CameraCapture] Cleaning up camera stream');
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
       }
     };
-  }, []);
+  }, [startCamera]);
 
   // Handle video loaded
   const handleVideoLoaded = () => {
@@ -315,8 +321,9 @@ const CameraCapture = ({ onCapture, onClose }) => {
   };
 
   const handleClose = () => {
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
     }
     onClose();
   };
@@ -730,6 +737,28 @@ export default function CreatorDashboardPage() {
   useEffect(() => {
     fetchBookings();
   }, [fetchBookings]);
+
+  // Fetch photos from database on mount to ensure they're loaded
+  // (AuthContext join may fail due to RLS, so fetch directly as fallback)
+  useEffect(() => {
+    const fetchPhotosFromDb = async () => {
+      if (!user?.id) return;
+      // Only fetch if user has no photos loaded locally
+      if (user.photos && user.photos.length > 0) return;
+
+      try {
+        console.log('[CreatorDashboard] No local photos found, fetching from database...');
+        const result = await storageService.getCreatorPhotos(user.id);
+        if (result.success && result.photos && result.photos.length > 0) {
+          console.log('[CreatorDashboard] Loaded', result.photos.length, 'photos from database');
+          updateUser({ photos: result.photos }, false); // Don't sync back to server
+        }
+      } catch (err) {
+        console.error('[CreatorDashboard] Error fetching photos from DB:', err);
+      }
+    };
+    fetchPhotosFromDb();
+  }, [user?.id]);
 
   // Redirect if not a creator
   if (!user || !isCreator) {
