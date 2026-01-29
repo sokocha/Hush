@@ -16,6 +16,32 @@ import { userService } from '../services/userService';
 import { supabase } from '../lib/supabase';
 
 // ═══════════════════════════════════════════════════════════
+// CONSTANTS
+// ═══════════════════════════════════════════════════════════
+
+const LOCATIONS = [
+  { name: "Lagos", areas: ["Lekki", "VI", "Ikoyi", "Ajah", "Ikeja", "GRA", "Maryland"] },
+  { name: "Abuja", areas: ["Maitama", "Wuse", "Asokoro", "Garki", "Jabi"] },
+  { name: "Port Harcourt", areas: ["GRA", "Trans Amadi", "Rumuola", "Eleme"] },
+];
+
+const BODY_TYPE_PREFERENCES = [
+  "Slim", "Athletic", "Curvy", "Thick", "BBW", "Petite", "Tall", "No preference"
+];
+
+const SKIN_TONE_PREFERENCES = [
+  "Fair", "Light", "Caramel", "Brown", "Dark", "No preference"
+];
+
+const AGE_PREFERENCES = [
+  "18-22", "23-27", "28-32", "33-40", "40+", "No preference"
+];
+
+const SERVICE_PREFERENCES = [
+  "GFE", "PSE", "Dinner dates", "Travel companion", "Overnights", "Duos"
+];
+
+// ═══════════════════════════════════════════════════════════
 // HELPER FUNCTIONS
 // ═══════════════════════════════════════════════════════════
 
@@ -1672,6 +1698,174 @@ export default function ClientDashboardPage() {
         meetup={reviewMeetup}
         onSubmit={handleSubmitReview}
       />
+
+      {/* Edit Preferences Modal */}
+      <Modal
+        isOpen={showEditPreferences}
+        onClose={() => setShowEditPreferences(false)}
+        title="Edit Preferences"
+        size="lg"
+      >
+        <div className="space-y-5">
+          {/* Location */}
+          <div>
+            <label className="text-white/70 text-sm mb-2 block">Preferred Location</label>
+            <div className="flex flex-wrap gap-2">
+              {LOCATIONS.map(loc => (
+                <button
+                  key={loc.name}
+                  onClick={() => setEditPrefs(prev => ({
+                    ...prev,
+                    preferredLocation: prev.preferredLocation === loc.name ? '' : loc.name
+                  }))}
+                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all border ${
+                    editPrefs.preferredLocation === loc.name
+                      ? 'bg-pink-500/20 border-pink-500/50 text-pink-300'
+                      : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'
+                  }`}
+                >
+                  {loc.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Body Types */}
+          <div>
+            <label className="text-white/70 text-sm mb-2 block">Body Types</label>
+            <div className="flex flex-wrap gap-2">
+              {BODY_TYPE_PREFERENCES.map(type => {
+                const selected = (editPrefs.bodyTypes || []).includes(type);
+                const isNoPreference = type === 'No preference';
+                const noPreferenceSelected = (editPrefs.bodyTypes || []).includes('No preference');
+                return (
+                  <button
+                    key={type}
+                    onClick={() => setEditPrefs(prev => {
+                      const current = prev.bodyTypes || [];
+                      if (isNoPreference) return { ...prev, bodyTypes: selected ? [] : ['No preference'] };
+                      const filtered = current.filter(t => t !== 'No preference');
+                      return { ...prev, bodyTypes: selected ? filtered.filter(t => t !== type) : [...filtered, type] };
+                    })}
+                    className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all border ${
+                      selected
+                        ? 'bg-pink-500/20 border-pink-500/50 text-pink-300'
+                        : noPreferenceSelected && !isNoPreference
+                          ? 'bg-white/5 border-white/5 text-white/30 cursor-default'
+                          : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'
+                    }`}
+                  >
+                    {type}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Complexion */}
+          <div>
+            <label className="text-white/70 text-sm mb-2 block">Complexion</label>
+            <div className="flex flex-wrap gap-2">
+              {SKIN_TONE_PREFERENCES.map(tone => {
+                const selected = (editPrefs.skinTones || []).includes(tone);
+                const isNoPreference = tone === 'No preference';
+                const noPreferenceSelected = (editPrefs.skinTones || []).includes('No preference');
+                return (
+                  <button
+                    key={tone}
+                    onClick={() => setEditPrefs(prev => {
+                      const current = prev.skinTones || [];
+                      if (isNoPreference) return { ...prev, skinTones: selected ? [] : ['No preference'] };
+                      const filtered = current.filter(t => t !== 'No preference');
+                      return { ...prev, skinTones: selected ? filtered.filter(t => t !== tone) : [...filtered, tone] };
+                    })}
+                    className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all border ${
+                      selected
+                        ? 'bg-pink-500/20 border-pink-500/50 text-pink-300'
+                        : noPreferenceSelected && !isNoPreference
+                          ? 'bg-white/5 border-white/5 text-white/30 cursor-default'
+                          : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'
+                    }`}
+                  >
+                    {tone}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Age Range */}
+          <div>
+            <label className="text-white/70 text-sm mb-2 block">Age Range</label>
+            <div className="flex flex-wrap gap-2">
+              {AGE_PREFERENCES.map(age => {
+                const selected = (editPrefs.ageRanges || []).includes(age);
+                const isNoPreference = age === 'No preference';
+                const noPreferenceSelected = (editPrefs.ageRanges || []).includes('No preference');
+                return (
+                  <button
+                    key={age}
+                    onClick={() => setEditPrefs(prev => {
+                      const current = prev.ageRanges || [];
+                      if (isNoPreference) return { ...prev, ageRanges: selected ? [] : ['No preference'] };
+                      const filtered = current.filter(t => t !== 'No preference');
+                      return { ...prev, ageRanges: selected ? filtered.filter(t => t !== age) : [...filtered, age] };
+                    })}
+                    className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all border ${
+                      selected
+                        ? 'bg-pink-500/20 border-pink-500/50 text-pink-300'
+                        : noPreferenceSelected && !isNoPreference
+                          ? 'bg-white/5 border-white/5 text-white/30 cursor-default'
+                          : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'
+                    }`}
+                  >
+                    {age}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Services */}
+          <div>
+            <label className="text-white/70 text-sm mb-2 block">Services</label>
+            <div className="flex flex-wrap gap-2">
+              {SERVICE_PREFERENCES.map(service => {
+                const selected = (editPrefs.services || []).includes(service);
+                return (
+                  <button
+                    key={service}
+                    onClick={() => setEditPrefs(prev => {
+                      const current = prev.services || [];
+                      return { ...prev, services: selected ? current.filter(s => s !== service) : [...current, service] };
+                    })}
+                    className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all border ${
+                      selected
+                        ? 'bg-pink-500/20 border-pink-500/50 text-pink-300'
+                        : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'
+                    }`}
+                  >
+                    {service}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <button
+            onClick={async () => {
+              updateUser({ preferences: editPrefs });
+              if (user?.id) {
+                await userService.updateClientPreferences(user.id, editPrefs);
+              }
+              setShowEditPreferences(false);
+            }}
+            className="w-full py-4 bg-pink-500 hover:bg-pink-600 rounded-xl text-white font-semibold transition-all"
+          >
+            Save Preferences
+          </button>
+        </div>
+      </Modal>
 
       {/* Top Up Modal */}
       <Modal
