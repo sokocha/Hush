@@ -2076,6 +2076,32 @@ export default function App() {
           </div>
         )}
 
+        {/* SCHEDULE / AVAILABILITY */}
+        {CONFIG.schedule && Object.keys(CONFIG.schedule).length > 0 && (
+          <div className="mb-6">
+            <h3 className="text-white/60 text-sm font-medium flex items-center gap-2 mb-3"><Clock size={14} className="text-blue-400" />Availability</h3>
+            <div className="bg-white/5 rounded-xl border border-white/10 p-4">
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map(day => {
+                  const dayData = CONFIG.schedule[day];
+                  if (!dayData) return null;
+                  const dayLabel = day.charAt(0).toUpperCase() + day.slice(1, 3);
+                  return (
+                    <div key={day} className="flex items-center justify-between py-1">
+                      <span className="text-white/50">{dayLabel}</span>
+                      {dayData.active ? (
+                        <span className="text-green-300 text-xs">{dayData.start} - {dayData.end}</span>
+                      ) : (
+                        <span className="text-white/30 text-xs">Off</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* 2. PHOTOS - Clickable gallery */}
         <div className="mb-6">
           <div className="flex items-center justify-between mb-3">

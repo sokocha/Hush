@@ -151,7 +151,10 @@ const FavoriteModelCard = ({ username }) => {
           location: mockData.profile.location,
           rating: mockData.stats.rating,
           isOnline: mockData.profile.isOnline,
+          isAvailable: mockData.profile.isAvailable,
           isVideoVerified: mockData.profile.isVideoVerified,
+          tagline: mockData.profile.tagline || null,
+          startingPrice: mockData.pricing?.meetupIncall?.[1] || null,
         });
         setLoading(false);
         return;
@@ -163,7 +166,7 @@ const FavoriteModelCard = ({ username }) => {
           .from('users')
           .select(`
             name,
-            creators(location, rating, is_video_verified)
+            creators(location, rating, is_video_verified, tagline, starting_price, is_available)
           `)
           .eq('username', username)
           .eq('user_type', 'creator')
@@ -175,7 +178,10 @@ const FavoriteModelCard = ({ username }) => {
             location: data.creators?.location || 'Lagos',
             rating: data.creators?.rating || 4.8,
             isOnline: false,
+            isAvailable: data.creators?.is_available || false,
             isVideoVerified: data.creators?.is_video_verified || false,
+            tagline: data.creators?.tagline || null,
+            startingPrice: data.creators?.starting_price || null,
           });
         }
       } catch (err) {
@@ -218,8 +224,21 @@ const FavoriteModelCard = ({ username }) => {
           {creatorData.isVideoVerified && (
             <ShieldCheck size={14} className="text-blue-400 flex-shrink-0" />
           )}
+          {(creatorData.isOnline || creatorData.isAvailable) && (
+            <span className="text-xs px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-400 flex-shrink-0">
+              {creatorData.isOnline ? 'Online' : 'Available'}
+            </span>
+          )}
         </div>
-        <p className="text-white/50 text-sm truncate">{creatorData.location} • {creatorData.rating} ⭐</p>
+        {creatorData.tagline && (
+          <p className="text-white/40 text-xs truncate italic">{creatorData.tagline}</p>
+        )}
+        <div className="flex items-center gap-2 text-sm">
+          <span className="text-white/50 truncate">{creatorData.location} • {creatorData.rating} ⭐</span>
+          {creatorData.startingPrice && (
+            <span className="text-pink-400 text-xs font-medium flex-shrink-0">From {formatNaira(creatorData.startingPrice)}</span>
+          )}
+        </div>
       </div>
       <ChevronRight size={20} className="text-white/30 flex-shrink-0" />
     </Link>
@@ -645,6 +664,8 @@ export default function ClientDashboardPage() {
   const TOP_UP_OPTIONS = [10000, 20000, 50000, 100000];
   const [transactions, setTransactions] = useState([]);
   const [loadingTransactions, setLoadingTransactions] = useState(false);
+  const [showEditPreferences, setShowEditPreferences] = useState(false);
+  const [editPrefs, setEditPrefs] = useState({});
 
   // Fetch bookings from database and normalize field names
   const fetchClientBookings = useCallback(async () => {
@@ -1066,6 +1087,95 @@ export default function ClientDashboardPage() {
                 </div>
               </div>
             </div>
+
+            {/* Preferences */}
+            <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-white font-semibold flex items-center gap-2">
+                  <Heart size={18} className="text-pink-400" />
+                  My Preferences
+                </h3>
+                <button
+                  onClick={() => {
+                    setEditPrefs(user.preferences || {});
+                    setShowEditPreferences(true);
+                  }}
+                  className="text-pink-400 text-sm flex items-center gap-1 hover:text-pink-300"
+                >
+                  <Edit3 size={14} />
+                  Edit
+                </button>
+              </div>
+              {user.preferences && (user.preferences.preferredLocation || user.preferences.bodyTypes?.length > 0 || user.preferences.skinTones?.length > 0 || user.preferences.ageRanges?.length > 0 || user.preferences.services?.length > 0) ? (
+                <div className="space-y-2 text-sm">
+                  {user.preferences.preferredLocation && (
+                    <div className="flex justify-between">
+                      <span className="text-white/50">Location</span>
+                      <span className="text-white">{user.preferences.preferredLocation}</span>
+                    </div>
+                  )}
+                  {user.preferences.bodyTypes?.length > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-white/50">Body Types</span>
+                      <span className="text-white">{user.preferences.bodyTypes.filter(v => v && v !== 'No preference').join(', ') || 'Any'}</span>
+                    </div>
+                  )}
+                  {user.preferences.skinTones?.length > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-white/50">Complexion</span>
+                      <span className="text-white">{user.preferences.skinTones.filter(v => v && v !== 'No preference').join(', ') || 'Any'}</span>
+                    </div>
+                  )}
+                  {user.preferences.ageRanges?.length > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-white/50">Age Range</span>
+                      <span className="text-white">{user.preferences.ageRanges.filter(v => v && v !== 'No preference').join(', ') || 'Any'}</span>
+                    </div>
+                  )}
+                  {user.preferences.services?.length > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-white/50">Services</span>
+                      <span className="text-white text-right max-w-[60%]">{user.preferences.services.filter(v => v && v !== 'No preference').join(', ') || 'Any'}</span>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-white/40 text-sm">No preferences set. Tap Edit to customize your preferences.</p>
+              )}
+            </div>
+
+            {/* Tier Benefits */}
+            {user.tier && (
+              <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                <h3 className="text-white font-semibold mb-3 flex items-center gap-2">
+                  <Award size={18} className="text-amber-400" />
+                  Your {user.tier.charAt(0).toUpperCase() + user.tier.slice(1)} Benefits
+                </h3>
+                <div className="space-y-2 text-sm">
+                  {user.tier === 'verified' && (
+                    <>
+                      <p className="text-white/70 flex items-center gap-2"><CheckCircle size={14} className="text-green-400" />View creator contact info</p>
+                      <p className="text-white/70 flex items-center gap-2"><CheckCircle size={14} className="text-green-400" />Unlock all photos</p>
+                      <p className="text-white/70 flex items-center gap-2"><CheckCircle size={14} className="text-green-400" />Book meetups</p>
+                    </>
+                  )}
+                  {user.tier === 'baller' && (
+                    <>
+                      <p className="text-white/70 flex items-center gap-2"><CheckCircle size={14} className="text-green-400" />All Verified benefits</p>
+                      <p className="text-white/70 flex items-center gap-2"><CheckCircle size={14} className="text-green-400" />VIP badge on profile</p>
+                      <p className="text-white/70 flex items-center gap-2"><CheckCircle size={14} className="text-green-400" />Priority booking</p>
+                    </>
+                  )}
+                  {user.tier === 'bossman' && (
+                    <>
+                      <p className="text-white/70 flex items-center gap-2"><CheckCircle size={14} className="text-green-400" />All Baller benefits</p>
+                      <p className="text-white/70 flex items-center gap-2"><CheckCircle size={14} className="text-green-400" />Concierge service</p>
+                      <p className="text-white/70 flex items-center gap-2"><CheckCircle size={14} className="text-green-400" />First access to new creators</p>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Recent Transactions */}
             {loadingTransactions && (

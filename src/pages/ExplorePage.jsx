@@ -196,7 +196,12 @@ const ModelCard = ({ model, isFavorite, onToggleFavorite, showMatchBadge = false
         </div>
 
         <div className="flex items-center justify-between pt-3 border-t border-white/10">
-          <span className="text-white/40 text-xs">From</span>
+          <div className="flex items-center gap-2">
+            <span className="text-white/40 text-xs">From</span>
+            {model.hasOutcall && (
+              <span className="text-xs px-1.5 py-0.5 bg-blue-500/15 border border-blue-500/25 rounded text-blue-300">Outcall</span>
+            )}
+          </div>
           <span className="text-pink-400 font-semibold">{formatNaira(model.startingPrice)}/hr</span>
         </div>
       </div>
