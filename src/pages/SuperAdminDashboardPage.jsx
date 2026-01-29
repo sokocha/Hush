@@ -4,8 +4,8 @@ import { useAuth } from '../context/AuthContext';
 import { adminService } from '../services/adminService';
 import { storageService } from '../services/storageService';
 import {
-  Shield, Clock, CheckCircle, XCircle, AlertTriangle, Calendar,
-  ArrowLeft, User, MapPin, Camera, Phone, Eye, MessageSquare,
+  Shield, Clock, CheckCircle, XCircle, Calendar,
+  ArrowLeft, User, MapPin, Camera, Phone, MessageSquare,
   RefreshCw, ChevronDown, ChevronUp, X,
 } from 'lucide-react';
 
@@ -56,7 +56,7 @@ const Modal = ({ isOpen, onClose, title, children }) => {
 // CREATOR CARD
 // ═══════════════════════════════════════════════════════════
 
-const CreatorCard = ({ creator, onApprove, onDeny, onReschedule, onViewDetail }) => {
+const CreatorCard = ({ creator, onApprove, onDeny, onReschedule, _onViewDetail }) => {
   const [expanded, setExpanded] = useState(false);
   const user = creator.users;
   const photos = creator.creator_photos || [];
@@ -260,7 +260,7 @@ const CreatorCard = ({ creator, onApprove, onDeny, onReschedule, onViewDetail })
 
 export default function SuperAdminDashboardPage() {
   const navigate = useNavigate();
-  const { user, isSuperAdmin, isAuthenticated, isLoading: authLoading } = useAuth();
+  const { isSuperAdmin, isAuthenticated, isLoading: authLoading } = useAuth();
 
   const [activeTab, setActiveTab] = useState('pending');
   const [creators, setCreators] = useState([]);

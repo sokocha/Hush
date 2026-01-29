@@ -2,14 +2,13 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   Crown, Shield, Video, Camera, DollarSign, Calendar,
-  CheckCircle, Clock, AlertTriangle, Star, Users, Heart,
+  CheckCircle, Clock, AlertTriangle, Star, Users,
   Settings, LogOut, Edit3, ChevronLeft, ChevronRight,
-  MapPin, Target, TrendingUp, Eye, Phone, MessageCircle,
+  MapPin, Target, TrendingUp, Eye, Phone,
   Ban, Sparkles, Award, X, Plus, Image, Trash2, Lock, Unlock,
   GripVertical, RotateCcw, CalendarDays, Wallet, ClipboardList,
   CheckCheck, XCircle, User, MessageSquare, RefreshCw, PartyPopper
 } from 'lucide-react';
-import { PLATFORM_CONFIG } from '../data/models';
 import { useAuth } from '../context/AuthContext';
 import { creatorService } from '../services/creatorService';
 import { storageService } from '../services/storageService';
@@ -49,7 +48,7 @@ const Confetti = ({ active }) => {
 };
 
 // Photo milestone celebration modal
-const PhotoMilestoneModal = ({ isOpen, onClose, onContinue, onAddMore }) => {
+const PhotoMilestoneModal = ({ isOpen, _onClose, onContinue, onAddMore }) => {
   if (!isOpen) return null;
 
   return (

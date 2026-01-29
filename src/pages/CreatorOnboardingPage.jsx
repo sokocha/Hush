@@ -1,13 +1,11 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
-  Camera, DollarSign, Calendar, Video, CheckCircle,
+  Camera, DollarSign, Calendar, Video,
   MapPin, Target, Lock, X, RotateCcw, PartyPopper,
-  ChevronRight, ArrowLeft, Clock, Shield
+  ChevronRight, ArrowLeft, Shield
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { PLATFORM_CONFIG } from '../data/models';
-import { creatorService } from '../services/creatorService';
 import { supabase } from '../lib/supabase';
 import { storageService } from '../services/storageService';
 
@@ -251,7 +249,7 @@ const OnboardingProgress = ({ currentStep, totalSteps, labels }) => (
 export default function CreatorOnboardingPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, isCreator, updateUser, updateSchedule, updatePricing, logout } = useAuth();
+  const { user, isCreator, updateUser, updateSchedule } = useAuth();
 
   const isNewRegistration = location.state?.newRegistration;
 
@@ -454,7 +452,7 @@ export default function CreatorOnboardingPage() {
         verification_status: 'scheduled',
         verification_call_scheduled_at: scheduledAt,
       }).eq('id', user.id);
-    } catch (e) { /* non-critical */ }
+    } catch (_e) { /* non-critical */ }
     // Move to completion
     setCurrentStep(4);
     setShowConfetti(true);
